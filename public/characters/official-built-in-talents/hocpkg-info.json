@@ -1,0 +1,52 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "official-built-in-talents",
+    "version": "1.0.1"
+  },
+  "metadata": {
+    "title": "官方内嵌天赋包",
+    "license": "CC0",
+    "description": "随游戏安装并由策展人成长进度解锁的天赋。",
+    "coverImage": "cover.png",
+    "tags": [
+      "built-in",
+      "talents"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "talent:early-preparation",
+      "type": "game.talent",
+      "apiVersion": 2,
+      "entry": "resources/talents/early-preparation.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "cover.png",
+      "bytes": 383714,
+      "sha256": "25db73c4dff1e52de1add46eaeb1bee56352a1a0a9e0ba17ee843771407026a8",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/talents/early-preparation.json",
+      "bytes": 928,
+      "sha256": "1b61ee3defed80761bc3e9c82ec53bb1c577d89ddfd4f19ff856120463b5374b",
+      "mediaType": "application/json"
+    }
+  ],
+  "extensions": {}
+}

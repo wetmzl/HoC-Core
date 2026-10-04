@@ -1,0 +1,57 @@
+{
+  "definition": {
+    "id": "a-single-coin",
+    "name": "一枚硬币",
+    "description": "获得1点点数优势，简简单单，平平无奇。",
+    "usage": "获得1点点数优势。",
+    "triggerNotice": "获得1点点数优势。",
+    "profileLore": "平平无奇的一枚硬币，真的没有别的特殊之处了。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "gambler",
+    "tags": [
+      "blackjack",
+      "player-skill",
+      "active-skill-card"
+    ],
+    "skillTags": [
+      "gambler"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false,
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card"
+    },
+    "rules": [
+      {
+        "id": "add-point-advantage",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "set-status-stacks",
+            "target": "owner",
+            "statusDefinitionId": "player-point-advantage",
+            "amount": {
+              "type": "add",
+              "left": {
+                "type": "status-stacks",
+                "target": "owner",
+                "statusDefinitionId": "player-point-advantage"
+              },
+              "right": 1
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "id": "copper-seal-sealed",
+  "defaultDuration": "round",
+  "blocksAbilityTags": ["active-skill-card"],
+  "rules": []
+}

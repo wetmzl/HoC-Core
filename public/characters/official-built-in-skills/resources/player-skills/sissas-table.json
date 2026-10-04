@@ -1,0 +1,128 @@
+{
+  "definition": {
+    "id": "sissas-table",
+    "name": "西萨的牌桌",
+    "description": "根据本轮获得的额外手牌数量n，获得一张点数为2^n的衍生牌，超过10的部分全部转化为点数优势。",
+    "usage": "体验指数爆炸，获得一张点数为2^n的衍生牌，超过10的部分全部转化为点数优势。",
+    "triggerNotice": "获得一张衍生牌。",
+    "profileLore": "第一格一粒，第二格两粒，国王在第三十二格处输光了国库。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "gambler",
+    "tags": [
+      "blackjack",
+      "player-skill",
+      "active-skill-card"
+    ],
+    "skillTags": [
+      "gambler"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false,
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card"
+    },
+    "rules": [
+      {
+        "id": "add-power-card",
+        "trigger": "on-ability-played",
+        "conditions": [
+          {
+            "type": "event-hand-card-count",
+            "target": "owner",
+            "operator": "lte",
+            "value": 5
+          }
+        ],
+        "effects": [
+          {
+            "type": "add-derived-card",
+            "target": "owner",
+            "rank": {
+              "type": "scalar",
+              "value": {
+                "type": "power",
+                "left": 2,
+                "right": {
+                  "type": "subtract",
+                  "left": {
+                    "type": "event-hand-card-count",
+                    "target": "owner"
+                  },
+                  "right": 2
+                }
+              }
+            },
+            "suit": {
+              "type": "uniform-ability-rng"
+            }
+          }
+        ]
+      },
+      {
+        "id": "add-overflow-advantage",
+        "trigger": "on-ability-played",
+        "conditions": [
+          {
+            "type": "event-hand-card-count",
+            "target": "owner",
+            "operator": "gt",
+            "value": 5
+          }
+        ],
+        "effects": [
+          {
+            "type": "set-status-stacks",
+            "target": "owner",
+            "statusDefinitionId": "player-point-advantage",
+            "amount": {
+              "type": "add",
+              "left": {
+                "type": "status-stacks",
+                "target": "owner",
+                "statusDefinitionId": "player-point-advantage"
+              },
+              "right": {
+                "type": "subtract",
+                "left": {
+                  "type": "power",
+                  "left": 2,
+                  "right": {
+                    "type": "subtract",
+                    "left": {
+                      "type": "event-hand-card-count",
+                      "target": "owner"
+                    },
+                    "right": 2
+                  }
+                },
+                "right": 10
+              }
+            }
+          },
+          {
+            "type": "add-derived-card",
+            "target": "owner",
+            "rank": {
+              "type": "static",
+              "rank": "K"
+            },
+            "suit": {
+              "type": "static",
+              "suit": "spades"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

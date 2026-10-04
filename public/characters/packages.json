@@ -1,0 +1,75 @@
+{
+  "format": "house-of-chances-builtin-package-index",
+  "formatVersion": 2,
+  "abilityCatalogVersion": "abilities-v35",
+  "defaultCharacterId": "chatgpt",
+  "playerSkillOrder": [
+    "hunter-instinct",
+    "critical-judgment",
+    "situation-assessment",
+    "live-ammunition-bet",
+    "prepaid-premium",
+    "heart-hunter",
+    "switcheroo",
+    "scent-of-a-woman",
+    "compound-interest",
+    "counterclockwise-clock",
+    "sissas-table",
+    "a-single-coin",
+    "mimic-eggplant",
+    "before-the-shuffle",
+    "sleight-of-hand"
+  ],
+  "packages": [
+    {
+      "manifest": "official-built-in-skills/hocpkg-info.json",
+      "packageId": "hoc-core/official-built-in-skills",
+      "version": "1.0.2",
+      "contentDigest": "98a2ebd8b65b62f2fb954a43483072fad8d84deb4af6ed5be5232bff64193022",
+      "bytes": 409004
+    },
+    {
+      "manifest": "official-built-in-talents/hocpkg-info.json",
+      "packageId": "hoc-core/official-built-in-talents",
+      "version": "1.0.1",
+      "contentDigest": "be6b1308ad5570eda88fbfc200e41cd755d8771e2f4bb54a3cfb1564bc032e29",
+      "bytes": 384642
+    },
+    {
+      "manifest": "chatgpt/hocpkg-info.json",
+      "packageId": "hoc-core/chatgpt",
+      "version": "1.0.4",
+      "contentDigest": "550e26ee14e2ef9c453fb5646500e71db884bcfaf3994bcdbd1c379d3d85d96d",
+      "bytes": 6337428
+    },
+    {
+      "manifest": "claude/hocpkg-info.json",
+      "packageId": "hoc-core/claude",
+      "version": "1.1.0",
+      "contentDigest": "ec767a0be836f3e646142535260572936a0f426b586303b3ad3b96f001be4f74",
+      "bytes": 6924712
+    },
+    {
+      "manifest": "gemini/hocpkg-info.json",
+      "packageId": "hoc-core/gemini",
+      "version": "1.1.1",
+      "contentDigest": "0092c6173c02a3091f4f1e8d65e0ff944706c83c6cf9020771b1f232ecd6fa45",
+      "bytes": 7119999
+    },
+    {
+      "manifest": "deepseek/hocpkg-info.json",
+      "packageId": "hoc-core/deepseek",
+      "version": "1.1.3",
+      "contentDigest": "80f91af64f55c1dc61c548305c23af0e1c9c846b24dd5537d5f03e2b6e82d302",
+      "bytes": 5720283
+    },
+    {
+      "manifest": "llama/hocpkg-info.json",
+      "packageId": "hoc-core/llama",
+      "version": "1.0.0",
+      "contentDigest": "c5438ab19ae5c12c1bff1e18ec23200c258e89428cd9653049cd8c839f322ef4",
+      "bytes": 4941902
+    }
+  ],
+  "releaseDigest": "38bebb70984bc90da49cd67fad2d62a5546297b85b0a00d0b6ba0a4130d6dbf2"
+}

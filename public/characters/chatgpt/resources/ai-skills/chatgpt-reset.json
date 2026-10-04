@@ -1,0 +1,79 @@
+{
+  "id": "chatgpt-reset",
+  "name": "RESET！",
+  "description": "首回合没有 RESET，之后每回合增加一次，可跨回合累积。爆牌时消耗一次，弃掉全部手牌并重发一明一暗两张初始牌。",
+  "profileLore": "减半额度，给用户发一次全量重置，就能让他们感恩戴德。",
+  "triggerNotice": "弃掉全部手牌，重发一明一暗两张初始牌。",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "cheater",
+  "tags": [
+    "ai-skill",
+    "blackjack",
+    "hand-redeal"
+  ],
+  "activation": {
+    "type": "automatic"
+  },
+  "rules": [
+    {
+      "id": "accumulate-reset",
+      "trigger": "on-round-end",
+      "notify": false,
+      "effects": [
+        {
+          "type": "add-status",
+          "target": "owner",
+          "statusDefinitionId": "chatgpt-reset-charge"
+        }
+      ]
+    },
+    {
+      "id": "rescue-bust",
+      "trigger": "before-bust-resolution",
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "owner"
+        },
+        {
+          "type": "status-present",
+          "target": "owner",
+          "statusDefinitionId": "chatgpt-reset-charge"
+        }
+      ],
+      "effects": [
+        {
+          "type": "redeal-initial-hand",
+          "target": "owner"
+        },
+        {
+          "type": "remove-status",
+          "target": "owner",
+          "statusDefinitionId": "chatgpt-reset-charge",
+          "amount": 1
+        }
+      ]
+    }
+  ],
+  "displays": [
+    {
+      "id": "reset-charge",
+      "target": "owner",
+      "description": "剩余的 RESET 次数；首回合为 0，之后每回合增加 1，未使用的次数保留累积。",
+      "content": [
+        {
+          "type": "text",
+          "text": "RESET ： "
+        },
+        {
+          "type": "number",
+          "value": {
+            "type": "status-stacks",
+            "target": "owner",
+            "statusDefinitionId": "chatgpt-reset-charge"
+          }
+        }
+      ]
+    }
+  ]
+}

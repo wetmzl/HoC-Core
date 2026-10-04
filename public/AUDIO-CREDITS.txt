@@ -1,0 +1,117 @@
+House of Chances — 音频来源、署名与许可证
+
+CC BY 4.0 完整条款：licenses/CC-BY-4.0.txt
+官方条款：https://creativecommons.org/licenses/by/4.0/
+CC0 1.0 完整条款：licenses/CC0-1.0.txt
+官方条款：https://creativecommons.org/publicdomain/zero/1.0/
+
+许可证中的免责声明同样适用；完整条款保留于上述文件。
+再分发 CC BY 4.0 音效时，应保留作品标题、作者、来源及许可信息，
+并标明本项目及后续使用者的修改。
+
+文件：assets/audio/sfx/card-shuffle.mp3
+原作品：Card_Shuffle_Win88.mp3
+原作者：win88emily
+来源：https://freesound.org/people/win88emily/sounds/262812/
+许可证：CC0-1.0
+许可证链接：https://creativecommons.org/publicdomain/zero/1.0/
+
+文件：assets/audio/sfx/card-flip.ogg
+原作品：Card Flip
+原作者：f4ngy
+来源：https://freesound.org/people/f4ngy/sounds/240776/
+许可证：CC-BY-4.0
+许可证链接：https://creativecommons.org/licenses/by/4.0/
+加工说明：WAV 转为 Ogg Opus。
+
+文件：assets/audio/sfx/revolver-dry-fire.ogg
+原作品：Daisy powerline 880 dry fired without pumps 1
+原作者：FOSSarts
+来源：https://freesound.org/people/FOSSarts/sounds/740316/
+许可证：CC0-1.0
+许可证链接：https://creativecommons.org/publicdomain/zero/1.0/
+加工说明：WAV 转为 Ogg Opus。原录音为气枪空击，在本项目中用作哑火音效。
+
+文件：assets/audio/sfx/revolver-gunshot.ogg
+原作品：Gunshot_002.wav
+原作者：Brokenphono
+来源：https://freesound.org/people/Brokenphono/sounds/344142/
+许可证：CC0-1.0
+许可证链接：https://creativecommons.org/publicdomain/zero/1.0/
+加工说明：WAV 转为 Ogg Opus。
+
+文件：assets/audio/sfx/heartbeat.ogg
+原作品：heart beat.ogg
+原作者：Glaneur de sons
+来源：https://freesound.org/people/Glaneur%20de%20sons/sounds/29715/
+许可证：CC-BY-4.0
+许可证链接：https://creativecommons.org/licenses/by/4.0/
+加工说明：Ogg Vorbis 转为 Ogg Opus。
+
+文件：assets/audio/sfx/compare.ogg
+原作品：Confirm Jingle
+原作者：JustInvoke
+来源：https://freesound.org/people/JustInvoke/sounds/446114/
+许可证：CC-BY-4.0
+许可证链接：https://creativecommons.org/licenses/by/4.0/
+加工说明：WAV 转为 Ogg Opus。
+
+文件：assets/audio/sfx/blackjack.ogg
+原作品：Fanfare 2 - Rpg
+原作者：colorsCrimsonTears
+来源：https://freesound.org/people/colorsCrimsonTears/sounds/580310/
+许可证：CC0-1.0
+许可证链接：https://creativecommons.org/publicdomain/zero/1.0/
+加工说明：WAV 转为 Ogg Opus。
+
+文件：assets/audio/sfx/bust.ogg
+原作品：Retro You Lose SFX
+原作者：suntemple
+来源：https://freesound.org/people/suntemple/sounds/253174/
+许可证：CC0-1.0
+许可证链接：https://creativecommons.org/publicdomain/zero/1.0/
+加工说明：WAV 转为 Ogg Opus。
+
+文件：assets/audio/sfx/stand.ogg
+原作品：UI_Confirm
+原作者：MATUSTRM
+来源：https://freesound.org/people/MATUSTRM/sounds/836200/
+许可证：CC0-1.0
+许可证链接：https://creativecommons.org/publicdomain/zero/1.0/
+加工说明：取原声开头约 0.207 秒并转为 Ogg Opus；抽技能和用技能也复用此文件。
+
+文件：assets/audio/sfx/result.ogg
+许可证：CC0-1.0
+许可证链接：https://creativecommons.org/publicdomain/zero/1.0/
+
+CC BY 3.0 Unported 完整条款：licenses/CC-BY-3.0.txt
+官方条款：https://creativecommons.org/licenses/by/3.0/
+录音按 CC BY 3.0 使用；作品标题、作者、来源、许可和加工说明应随录音保留。
+许可证中的免责声明同样适用；完整条款保留于上述文件。
+
+文件：assets/audio/bgm/lobby.mp3
+原作品：Gymnopedie No. 1（ISRC USUAN1100787）
+作曲：Erik Satie
+编曲与演奏：Kevin MacLeod（incompetech.com）
+来源：https://commons.wikimedia.org/wiki/File:Gymnopedie_No._1_(ISRC_USUAN1100787).mp3
+原始发布：https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100787
+录音许可证：CC-BY-3.0
+许可证链接：https://creativecommons.org/licenses/by/3.0/
+加工说明：原 MP3 用 FFmpeg/libmp3lame 重新编码为 128 kbps、44.1 kHz、双声道 MP3；
+保留完整时长，不裁切或调整音量，用于大厅背景音乐。
+原作者要求的署名：
+Gymnopedie No. 1 Kevin MacLeod (incompetech.com)
+Licensed under Creative Commons: By Attribution 3.0 License
+https://creativecommons.org/licenses/by/3.0/
+
+文件：assets/audio/bgm/table-theme.mp3
+原作品：Clair de lune（Suite bergamasque）
+作曲：Claude Debussy
+钢琴演奏：Laurens Goedhart（2011 年录音）
+原 Ogg 编码：Akaniji
+来源：https://commons.wikimedia.org/wiki/File:Clair_de_lune_(Claude_Debussy)_Suite_bergamasque.ogg
+原始发布：https://soundcloud.com/laurensgoedhart/claude-debussys-clair-de-lune
+录音许可证：CC-BY-3.0（作曲为公版不改变录音的许可证）
+许可证链接：https://creativecommons.org/licenses/by/3.0/
+加工说明：原 Ogg Vorbis 用 FFmpeg/libmp3lame 转为 128 kbps、44.1 kHz、双声道 MP3；
+保留完整时长，不裁切或调整音量，用于牌局背景音乐。

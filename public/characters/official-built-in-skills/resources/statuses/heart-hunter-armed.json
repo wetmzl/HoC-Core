@@ -1,0 +1,22 @@
+{
+  "id": "heart-hunter-armed",
+  "defaultDuration": "round",
+  "rules": [
+    {
+      "id": "replace-base-load-with-hearts",
+      "trigger": "before-bullet-load",
+      "priority": -100,
+      "effects": [
+        {
+          "type": "set-pending-load",
+          "target": "penalty-target",
+          "amount": {
+            "type": "hand-card-suit-count",
+            "target": "owner",
+            "suit": "hearts"
+          }
+        }
+      ]
+    }
+  ]
+}

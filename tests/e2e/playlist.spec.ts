@@ -1,0 +1,64 @@
+import { expect, test } from "@playwright/test";
+import { unzipSync } from "fflate";
+import { readFileSync } from "node:fs";
+import { embedHocpkgInPng, extractHocpkgFromPng } from "../../src/content/transfer/hocpkg";
+
+test("播放集始终保存，导入后切换并在重启后恢复", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.addInitScript(() => Object.defineProperty(window, "showSaveFilePicker", { value: undefined, configurable: true }));
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "开始游戏", exact: true })).toBeEnabled({ timeout: 180_000 });
+  await page.getByRole("button", { name: "资源管理" }).click();
+  await expect(page.locator(".playlist-current-name")).toHaveText("默认播放集");
+  await expect(page.locator("[data-playlist-name], [data-save-playlist]")).toHaveCount(0);
+  await page.locator("[data-open-playlist-manager]").click();
+  const manager = page.locator("[data-playlist-manager]");
+  await expect(manager.locator("[data-manage-playlist]")).toHaveCount(1);
+  await manager.locator("[data-copy-playlist]").click();
+  await expect(manager.locator("[data-manage-playlist]")).toHaveCount(2);
+  await manager.locator("[data-playlist-rename-input]").last().fill("夜场");
+  await manager.locator("[data-playlist-rename-input]").last().press("Enter");
+  await expect(manager.locator("[data-playlist-rename-input]").last()).toHaveValue("夜场");
+  const downloadPromise = page.waitForEvent("download");
+  await manager.locator('[data-manage-playlist]:has(input[value="夜场"]) [data-export-playlist]').click();
+  await page.locator("[data-game-dialog]").getByRole("button", { name: "导出 hocpkg" }).click();
+  const download = await downloadPromise;
+  const files = unzipSync(readFileSync((await download.path())!));
+  expect(JSON.parse(Buffer.from(files["playlist.json"]!).toString())).toMatchObject({ formatVersion: 2, pluginOrder: [] });
+  const pngDownloadPromise = page.waitForEvent("download");
+  await manager.locator('[data-manage-playlist]:has(input[value="夜场"]) [data-export-playlist]').click();
+  await page.locator("[data-game-dialog]").getByRole("button", { name: "导出 PNG" }).click();
+  const pngDownload = await pngDownloadPromise;
+  const png = readFileSync((await pngDownload.path())!);
+  const payload = extractHocpkgFromPng(png);
+  const cover = readFileSync(new URL("../../public/assets/playlist-cover.png", import.meta.url));
+  expect(png).toEqual(Buffer.from(embedHocpkgInPng(cover, payload)));
+  expect(JSON.parse(Buffer.from(unzipSync(payload)["playlist.json"]!).toString())).toMatchObject({ name: "夜场", formatVersion: 2, pluginOrder: [] });
+  await page.locator("[data-close-playlist-manager]").click();
+  await page.locator("[data-open-playlist-import]").click();
+  await page.locator("[data-playlist-file]").setInputFiles({ name: "playlist.png", mimeType: "image/png", buffer: png });
+  await expect(page.locator(".playlist-current-name")).toHaveText("夜场（副本 1）");
+  await expect(page.locator("[data-playlist-import]")).not.toBeVisible();
+
+  await page.locator("[data-open-playlist-import]").click();
+  await page.locator("[data-playlist-paste]").fill(JSON.stringify({ format: "house-of-chances-playlist", formatVersion: 1, name: "缺席者", packages: [{ packageId: "missing/hero", version: "1.0.0" }] }));
+  await page.locator("[data-import-playlist-text]").click();
+  await expect(page.locator(".playlist-current-name")).toHaveText("缺席者");
+  await expect(page.locator(".playlist-status")).toContainText("缺失：missing/hero");
+  await expect(page.getByRole("button", { name: "开始游戏", exact: true })).toBeDisabled();
+  await page.reload();
+  await page.getByRole("button", { name: "资源管理" }).click();
+  await expect(page.locator(".playlist-current-name")).toHaveText("缺席者");
+  await page.locator("[data-open-playlist-manager]").click();
+  await manager.locator('[data-manage-playlist]:has(input[value="缺席者"]) [data-delete-playlist]').click();
+  await page.locator("[data-game-dialog]").getByRole("button", { name: "删除" }).click();
+  await expect(page.locator(".playlist-status")).toContainText("当前播放集不能删除");
+  await page.locator("[data-close-playlist-manager]").click();
+  await page.locator("[data-toggle-playlist-menu]").click();
+  await page.locator(".playlist-menu").getByRole("button", { name: /^夜场 / }).click();
+  await expect(page.getByRole("button", { name: "开始游戏", exact: true })).toBeEnabled();
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+});

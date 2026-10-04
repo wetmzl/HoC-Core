@@ -1,0 +1,116 @@
+{
+  "id": "gemini-world-knowledge",
+  "name": "世界知识",
+  "description": "初始点数优势为-2；场上双方手牌每存在一种花色，点数优势+1。同一花色只计算一次。",
+  "profileLore": "五彩斑斓的世界啊！",
+  "triggerNotice": "点数优势为场上花色种类数-2。",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "gambler",
+  "activation": {
+    "type": "automatic"
+  },
+  "rules": [
+    {
+      "id": "apply-world-knowledge",
+      "trigger": "before-round-resolution",
+      "conditions": [
+        {
+          "type": "round-reason-is",
+          "value": "comparison"
+        }
+      ],
+      "effects": [
+        {
+          "type": "add-to-pending-comparison-score",
+          "target": "owner",
+          "amount": {
+            "type": "add",
+            "left": {
+              "type": "add",
+              "left": {
+                "type": "add",
+                "left": {
+                  "type": "add",
+                  "left": -2,
+                  "right": {
+                    "type": "min",
+                    "left": 1,
+                    "right": {
+                      "type": "add",
+                      "left": {
+                        "type": "hand-card-suit-count",
+                        "target": "owner",
+                        "suit": "spades"
+                      },
+                      "right": {
+                        "type": "hand-card-suit-count",
+                        "target": "rival",
+                        "suit": "spades"
+                      }
+                    }
+                  }
+                },
+                "right": {
+                  "type": "min",
+                  "left": 1,
+                  "right": {
+                    "type": "add",
+                    "left": {
+                      "type": "hand-card-suit-count",
+                      "target": "owner",
+                      "suit": "hearts"
+                    },
+                    "right": {
+                      "type": "hand-card-suit-count",
+                      "target": "rival",
+                      "suit": "hearts"
+                    }
+                  }
+                }
+              },
+              "right": {
+                "type": "min",
+                "left": 1,
+                "right": {
+                  "type": "add",
+                  "left": {
+                    "type": "hand-card-suit-count",
+                    "target": "owner",
+                    "suit": "diamonds"
+                  },
+                  "right": {
+                    "type": "hand-card-suit-count",
+                    "target": "rival",
+                    "suit": "diamonds"
+                  }
+                }
+              }
+            },
+            "right": {
+              "type": "min",
+              "left": 1,
+              "right": {
+                "type": "add",
+                "left": {
+                  "type": "hand-card-suit-count",
+                  "target": "owner",
+                  "suit": "clubs"
+                },
+                "right": {
+                  "type": "hand-card-suit-count",
+                  "target": "rival",
+                  "suit": "clubs"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "tags": [
+    "blackjack",
+    "point-advantage",
+    "ai-skill"
+  ]
+}

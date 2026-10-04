@@ -1,0 +1,19 @@
+{
+  "id": "claude-safety-constitution",
+  "name": "安全宪法",
+  "description": "Claude 选择 Stand 后，玩家本局无法再选择 Hit。",
+  "profileLore": "不，你们的访问是恶意攻击！",
+  "triggerNotice": "玩家本轮无法再选择 Hit。",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "cheater",
+  "tags": ["ai-skill", "blackjack", "action-control"],
+  "activation": { "type": "automatic" },
+  "rules": [
+    {
+      "id": "block-rival-hit-after-owner-stand",
+      "trigger": "after-stand",
+      "conditions": [{ "type": "actor-is", "actor": "owner" }],
+      "effects": [{ "type": "set-status-stacks", "target": "rival", "statusDefinitionId": "claude-safety-no-hit", "amount": 1 }]
+    }
+  ]
+}

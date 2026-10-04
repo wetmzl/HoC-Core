@@ -1,0 +1,51 @@
+{
+  "definition": {
+    "id": "before-the-shuffle",
+    "name": "洗牌之前",
+    "description": "将牌堆顶的一张牌移至牌堆底。",
+    "usage": "不喜欢下一张？那就换一张。",
+    "triggerNotice": "牌堆顶的一张牌已被移至牌堆底。",
+    "profileLore": "荷官坚持说牌堆从未被人动过。后来大家一致同意，他说得非常有道理。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "cheater",
+    "tags": [
+      "rule-control",
+      "player-skill",
+      "active-skill-card"
+    ],
+    "skillTags": [
+      "cheater"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false,
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "availability": [
+        {
+          "type": "draw-pile-card-exists"
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "rotate-draw-pile",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "rotate-draw-pile-top-to-bottom"
+          }
+        ]
+      }
+    ]
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

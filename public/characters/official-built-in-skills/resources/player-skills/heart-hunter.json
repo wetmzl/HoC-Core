@@ -1,0 +1,49 @@
+{
+  "definition": {
+    "id": "heart-hunter",
+    "name": "红心猎手",
+    "description": "本轮输家的基础装填数变为你最终手牌中的红心数量。",
+    "usage": "本轮结算时，输家的基础装填数变为你最终手牌中的红心数量。",
+    "triggerNotice": "本轮输家的基础装填数改按红心数量计算。",
+    "profileLore": "一把从旧赌桌上没收的手枪。枪柄刻着一排红心，没人知道那是胜场、欠账，还是上一任主人给自己的倒计时。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "gunslinger",
+    "skillTags": [
+      "gunslinger"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card"
+    },
+    "rules": [
+      {
+        "id": "arm-heart-count-load",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "add-status",
+            "target": "owner",
+            "statusDefinitionId": "heart-hunter-armed"
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "active-skill-card",
+      "roulette",
+      "load-control",
+      "hearts"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "claude-moment",
+  "name": "克劳德时刻",
+  "description": "Claude 每进行一次 Hit，本局爆牌上限提高 1 点。",
+  "profileLore": "震惊瘫坐，仿佛看到原子弹爆炸",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "gambler",
+  "tags": ["ai-skill", "blackjack", "bust-limit"],
+  "activation": { "type": "automatic" },
+  "rules": [
+    {
+      "id": "raise-limit-on-owner-hit",
+      "trigger": "after-card-draw",
+      "conditions": [{ "type": "actor-is", "actor": "owner" }],
+      "effects": [{ "type": "add-status", "target": "owner", "statusDefinitionId": "claude-moment-limit" }]
+    }
+  ]
+}

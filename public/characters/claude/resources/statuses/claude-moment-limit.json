@@ -1,0 +1,18 @@
+{
+  "id": "claude-moment-limit",
+  "defaultDuration": "round",
+  "rules": [
+    {
+      "id": "apply-shared-moment-limit",
+      "trigger": "before-bust-check",
+      "notify": false,
+      "effects": [
+        {
+          "type": "add-to-pending-bust-limit",
+          "target": "event-actor",
+          "amount": { "type": "status-stacks", "target": "owner", "statusDefinitionId": "claude-moment-limit" }
+        }
+      ]
+    }
+  ]
+}

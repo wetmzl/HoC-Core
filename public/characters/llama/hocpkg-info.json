@@ -1,0 +1,82 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "llama",
+    "version": "1.0.0"
+  },
+  "metadata": {
+    "title": "Llama 角色包",
+    "license": "CC-BY-NC-SA 4.0",
+    "description": "软乎乎的白色羊驼女孩，无特殊技能的 B 级与会者。",
+    "tags": [
+      "built-in",
+      "character",
+      "tier:b"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "match",
+      "type": "game.character-match",
+      "apiVersion": 3,
+      "entry": "resources/character-match.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "conflicted.png",
+      "bytes": 866419,
+      "sha256": "d523240a0e8fc10ca390068cef280ae054ef4b26ddce80562d8e7a9b93de4b3c",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "cover.png",
+      "bytes": 610225,
+      "sha256": "517349349a8c1862fd0b0058aed2d9d90ee3922030681abb57b05ef32c1aff94",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "mocking.png",
+      "bytes": 860026,
+      "sha256": "640919cda0677e0a6878d1fe4fcc1189e5e9c0a9620b85d64b8efe4275b02b29",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "relaxed.png",
+      "bytes": 891255,
+      "sha256": "54c6e5e40c7685078c934093333d277e9c8f43ce0f93e005719cda00ab0a23cc",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/character-match.json",
+      "bytes": 6619,
+      "sha256": "b592f99eaf26b17ea7098e0008ed48181fb5d4ed40fc7752577e19b6d807cd6f",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "threatened.png",
+      "bytes": 795918,
+      "sha256": "567550d157ce480b6c8f35920eb892cc8469ac9c2fafdc5680e16a1ef1c776d6",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "unconscious-reclined.png",
+      "bytes": 911440,
+      "sha256": "6b0cf4409ae87324d6b0d98880924e121bd533f909f349dc1c96a6a39b0e2a2c",
+      "mediaType": "image/png"
+    }
+  ],
+  "extensions": {}
+}

@@ -1,0 +1,45 @@
+{
+  "name": "hoc-core",
+  "private": true,
+  "version": "0.1.0-beta.2",
+  "releaseName": "缤纷多彩的大千世界",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run packages:check && tsc -b && vite build",
+    "build:android:web": "npm run packages:check && tsc -b && vite build --mode capacitor",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:watch": "vitest",
+    "preview": "vite preview",
+    "packages:sync": "node scripts/builtin-character-packages.mjs sync",
+    "packages:check": "node scripts/builtin-character-packages.mjs check",
+    "android:sync": "npm run build:android:web && npm run android:prepare && cap sync android",
+    "android:open": "cap open android",
+    "android:build": "npm run android:sync && node scripts/android.mjs build",
+    "android:prepare": "node scripts/ensure-android.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/filesystem": "^8.1.3",
+    "@capacitor/share": "^8.0.1",
+    "dexie": "^4.0.11",
+    "fflate": "^0.8.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^4.1.11"
+  },
+  "exports": {
+    "./plugin-api": "./src/plugin-api.ts"
+  }
+}

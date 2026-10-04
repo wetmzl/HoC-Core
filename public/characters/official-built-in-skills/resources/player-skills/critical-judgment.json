@@ -1,0 +1,58 @@
+{
+  "definition": {
+    "id": "critical-judgment",
+    "name": "临界判断",
+    "description": "判断现在 Hit 是否会导致你爆牌；每张技能牌可发动3次。",
+    "usage": "玩家回合可用；判断现在 Hit 是否会导致你爆牌；次数耗尽后才弃掉技能牌。",
+    "triggerNotice": "判断下一次 Hit 是否会导致爆牌。",
+    "profileLore": "一张尚未填写姓名的裁定单，它只负责告诉你下一步会发生什么，并不负责劝你停下。至于这是情报还是接下来使用的道具，要等你做完决定以后才能确定。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "intelligence-officer",
+    "skillTags": [
+      "intelligence-officer"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "uses": 3,
+      "availability": [
+        {
+          "type": "draw-pile-card-exists"
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "forecast-next-hit",
+        "trigger": "on-ability-played",
+        "conditions": [
+          {
+            "type": "draw-pile-card-exists"
+          }
+        ],
+        "effects": [
+          {
+            "type": "publish-hit-bust-forecast",
+            "target": "owner"
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "active-skill-card",
+      "information",
+      "blackjack"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

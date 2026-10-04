@@ -1,0 +1,39 @@
+{
+  "id": "action-advice-mechanic",
+  "name": "行动分析",
+  "description": "测试用主动角色机制：在自己的行动阶段发布一次行动建议。",
+  "primaryDomain": "intelligence-officer",
+  "sourceKind": "ai-skill",
+  "parameters": {
+    "minimumHandSize": { "type": "number", "minimum": 1, "maximum": 10 }
+  },
+  "activation": {
+    "type": "action",
+    "windows": ["owner-turn", "owner-roulette-reaction"],
+    "consume": "none",
+    "availability": [
+      {
+        "type": "hand-card-count",
+        "target": "owner",
+        "operator": "gte",
+        "value": { "type": "parameter", "key": "minimumHandSize" }
+      }
+    ]
+  },
+  "rules": [
+    {
+      "id": "publish-owner-advice",
+      "trigger": "on-ability-played",
+      "effects": [
+        {
+          "type": "publish-action-advice",
+          "target": "owner",
+          "policy": "current-optimal-hit-stand"
+        }
+      ],
+      "limit": { "perEvent": 1, "perTurn": 1 }
+    }
+  ],
+  "skillDrawWeightModifiers": [{ "tag": "intelligence-officer", "factor": 1 }],
+  "tags": ["information", "ai-skill", "test-fixture"]
+}

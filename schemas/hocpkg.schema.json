@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://house-of-chances.invalid/schemas/hocpkg-v1.json",
+  "title": "House of Chances hocpkg v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "formatVersion", "identity", "metadata", "resources", "files", "extensions"],
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "format": { "const": "house-of-chances-hocpkg" },
+    "formatVersion": { "const": 1 },
+    "identity": { "$ref": "#/$defs/identity" },
+    "metadata": { "$ref": "#/$defs/metadata" },
+    "resources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/resource" }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/file" }
+    },
+    "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "$comment": "Resource ID uniqueness, entry/file correspondence, the single character-match limit, and dependency existence/acyclicity are semantic constraints enforced by HocpkgManifestSchema.",
+  "$defs": {
+    "safeIdentifier": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+    "resourceIdentifier": { "type": "string", "pattern": "^[a-z0-9][a-z0-9:_-]*$" },
+    "portablePath": {
+      "type": "string",
+      "maxLength": 240,
+      "pattern": "^(?:[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?\\/)*[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorId", "packageName", "version"],
+      "properties": {
+        "authorId": { "$ref": "#/$defs/safeIdentifier" },
+        "packageName": { "$ref": "#/$defs/safeIdentifier" },
+        "version": { "$ref": "#/$defs/semver" }
+      }
+    },
+    "creator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["displayName", "roles"],
+      "properties": {
+        "displayName": { "type": "string", "minLength": 1 },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/resourceIdentifier" }
+        },
+        "url": { "type": "string", "format": "uri", "pattern": "^https?://" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "description", "tags", "creators"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "license": { "type": "string" },
+        "description": { "type": "string", "minLength": 1 },
+        "coverImage": { "$ref": "#/$defs/portablePath" },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/resourceIdentifier" }
+        },
+        "creators": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/creator" }
+        }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "apiVersion", "entry", "requires"],
+      "properties": {
+        "id": { "$ref": "#/$defs/resourceIdentifier" },
+        "type": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$" },
+        "apiVersion": { "type": "integer", "minimum": 1 },
+        "entry": { "allOf": [{ "$ref": "#/$defs/portablePath" }, { "pattern": "\\.json$" }] },
+        "requires": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/resourceIdentifier" }
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256", "mediaType"],
+      "properties": {
+        "path": { "$ref": "#/$defs/portablePath" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "mediaType": { "type": "string", "pattern": "^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+(?:;[A-Za-z0-9=._ -]+)?$" }
+      }
+    }
+  }
+}

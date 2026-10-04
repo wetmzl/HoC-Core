@@ -1,0 +1,296 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "official-built-in-skills",
+    "version": "1.0.2"
+  },
+  "metadata": {
+    "title": "官方内嵌技能包",
+    "license": "CC0",
+    "description": "随游戏安装并默认可用的策展人技能。",
+    "coverImage": "cover.png",
+    "tags": [
+      "built-in",
+      "player-skills"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "status:heart-hunter-armed",
+      "type": "game.status",
+      "apiVersion": 1,
+      "entry": "resources/statuses/heart-hunter-armed.json",
+      "requires": []
+    },
+    {
+      "id": "status:live-ammunition-bet-bonus",
+      "type": "game.status",
+      "apiVersion": 1,
+      "entry": "resources/statuses/live-ammunition-bet-bonus.json",
+      "requires": []
+    },
+    {
+      "id": "status:player-point-advantage",
+      "type": "game.status",
+      "apiVersion": 1,
+      "entry": "resources/statuses/player-point-advantage.json",
+      "requires": []
+    },
+    {
+      "id": "status:prepaid-premium-covered",
+      "type": "game.status",
+      "apiVersion": 1,
+      "entry": "resources/statuses/prepaid-premium-covered.json",
+      "requires": []
+    },
+    {
+      "id": "skill:a-single-coin",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/a-single-coin.json",
+      "requires": [
+        "status:player-point-advantage"
+      ]
+    },
+    {
+      "id": "skill:before-the-shuffle",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/before-the-shuffle.json",
+      "requires": []
+    },
+    {
+      "id": "skill:compound-interest",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/compound-interest.json",
+      "requires": []
+    },
+    {
+      "id": "skill:counterclockwise-clock",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/counterclockwise-clock.json",
+      "requires": []
+    },
+    {
+      "id": "skill:critical-judgment",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/critical-judgment.json",
+      "requires": []
+    },
+    {
+      "id": "skill:heart-hunter",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/heart-hunter.json",
+      "requires": [
+        "status:heart-hunter-armed"
+      ]
+    },
+    {
+      "id": "skill:hunter-instinct",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/hunter-instinct.json",
+      "requires": []
+    },
+    {
+      "id": "skill:live-ammunition-bet",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/live-ammunition-bet.json",
+      "requires": [
+        "status:live-ammunition-bet-bonus"
+      ]
+    },
+    {
+      "id": "skill:mimic-eggplant",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/mimic-eggplant.json",
+      "requires": []
+    },
+    {
+      "id": "skill:prepaid-premium",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/prepaid-premium.json",
+      "requires": [
+        "status:prepaid-premium-covered"
+      ]
+    },
+    {
+      "id": "skill:scent-of-a-woman",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/scent-of-a-woman.json",
+      "requires": []
+    },
+    {
+      "id": "skill:sissas-table",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/sissas-table.json",
+      "requires": [
+        "status:player-point-advantage"
+      ]
+    },
+    {
+      "id": "skill:situation-assessment",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/situation-assessment.json",
+      "requires": []
+    },
+    {
+      "id": "skill:sleight-of-hand",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/sleight-of-hand.json",
+      "requires": []
+    },
+    {
+      "id": "skill:switcheroo",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/switcheroo.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "cover.png",
+      "bytes": 382998,
+      "sha256": "04da0657bfe94f054ec928fb2a3ea83a63c4ead641c9f38402b3f9b2714290d1",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/player-skills/a-single-coin.json",
+      "bytes": 1371,
+      "sha256": "b89b2ca7f6573e28675fecc5b101e035ef3bbb5f559d7bc26acca83b2b272190",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/before-the-shuffle.json",
+      "bytes": 1171,
+      "sha256": "b0e9d2839f32c2071e1ce05e18e570e5bc801dd7822291ab300211357f96aaa6",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/compound-interest.json",
+      "bytes": 1421,
+      "sha256": "02a97a3baa5ec085513140189314577a059c932f5743587c4eac4e17205b03c1",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/counterclockwise-clock.json",
+      "bytes": 1874,
+      "sha256": "074f80d9181706c80cc5f0e914cee0ffe3d013448cfd9cdb5199d722f99d1185",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/critical-judgment.json",
+      "bytes": 1544,
+      "sha256": "d6fc26d720c0e483770169a2271dd43f7f137555b04331284ca30ffb3f02ed7e",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/heart-hunter.json",
+      "bytes": 1297,
+      "sha256": "f1bd875b278feec8e4146e7e89c5ba43ab8067bc91ddee68f76096061330e263",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/hunter-instinct.json",
+      "bytes": 1636,
+      "sha256": "37bc1b6b6120f3beb7a5aced5f2e89113368fa1c63f6cf678e38e6bad480b07d",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/live-ammunition-bet.json",
+      "bytes": 1224,
+      "sha256": "97fe21b61d40591226a918bd6cb28a51ec99de1ddeac341ef5fcdda00d04a96e",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/mimic-eggplant.json",
+      "bytes": 1265,
+      "sha256": "c3e01728c7864964f41cdc946535dbce7d3ebdf80275deb9de7df0293a9e3356",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/prepaid-premium.json",
+      "bytes": 1696,
+      "sha256": "2553d20792a88e017160292b7cd1d605e49187d11f61236e4e9f7cc18ff9d51e",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/scent-of-a-woman.json",
+      "bytes": 1366,
+      "sha256": "c8e833eef6274c1216572aa5e63d85ef11816aabeace380f70bb98026e0adad8",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/sissas-table.json",
+      "bytes": 3387,
+      "sha256": "91778a8f936b4d72d74ecb7a40ca4aa1ad8ac6d7b2f78e4d51f29f6b5cb7968c",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/situation-assessment.json",
+      "bytes": 1307,
+      "sha256": "e7f6400b47286d4196eaf247dfe093dc2f8015d680e5ecf48d940cde5321848d",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/sleight-of-hand.json",
+      "bytes": 1653,
+      "sha256": "50d136638d3dac755deb92d4a3292d22a8b4d109abc9973abf29563c67456d87",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/switcheroo.json",
+      "bytes": 1653,
+      "sha256": "0b2100fe9f903eb954dc88cad5e17c83669e1d20c7330973bf3ef1780fe7415f",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/statuses/heart-hunter-armed.json",
+      "bytes": 462,
+      "sha256": "7801c81e78d040246d0ffe53e23e523b3917c9a4a33f531e59b7a1ca6a33fc2e",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/statuses/live-ammunition-bet-bonus.json",
+      "bytes": 499,
+      "sha256": "6f097bd35d9ea83fa8a2ce2124a319532d665e17de3722801080c7bf946910be",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/statuses/player-point-advantage.json",
+      "bytes": 618,
+      "sha256": "432fcf22becd942dda13c7862499198a1e7b5ed0e0090f502e0d6c2b486b6ca9",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/statuses/prepaid-premium-covered.json",
+      "bytes": 562,
+      "sha256": "0e40ab9b8dcca88cfc26218833b6d616505b8c4a7b039f047e7afcdbeb750ada",
+      "mediaType": "application/json"
+    }
+  ],
+  "extensions": {}
+}

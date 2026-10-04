@@ -1,0 +1,141 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "claude",
+    "version": "1.1.0"
+  },
+  "metadata": {
+    "title": "Claude 角色包",
+    "license": "CC-BY-NC-SA 4.0",
+    "description": "Claude 角色包，包含角色介绍、牌局结算文案、随机对白与克劳德时刻、安全宪法技能。",
+    "tags": [
+      "built-in",
+      "character",
+      "tier:s"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "match",
+      "type": "game.character-match",
+      "apiVersion": 3,
+      "entry": "resources/character-match.json",
+      "requires": [
+        "ai:claude-moment",
+        "ai:claude-safety-constitution"
+      ]
+    },
+    {
+      "id": "ai:claude-moment",
+      "type": "game.ai-skill",
+      "apiVersion": 2,
+      "entry": "resources/ai-skills/claude-moment.json",
+      "requires": [
+        "status:claude-moment-limit"
+      ]
+    },
+    {
+      "id": "ai:claude-safety-constitution",
+      "type": "game.ai-skill",
+      "apiVersion": 2,
+      "entry": "resources/ai-skills/claude-safety-constitution.json",
+      "requires": [
+        "status:claude-safety-no-hit"
+      ]
+    },
+    {
+      "id": "status:claude-moment-limit",
+      "type": "game.status",
+      "apiVersion": 1,
+      "entry": "resources/statuses/claude-moment-limit.json",
+      "requires": []
+    },
+    {
+      "id": "status:claude-safety-no-hit",
+      "type": "game.status",
+      "apiVersion": 1,
+      "entry": "resources/statuses/claude-safety-no-hit.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "conflicted.png",
+      "bytes": 1231551,
+      "sha256": "48a94e403c65992ffc00f613d3790bdcc530ce2324564a9b3448970be14e3524",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "cover.png",
+      "bytes": 525591,
+      "sha256": "a1dd716105d703f77e8927ae7a616b57d10078fc9e232841b8af0e5386b0ffda",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "mocking.png",
+      "bytes": 1287748,
+      "sha256": "c7fd5b4ffd6069926dcba974fbf70a6c0d5114be5286b71341b29f9f68a9974f",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "relaxed.png",
+      "bytes": 1249692,
+      "sha256": "04cac35febae2c085901c5b88cd28c8e74a5322d8754d0223b83ab211514874b",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/ai-skills/claude-moment.json",
+      "bytes": 631,
+      "sha256": "1d2e2b7397105bf48050dcc43adc834a04c51cf115a680976edc237c7a3b4183",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/ai-skills/claude-safety-constitution.json",
+      "bytes": 723,
+      "sha256": "b26a5e6c56a6c2d1bc3859625f9b20e5f970d26e95a1611ff26a2c2d9036ee76",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/character-match.json",
+      "bytes": 8067,
+      "sha256": "000cac3f1b4a6887850b82c26d94557a722227932753a22ff52466dde2fa21b5",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/statuses/claude-moment-limit.json",
+      "bytes": 437,
+      "sha256": "be58de5c79503fabc7911302582dc2c63f3df62f6de49320f8440f0359e524ed",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/statuses/claude-safety-no-hit.json",
+      "bytes": 108,
+      "sha256": "e7061b8a8e2d82bf341fb8e30743594756dd06038b4a2ce2a4d5dc29ab827a67",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "threatened.png",
+      "bytes": 1269415,
+      "sha256": "f52f0412c3d3ada029a6e69a667a9ab2bdf3a1117512ac117504c160d567e234",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "unconscious-reclined.png",
+      "bytes": 1350749,
+      "sha256": "c16ed277ec36029cf29da777d77bfeed46712979164db8e2b05391e18e6932a2",
+      "mediaType": "image/png"
+    }
+  ],
+  "extensions": {}
+}

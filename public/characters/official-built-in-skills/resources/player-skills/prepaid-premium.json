@@ -1,0 +1,67 @@
+{
+  "definition": {
+    "id": "prepaid-premium",
+    "name": "预付保费",
+    "description": "立即为自己装填1发子弹；若输掉本轮，免于本轮扣动扳机。",
+    "usage": "立刻为自己的左轮装填1发子弹。若本轮输掉，仍正常装填失败产生的子弹，但免于本轮扣动扳机。",
+    "triggerNotice": "为自己装填1发子弹；若本轮败北，将免于扣动扳机。",
+    "profileLore": "一张已经盖章的意外保险凭证，受益人一栏始终空着。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "gunslinger",
+    "skillTags": [
+      "gunslinger"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "availability": [
+        {
+          "type": "gun-is-full",
+          "target": "owner",
+          "expected": false
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "prepay-and-cover",
+        "trigger": "on-ability-played",
+        "conditions": [
+          {
+            "type": "gun-is-full",
+            "target": "owner",
+            "expected": false
+          }
+        ],
+        "effects": [
+          {
+            "type": "add-gun-bullets",
+            "target": "owner",
+            "amount": 1
+          },
+          {
+            "type": "add-status",
+            "target": "owner",
+            "statusDefinitionId": "prepaid-premium-covered"
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "active-skill-card",
+      "roulette",
+      "trigger-control"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "definition": {
+    "id": "mimic-eggplant",
+    "name": "拟态茄子",
+    "description": "获得一张你上一次使用过的玩家技能。若此前没有使用过玩家技能，则获得一张“拟态茄子”。",
+    "usage": "再来一次刚才的把戏。",
+    "triggerNotice": "获得一张技能牌。",
+    "profileLore": "没人知道它为什么长成这样。更没人愿意解释为什么第二天仓库里多了一模一样的东西。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "cheater",
+    "tags": [
+      "skill-economy",
+      "player-skill",
+      "active-skill-card"
+    ],
+    "skillTags": [
+      "cheater"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false,
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card"
+    },
+    "rules": [
+      {
+        "id": "grant-last-player-skill",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "grant-player-skill-card",
+            "target": "owner",
+            "source": "last-successful-player-skill",
+            "fallback": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

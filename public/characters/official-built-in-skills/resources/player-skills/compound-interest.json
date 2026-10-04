@@ -1,0 +1,57 @@
+{
+  "definition": {
+    "id": "compound-interest",
+    "name": "利滚利",
+    "description": "根据当前手牌数量，获得一张对应点数的衍生牌。",
+    "usage": "根据你目前的手牌数获得对应点数的手牌。",
+    "triggerNotice": "获得一张X点衍生牌。",
+    "profileLore": "赌场从不创造价值，它只是很擅长把同一笔钱登记一次，两次，无数次，直到把客人变成抵债物。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "gambler",
+    "tags": [
+      "blackjack",
+      "player-skill",
+      "active-skill-card"
+    ],
+    "skillTags": [
+      "gambler"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false,
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card"
+    },
+    "rules": [
+      {
+        "id": "add-hand-count-card",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "add-derived-card",
+            "target": "owner",
+            "rank": {
+              "type": "scalar",
+              "value": {
+                "type": "event-hand-card-count",
+                "target": "owner"
+              }
+            },
+            "suit": {
+              "type": "uniform-ability-rng"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "live-ammunition-bet-bonus",
+  "defaultDuration": "round",
+  "rules": [
+    {
+      "id": "apply-live-ammunition-bet-bonus",
+      "trigger": "before-bullet-load",
+      "notify": false,
+      "effects": [
+        {
+          "type": "add-to-pending-load",
+          "target": "penalty-target",
+          "amount": {
+            "type": "status-stacks",
+            "target": "owner",
+            "statusDefinitionId": "live-ammunition-bet-bonus"
+          }
+        }
+      ]
+    }
+  ]
+}

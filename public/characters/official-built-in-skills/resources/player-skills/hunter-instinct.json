@@ -1,0 +1,67 @@
+{
+  "definition": {
+    "id": "hunter-instinct",
+    "name": "猎手直觉",
+    "description": "获得后持续2轮显示牌堆顶下一张牌的花色。",
+    "usage": "持续2轮显示牌堆顶下一张牌的花色；牌堆顶变化时更新显示。",
+    "triggerNotice": "看见牌堆顶下一张牌的花色。",
+    "profileLore": "一副印刷精良的扑克牌。经检查，牌背没有任何记号，前任持有者坚持认为这正是问题所在。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "intelligence-officer",
+    "skillTags": [
+      "intelligence-officer"
+    ],
+    "activation": {
+      "type": "passive"
+    },
+    "ttl": {
+      "type": "rounds",
+      "amount": 2
+    },
+    "rules": [
+      {
+        "id": "reveal-top-on-gain",
+        "trigger": "on-ability-gained",
+        "conditions": [
+          {
+            "type": "draw-pile-card-exists"
+          }
+        ],
+        "effects": [
+          {
+            "type": "reveal-draw-pile-top-suit",
+            "viewer": "owner"
+          }
+        ]
+      },
+      {
+        "id": "reveal-top-after-draw-pile-change",
+        "trigger": "after-draw-pile-changed",
+        "conditions": [
+          {
+            "type": "draw-pile-card-exists"
+          }
+        ],
+        "effects": [
+          {
+            "type": "reveal-draw-pile-top-suit",
+            "viewer": "owner"
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "information",
+      "draw-pile",
+      "passive"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

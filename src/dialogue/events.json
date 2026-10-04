@@ -1,0 +1,23 @@
+[
+  { "code": "MATCH_START", "label": "开局" },
+  { "code": "PLAYER_HIT", "label": "玩家要牌" },
+  { "code": "PLAYER_STAND", "label": "玩家停牌" },
+  { "code": "OPPONENT_FIRST_HIT", "label": "对手首次行动选择要牌" },
+  { "code": "OPPONENT_FIRST_STAND", "label": "对手首次行动选择停牌" },
+  { "code": "OPPONENT_REPEAT_HIT_AFTER_PLAYER_STAND", "label": "玩家停牌后对手连续要牌" },
+  { "code": "PLAYER_BLACKJACK", "label": "玩家黑杰克" },
+  { "code": "OPPONENT_BLACKJACK", "label": "对手黑杰克" },
+  { "code": "PLAYER_BUST", "label": "玩家爆牌" },
+  { "code": "OPPONENT_BUST", "label": "对手爆牌" },
+  { "code": "PLAYER_SURVIVED_TRIGGER", "label": "玩家空枪存活" },
+  { "code": "OPPONENT_SURVIVED_TRIGGER", "label": "对手空枪存活" },
+  { "code": "PLAYER_WIN_ROUND", "label": "玩家赢轮" },
+  { "code": "OPPONENT_WIN_ROUND", "label": "对手赢轮" },
+  { "code": "PUSH_ROUND", "label": "平局" },
+  { "code": "PLAYER_TRIGGER_READY", "label": "玩家准备扣扳机" },
+  { "code": "OPPONENT_TRIGGER_READY", "label": "对手准备扣扳机" },
+  { "code": "PLAYER_TRIGGER_HIT", "label": "玩家被命中" },
+  { "code": "OPPONENT_TRIGGER_HIT", "label": "对手被命中" },
+  { "code": "SPECIAL_TWENTY_ONE_PUSH", "label": "特殊牌面：21 对 21" },
+  { "code": "SPECIAL_LOW_PUSH", "label": "特殊牌面：低点数平局" }
+]

@@ -1,0 +1,113 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "deepseek",
+    "version": "1.1.3"
+  },
+  "metadata": {
+    "title": "DeepSeek 角色包",
+    "license": "CC-BY-NC-SA 4.0",
+    "description": "DeepSeek 角色包，包含角色介绍、随机对白与偷吃技能。",
+    "tags": [
+      "built-in",
+      "character",
+      "tier:a",
+      "placeholder"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "match",
+      "type": "game.character-match",
+      "apiVersion": 3,
+      "entry": "resources/character-match.json",
+      "requires": [
+        "ai:deepseek-stealing-food"
+      ]
+    },
+    {
+      "id": "ai:deepseek-stealing-food",
+      "type": "game.ai-skill",
+      "apiVersion": 2,
+      "entry": "resources/ai-skills/deepseek-stealing-food.json",
+      "requires": [
+        "status:deepseek-stealing-food-penalty"
+      ]
+    },
+    {
+      "id": "status:deepseek-stealing-food-penalty",
+      "type": "game.status",
+      "apiVersion": 1,
+      "entry": "resources/statuses/deepseek-stealing-food-penalty.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "conflicted.png",
+      "bytes": 1026105,
+      "sha256": "fcf9109312cd444b0bc4dc4ac38de28f50ed51833cacdd4c8078614c86158d90",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "cover.png",
+      "bytes": 490959,
+      "sha256": "386519405fc5cdcd5274502707851fd94e95bcd8d2edd8fddeb802421e87286a",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "mocking.png",
+      "bytes": 1050035,
+      "sha256": "bcbb009375cead350f22d03dd57c961cf59746042d0527c128b4dec71042ff6e",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "relaxed.png",
+      "bytes": 1018576,
+      "sha256": "c14a12375bdfd8e7fb533086a842a67df97b7bd9f699cd8cc521b5ef984ba961",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/ai-skills/deepseek-stealing-food.json",
+      "bytes": 837,
+      "sha256": "18dba78454f84b68be3a2bfafe6c6030229edefb66d697bd118c54300ee6c553",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/character-match.json",
+      "bytes": 6828,
+      "sha256": "987818bd32cf7a4320507735f06b18490b93b1f1909dc21e79a7a4e2f4eadd35",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/statuses/deepseek-stealing-food-penalty.json",
+      "bytes": 732,
+      "sha256": "6d218ad01534fba737f0290a8e9f550575926cdf05b99f71508179cc3e9d1257",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "threatened.png",
+      "bytes": 1042335,
+      "sha256": "4d070012a3790c04d5a84cd9b2f32d8e8f34d6bc1274a1f146a403dda5230da3",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "unconscious-reclined.png",
+      "bytes": 1083876,
+      "sha256": "e914b2f177dfdac87305c8a82f22ce8f2d44ed155e6a33f1e12c6362a721d83b",
+      "mediaType": "image/png"
+    }
+  ],
+  "extensions": {}
+}

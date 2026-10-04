@@ -1,0 +1,37 @@
+{
+  "id": "deepseek-stealing-food",
+  "name": "偷吃",
+  "description": "玩家每次 Hit，玩家本轮点数优势减少1。",
+  "triggerNotice": "玩家点数优势-1",
+  "profileLore": "我才不是吃白饭的大肥鱼",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "cheater",
+  "activation": {
+    "type": "automatic"
+  },
+  "rules": [
+    {
+      "id": "steal-after-player-hit",
+      "trigger": "after-card-draw",
+      "triggerNotice": "玩家点数优势-1",
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "rival"
+        }
+      ],
+      "effects": [
+        {
+          "type": "add-status",
+          "target": "owner",
+          "statusDefinitionId": "deepseek-stealing-food-penalty"
+        }
+      ]
+    }
+  ],
+  "tags": [
+    "blackjack",
+    "point-advantage",
+    "ai-skill"
+  ]
+}
