@@ -85,6 +85,8 @@ test("不支持的长期档在第三方代码之前恢复，失败与取消不�
   await page.evaluate(() => (globalThis as any).__restorePut());
   await page.locator("[data-return-launcher]").click();
   await expect(page.locator("main.launcher-shell")).toBeVisible();
+  await expect(page.locator("[data-package-drawer]")).toBeVisible();
+  await page.getByRole("button", { name: "关闭资源管理" }).click();
   await page.getByRole("button", { name: "开始游戏", exact: true }).click();
   await page.locator("[data-reset-invalid-save]").click();
   await page.locator('[data-game-dialog-choice="confirm"]').click();
