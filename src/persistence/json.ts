@@ -1,4 +1,4 @@
-import { SaveValidationError, validateLongTermSave, type LongTermSave } from "./schema";
+import { CURRENT_GAME_VERSION, SaveValidationError, validateLongTermSave, type LongTermSave } from "./schema";
 import { createSaveFileWriter, type SaveExportMethod, type SaveFileWriter } from "./file-exchange";
 
 export type { SaveExportMethod } from "./file-exchange";
@@ -7,7 +7,7 @@ const PNG_SIGNATURE = Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10);
 const SAVE_CHUNK_TYPE = "svJS";
 
 export function exportSaveJson(save: LongTermSave): string {
-  return JSON.stringify(validateLongTermSave(save), null, 2);
+  return JSON.stringify(validateLongTermSave({ ...save, gameVersion: CURRENT_GAME_VERSION }), null, 2);
 }
 
 function isPng(bytes: Uint8Array): boolean {

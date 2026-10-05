@@ -1,0 +1,13 @@
+{
+  "format": "house-of-chances-save",
+  "schemaVersion": 9,
+  "gameVersion": "0.1.0",
+  "createdAt": "2026-09-15T09:34:49.000Z",
+  "updatedAt": "2026-09-15T09:39:50.000Z",
+  "profile": { "id": "player", "displayName": "归档玩家", "matchesPlayed": 4, "wins": 2, "selectedSkillTags": ["gambler", "gunslinger"] },
+  "settings": { "soundEnabled": false, "reducedMotion": true },
+  "skipTutorial": true,
+  "tutorialProgress": { "completedIds": ["intro"] },
+  "history": [{ "id": "archive-match", "timestamp": "2026-09-15T09:35:00.000Z", "opponentId": "example-character", "winner": "player", "escaped": false, "finalRoulette": { "player": { "capacity": 6, "bullets": 1 }, "opponent": { "capacity": 6, "bullets": 2 } }, "busts": { "player": 0, "opponent": 1 }, "blackjacks": { "player": 1, "opponent": 0 } }],
+  "defeats": [{ "opponentId": "example-character", "timestamp": "2026-09-15T09:35:00.000Z" }]
+}
