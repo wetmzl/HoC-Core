@@ -17,8 +17,8 @@ import { CHARACTER_CATALOG, DEFAULT_CHARACTER_ID, defeatedCharacterIdsByFirstDef
 import { bootLoad, resetSave, restoreActiveMatch } from "./persistence/boot";
 import { createAutosaveController, type AutosaveController } from "./persistence/autosave";
 import { downloadRawSave, downloadSaveImage, downloadSaveJson, importSave } from "./persistence/json";
-import { canMigrateLongTermSave, migrateLongTermSave } from "./persistence/migrations";
 import { createPersistenceService } from "./persistence/factory";
+import { RESET_LONG_TERM_CONFIRM_MESSAGE } from "./persistence/long-term-recovery";
 import { bindNativePersistenceLifecycle } from "./persistence/lifecycle";
 import { requestPersistentStorage } from "./persistence/storage";
 import { SaveValidationError, type CharacterDefeatRecord, type LongTermSave } from "./persistence/schema";
@@ -92,7 +92,7 @@ let lobbyModule: typeof import("./lobby-screen-module") | undefined;
 let tableModulePromise: Promise<unknown> | undefined;
 const DEFEATED_GUEST_BATCH_SIZE = 3;
 
-const RESET_CONFIRM_MESSAGE = "删除长期存档将清除战绩、历史、角色与技能解锁及设置，但不会删除未完成牌局。确定继续吗？";
+const RESET_CONFIRM_MESSAGE = RESET_LONG_TERM_CONFIRM_MESSAGE;
 const RESET_RUNTIME_CONFIRM_MESSAGE = "未完成牌局与当前版本不兼容。确认后将只舍弃这局牌，长期战绩与解锁不会受到影响。";
 
 function secureSeed(): string {
@@ -841,7 +841,6 @@ async function renderLobby(layer: LobbyLayer = "menu"): Promise<void> {
   root.querySelector<HTMLButtonElement>("[data-export]")?.addEventListener("click", () => void exportSave());
   root.querySelector<HTMLButtonElement>("[data-import]")?.addEventListener("click", () => void requestImport());
   root.querySelector<HTMLInputElement>("#save-file")?.addEventListener("change", importFile);
-  root.querySelector<HTMLButtonElement>("[data-migrate-import]")?.addEventListener("click", () => void migrateImportedSave());
   root.querySelector<HTMLButtonElement>("[data-export-import]")?.addEventListener("click", () => void exportFailedImport());
   root.querySelector<HTMLButtonElement>("[data-reset]")?.addEventListener("click", () => {
     void confirmResetCurrentData().then((confirmed) => { if (confirmed) return resetCurrentData(); }).catch(renderError);
@@ -1000,33 +999,23 @@ async function exportSave(): Promise<void> {
     if (status) status.textContent = exportStatus(method);
   } catch (error) { if (status) status.textContent = uiError(error, "导出失败。"); }
 }
-async function applyImportedSave(next: LongTermSave): Promise<void> { save = next; document.body.classList.toggle("reduced-motion", save.settings.reducedMotion); gameAudio.configure(save.settings.soundEnabled); haptics.configure(!save.settings.reducedMotion); await repository.saveLongTerm(save); pendingImportedSave = undefined; await renderLobby(lobbyLayer); }
-function showImportMigrationPrompt(error: SaveValidationError): void {
+async function applyImportedSave(next: LongTermSave): Promise<void> { await repository.saveLongTerm(next); save = next; document.body.classList.toggle("reduced-motion", save.settings.reducedMotion); gameAudio.configure(save.settings.soundEnabled); haptics.configure(!save.settings.reducedMotion); pendingImportedSave = undefined; await renderLobby(lobbyLayer); }
+function showUnsupportedImportPrompt(error: SaveValidationError): void {
   pendingImportedSave = error.input;
-  const supported = canMigrateLongTermSave(pendingImportedSave);
-  const dialog = root.querySelector<HTMLDialogElement>("#save-migration");
-  const copy = dialog?.querySelector<HTMLParagraphElement>("#save-migration-copy");
-  const migrateButton = dialog?.querySelector<HTMLButtonElement>("[data-migrate-import]");
+  const dialog = root.querySelector<HTMLDialogElement>("#save-import-error");
+  const copy = dialog?.querySelector<HTMLParagraphElement>("#save-import-error-copy");
   const status = root.querySelector<HTMLParagraphElement>("#lobby-status");
-  if (copy) copy.textContent = supported
-    ? "检测到旧版长期存档。可以先导出原件留底，再按当前版本的迁移链转换并导入。"
-    : "这份文件无法识别，或目前没有完整迁移路径。原件仍可导出留底，迁移按钮暂不可用。";
-  if (migrateButton) migrateButton.disabled = !supported;
-  if (status) status.textContent = "导入失败：请在迁移提示中选择后续处理。";
+  if (copy) copy.textContent = "这份文件无法识别或不符合支持的存档格式，无法转换。原件仍可导出留底，当前存档未被修改。";
+  if (status) status.textContent = "导入失败：请导出原件留底或暂不处理。";
   dialog?.showModal();
 }
 function handleImportFailure(error: unknown): void {
-  if (error instanceof SaveValidationError && error.kind === "long-term") { showImportMigrationPrompt(error); return; }
+  if (error instanceof SaveValidationError && error.kind === "long-term") { showUnsupportedImportPrompt(error); return; }
   const status = root.querySelector<HTMLParagraphElement>("#lobby-status");
   if (status) status.textContent = uiError(error, "导入失败。");
 }
-async function migrateImportedSave(): Promise<void> {
-  const status = root.querySelector<HTMLElement>("[data-migration-status]");
-  try { await applyImportedSave(migrateLongTermSave(pendingImportedSave)); }
-  catch (error) { if (status) status.textContent = uiError(error, "迁移失败，原存档未被覆盖。"); }
-}
 async function exportFailedImport(): Promise<void> {
-  const status = root.querySelector<HTMLElement>("[data-migration-status]");
+  const status = root.querySelector<HTMLElement>("[data-import-error-status]");
   try {
     const method = await downloadRawSave(pendingImportedSave);
     if (status) status.textContent = exportStatus(method);
@@ -1564,16 +1553,13 @@ function renderError(error: unknown): void {
   const incompatibleLongTerm = error instanceof SaveValidationError && error.kind === "long-term";
   const incompatibleRuntime = error instanceof SaveValidationError && error.kind === "runtime";
   const invalidLongTermInput = incompatibleLongTerm ? error.input : undefined;
-  const migrationAvailable = incompatibleLongTerm && canMigrateLongTermSave(invalidLongTermInput);
   const action = incompatibleLongTerm
-    ? `<div class="error-actions"><button class="danger-button" data-reset-invalid-save>删除长期存档并重新开始</button><button class="primary-button" data-migrate-invalid-save ${migrationAvailable ? "" : "disabled"}>迁移长期存档</button><button class="secondary-button" data-export-invalid-save ${invalidLongTermInput === undefined ? "disabled" : ""}>导出原始存档</button><button class="secondary-button" data-retry>重新检查</button></div><p class="status-line" data-error-status></p>`
+    ? `<div class="error-actions"><button class="danger-button" data-reset-invalid-save>删除长期存档并重新开始</button><button class="secondary-button" data-export-invalid-save ${invalidLongTermInput === undefined ? "disabled" : ""}>导出原始存档</button><button class="secondary-button" data-retry>重新检查</button></div><p class="status-line" data-error-status></p>`
     : incompatibleRuntime
       ? `<button class="primary-button" data-reset-invalid-runtime>舍弃未完成牌局</button><button class="secondary-button" data-retry>重新检查</button>`
     : `<button class="primary-button" data-retry>重试</button>`;
   const message = incompatibleLongTerm
-    ? migrationAvailable
-      ? "当前版本不兼容这份长期存档。你可以迁移后继续，也可以先导出原件留底；只有手动删除并确认后，才会清除战绩与解锁。"
-      : "当前版本不兼容这份长期存档，且没有完整迁移路径。你仍可导出原件留底，或手动删除并确认清除战绩与解锁。"
+    ? "这份长期存档不符合当前版本支持的格式，无法转换。你仍可导出原件留底，或手动删除并确认清除战绩与解锁。"
     : incompatibleRuntime
       ? "未完成牌局与当前版本不兼容。舍弃它不会影响长期战绩与解锁。"
       : uiError(error, "游戏无法启动。");
@@ -1585,19 +1571,17 @@ function renderError(error: unknown): void {
       if (confirmed) return repository.deleteLongTerm().then(() => boot());
     }).catch(renderError);
   });
-  root.querySelector("[data-migrate-invalid-save]")?.addEventListener("click", () => {
-    const status = root.querySelector<HTMLElement>("[data-error-status]");
-    void repository.saveLongTerm(migrateLongTermSave(invalidLongTermInput)).then(() => boot()).catch((migrationError: unknown) => {
-      if (status) status.textContent = uiError(migrationError, "迁移失败，原存档未被覆盖。");
-    });
-  });
   root.querySelector("[data-export-invalid-save]")?.addEventListener("click", () => {
     const status = root.querySelector<HTMLElement>("[data-error-status]");
     void downloadRawSave(invalidLongTermInput).then((method) => {
       if (status) status.textContent = exportStatus(method);
     }).catch((exportError: unknown) => { if (status) status.textContent = uiError(exportError, "原始存档导出失败。"); });
   });
-  root.querySelector("[data-reset-invalid-runtime]")?.addEventListener("click", () => void repository.deleteRuntime().then(() => boot()).catch(renderError));
+  root.querySelector("[data-reset-invalid-runtime]")?.addEventListener("click", () => {
+    void confirmGameDialog("无法恢复未完成牌局", RESET_RUNTIME_CONFIRM_MESSAGE, "舍弃这局牌").then((confirmed) => {
+      if (confirmed) return repository.deleteRuntime().then(() => boot());
+    }).catch(renderError);
+  });
 }
 async function boot(): Promise<void> {
   clearAiSchedule();

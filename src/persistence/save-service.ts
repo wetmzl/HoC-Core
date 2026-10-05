@@ -1,4 +1,4 @@
-import { validateLongTermSave, validateRuntimeSave, type LongTermSave, type RuntimeSave } from "./schema";
+import { CURRENT_GAME_VERSION, validateLongTermSave, validateRuntimeSave, type LongTermSave, type RuntimeSave } from "./schema";
 import type { SaveRepository } from "./repository";
 import { emptyRawSaveSnapshot, type RawSaveSnapshot, type SaveStorageDriver } from "./storage-driver";
 
@@ -28,7 +28,7 @@ export class PersistenceService implements SaveRepository {
   }
 
   async saveLongTerm(save: LongTermSave): Promise<void> {
-    const valid = validateLongTermSave(save);
+    const valid = validateLongTermSave({ ...save, gameVersion: CURRENT_GAME_VERSION });
     await this.update((current) => ({ ...current, longTerm: valid }));
   }
 
@@ -42,7 +42,7 @@ export class PersistenceService implements SaveRepository {
   }
 
   async saveRuntime(save: RuntimeSave): Promise<void> {
-    const valid = validateRuntimeSave(save);
+    const valid = validateRuntimeSave({ ...save, gameVersion: CURRENT_GAME_VERSION });
     await this.update((current) => ({ ...current, runtime: valid }));
   }
 
@@ -51,12 +51,12 @@ export class PersistenceService implements SaveRepository {
   }
 
   async commitMatchResult(save: LongTermSave): Promise<void> {
-    const valid = validateLongTermSave(save);
+    const valid = validateLongTermSave({ ...save, gameVersion: CURRENT_GAME_VERSION });
     await this.update(() => ({ longTerm: valid, runtime: null }));
   }
 
   async closeGameRuntime(save: LongTermSave): Promise<void> {
-    const valid = validateLongTermSave(save);
+    const valid = validateLongTermSave({ ...save, gameVersion: CURRENT_GAME_VERSION });
     await this.update(() => ({ longTerm: valid, runtime: null }));
   }
 

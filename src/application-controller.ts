@@ -25,6 +25,8 @@ import { PlaylistStore, playlistDocument, type PlaylistDocument, type SavedPlayl
 import { decodePlaylistBytes, decodePlaylistFile, encodePlaylistHocpkg, encodePlaylistPng, playlistJson } from "./content/playlists/transfer";
 import { createSaveFileWriter } from "./persistence/file-exchange";
 import type { GameRuntimeHandle, MountGameRuntimeOptions } from "./app";
+import { createPersistenceService } from "./persistence/factory";
+import { ensureLongTermSaveReady } from "./persistence/long-term-recovery";
 
 export type ApplicationControllerState = "idle" | "starting" | "running" | "stopping";
 
@@ -384,10 +386,15 @@ export class ApplicationController {
       // Keep one manifest snapshot for the warning decision and the subsequent plugin/content loads.
       const activeSource = { packages: async () => packages };
       root.innerHTML = `<main class="loading-shell"><span class="mark">✦</span><p>正在洗牌……</p></main>`;
+      const persistence = createPersistenceService();
+      if (!await ensureLongTermSaveReady(root, persistence)) {
+        this.currentState = "idle";
+        return false;
+      }
       if (packages.some((entry) => entry.manifest.identity.authorId !== CORE_PACKAGE_AUTHOR_ID)) {
         const acknowledge = this.options.acknowledgeThirdPartyContent ?? (async (warningRoot: HTMLDivElement) => {
           const warning = await import("./third-party-content-warning");
-          return warning.requireThirdPartyContentAcknowledgement(warningRoot);
+          return warning.requireThirdPartyContentAcknowledgement(warningRoot, persistence);
         });
         if (!await acknowledge(root)) {
           this.currentState = "idle";

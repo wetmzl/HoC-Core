@@ -1,4 +1,5 @@
 import { z } from "zod";
+import packageInfo from "../../package.json" with { type: "json" };
 import type { MatchHistoryRecord } from "../core/match/history";
 import type { MatchState } from "../core/match/types";
 import type { CharacterDefeatRecord } from "../core/progression/defeats";
@@ -12,7 +13,7 @@ export const LONG_TERM_SAVE_FORMAT = "house-of-chances-save" as const;
 export const RUNTIME_SAVE_FORMAT = "house-of-chances-runtime" as const;
 export const CURRENT_LONG_TERM_SCHEMA_VERSION = 9 as const;
 export const CURRENT_RUNTIME_SCHEMA_VERSION = 9 as const;
-export const CURRENT_GAME_VERSION = "0.1.0" as const;
+export const CURRENT_GAME_VERSION = packageInfo.version;
 
 const CardFaceSchema = {
   suit: z.enum(["spades", "hearts", "diamonds", "clubs"]),

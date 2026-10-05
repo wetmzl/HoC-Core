@@ -10,6 +10,10 @@ import * as pluginModules from "./content/packages/plugin-modules";
 import { PlaylistStore, playlistDocument } from "./content/playlists/store";
 import { ApplicationController, ApplicationControllerBusyError } from "./application-controller";
 
+vi.mock("./persistence/factory", () => ({
+  createPersistenceService: () => ({ loadLongTerm: async () => null })
+}));
+
 const publicRoot = resolve(import.meta.dirname, "../public");
 const fileFetch: typeof fetch = async (input) => {
   const raw = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
