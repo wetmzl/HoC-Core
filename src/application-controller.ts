@@ -15,7 +15,7 @@ import {
 } from "./content/packages";
 import { createDefaultContentHostProviders } from "./content/storage/host-factory";
 import { FileContentRepository } from "./content/storage/repository";
-import { CONTENT_PERSISTENCE_REFUSED_WARNING, resolveContentHost, type ContentHostProvider, type ContentInstallProgress } from "./content/storage/contracts";
+import { CONTENT_PERSISTENCE_REFUSED_WARNING, resolveContentHost, type ContentHostProvider, type ContentInstallProgress, type ContentInstallOptions, type ContentImportFile, type ContentOperationOptions, type ContentFileSystem } from "./content/storage/contracts";
 import { loadPluginModules, type LoadedPluginModules } from "./content/packages/plugin-modules";
 import { migrateBuiltinPackageAuthors } from "./content/storage/builtin-author-migration";
 import { CORE_PACKAGE_AUTHOR_ID } from "./content/packages/builtin-authors";
@@ -54,6 +54,7 @@ export class ApplicationController {
   private repository?: FileContentRepository;
   private manager?: ContentPackageManager;
   private transfer?: HocpkgTransfer;
+  private fileSystem?: ContentFileSystem;
   private playlists?: PlaylistStore;
   private contentInitialized = false;
   private runtime?: GameRuntimeHandle;
@@ -85,6 +86,7 @@ export class ApplicationController {
     if (this.contentInitialized) return;
     const host = await resolveContentHost(this.options.providers ?? createDefaultContentHostProviders());
     if (!host) throw new Error("当前宿主没有可用的持久化内容目录。");
+    this.embedded.assetSource = host.fileSystem.assetSource?.bind(host.fileSystem);
     const repository = new FileContentRepository(host);
     await repository.open();
     if (await repository.isEmpty()) {
@@ -107,13 +109,15 @@ export class ApplicationController {
     }
     this.repository = repository;
     this.manager = new ContentPackageManager(repository, this.embedded);
+    this.fileSystem = host.fileSystem;
+    await host.fileSystem.remove("content/v1/import-inputs");
     this.transfer = new HocpkgTransfer(host.fileSystem, repository);
     this.playlists = new PlaylistStore(host.fileSystem, await this.installedPluginOrder());
     const current = await repository.listPackages();
     const entries = await Promise.all(current.filter((entry) => entry.enabled).map(async (entry) => ({ packageId: entry.packageId, version: (await repository.readManifest(entry.packageId).catch(() => undefined))?.identity.version })));
     await this.playlists.initialize(entries, await this.installedPluginOrder());
     await this.syncCurrentPlaylist();
-    for (const session of await this.transfer.listSessions()) await this.transfer.removeSession(session.id);
+    await host.fileSystem.remove("content/v1/imports");
     this.contentInitialized = true;
   }
 
@@ -194,21 +198,29 @@ export class ApplicationController {
     finally { this.idleOperationRunning = false; }
   }
 
-  async stagePackageFile(file: File): Promise<ImportSession> {
+  get hasImportPicker(): boolean { return Boolean(this.fileSystem?.pickFile); }
+
+  async pickPackageFile(options?: ContentOperationOptions): Promise<ContentImportFile | null> {
+    this.beginIdleOperation();
+    try { await this.ensureInitialized(); return await this.fileSystem?.pickFile?.(options) ?? null; }
+    finally { this.idleOperationRunning = false; }
+  }
+
+  async stagePackageFile(file: File | ContentImportFile, options?: ContentOperationOptions): Promise<ImportSession> {
     this.beginIdleOperation();
     try {
       await this.ensureInitialized();
       if (!this.transfer) throw new Error("只读模式不能导入内容包。");
-      return await this.transfer.stage(file);
+      return await this.transfer.stage(file, options);
     } finally { this.idleOperationRunning = false; }
   }
 
-  async installStagedPackages(sessionId: string, candidateIds: readonly string[], onProgress?: (progress: import("./content/storage/contracts").ContentInstallProgress) => void): Promise<readonly ImportOutcome[]> {
+  async installStagedPackages(sessionId: string, candidateIds: readonly string[], onProgress?: (progress: import("./content/storage/contracts").ContentInstallProgress) => void, options?: ContentInstallOptions): Promise<readonly ImportOutcome[]> {
     this.beginIdleOperation();
     try {
       await this.ensureInitialized();
       if (!this.transfer) throw new Error("只读模式不能安装内容包。");
-      return await this.transfer.installSelected(sessionId, candidateIds, onProgress);
+      return await this.transfer.installSelected(sessionId, candidateIds, onProgress, options);
     } finally { this.idleOperationRunning = false; }
   }
 

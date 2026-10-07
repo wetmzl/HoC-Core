@@ -1,4 +1,4 @@
-import type { ContentPackageSource, ContentRepository, ResolvedContentAsset } from "../storage/contracts";
+import type { ContentFileSource, ContentPackageSource, ContentRepository, ResolvedContentAsset } from "../storage/contracts";
 import { decodeText, sha256Json } from "../storage/encoding";
 import { getHocpkgPackageId } from "./package-state";
 import { BuiltinPackageIndexSchema, HocpkgManifestSchema, type BuiltinPackageIndex, type HocpkgManifest } from "./schema";
@@ -46,6 +46,7 @@ export interface EmbeddedContentSourceOptions {
 }
 
 export class EmbeddedContentSource implements ContentSource {
+  assetSource?: (url: string) => ContentFileSource | undefined;
   private indexPromise?: Promise<BuiltinPackageIndex>;
 
   constructor(private readonly options: EmbeddedContentSourceOptions = {}) {}
@@ -61,6 +62,7 @@ export class EmbeddedContentSource implements ContentSource {
 
   async packages(): Promise<readonly ContentPackageAccess[]> {
     const requestFetch = this.options.fetch ?? globalThis.fetch.bind(globalThis);
+    const assetSource = this.assetSource;
     const indexUrl = this.options.indexUrl ?? "/characters/packages.json";
     const index = await this.loadIndex();
     const indexBase = directoryUrl(indexUrl);
@@ -77,7 +79,12 @@ export class EmbeddedContentSource implements ContentSource {
         manifest,
         receipt: { source: "embedded" },
         async *files() {
-          for (const file of manifest.files) yield { path: file.path, bytes: await responseBytes(requestFetch, resolveUrl(packageBaseUrl, file.path)) };
+          for (const file of manifest.files) {
+            const url = resolveUrl(packageBaseUrl, file.path);
+            const source = assetSource?.(url);
+            if (source) yield { path: file.path, source };
+            else yield { path: file.path, bytes: await responseBytes(requestFetch, url) };
+          }
         },
         readJson: (path: string) => responseJson(requestFetch, resolveUrl(packageBaseUrl, path)),
         readFile: (path: string) => responseBytes(requestFetch, resolveUrl(packageBaseUrl, path)),

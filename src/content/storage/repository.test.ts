@@ -37,6 +37,48 @@ function setup() {
 }
 
 describe("ContentRepository", () => {
+  it("copies source handles in a batch, verifies written files and preserves the catalog on cancellation or bad digests", async () => {
+    const { provider, repository } = setup();
+    await repository.install(await packageSource("existing"));
+    const packageBytes = encodeText("referenced resource");
+    await provider.fileSystem.write("input/payload", packageBytes);
+    const source = await packageSource("referenced", "1.0.0", "referenced resource");
+    const references: ContentPackageSource = { manifest: source.manifest, async *files() { yield { path: "resources/content.json", source: { kind: "stored", path: "input/payload" } }; } };
+    const host = provider.host;
+    let batches = 0, inspections = 0, invalidDigest = true;
+    const abort = new AbortController();
+    let cancelDuringCopy = false;
+    const optimized = {
+      ...host,
+      fileSystem: {
+        read: host.fileSystem.read.bind(host.fileSystem), write: host.fileSystem.write.bind(host.fileSystem),
+        list: host.fileSystem.list.bind(host.fileSystem), remove: host.fileSystem.remove.bind(host.fileSystem),
+        async copyMany(files: readonly { source: { kind: string; path?: string }; destination: string }[]) {
+          batches++;
+          for (const file of files) await host.fileSystem.write(file.destination, (await host.fileSystem.read(file.source.path!))!);
+          if (cancelDuringCopy) abort.abort();
+          return files.map(() => ({ bytes: packageBytes.length, sha256: invalidDigest ? "0".repeat(64) : (source.manifest as HocpkgManifest).files[0]!.sha256 }));
+        },
+        async inspect(paths: readonly string[]) {
+          inspections++;
+          return Promise.all(paths.map(async path => { const bytes = (await host.fileSystem.read(path))!; return { bytes: bytes.length, sha256: await sha256(bytes) }; }));
+        }
+      }
+    };
+    const fast = new FileContentRepository(optimized);
+    await expect(fast.install(references)).rejects.toThrow(/摘要不符/);
+    expect(await fast.listPackages()).toHaveLength(1);
+    invalidDigest = false; cancelDuringCopy = true;
+    await expect(fast.install(references, { signal: abort.signal })).rejects.toThrow();
+    expect(await new FileContentRepository(host).listPackages()).toHaveLength(1);
+    expect(await host.fileSystem.list("content/v1/revisions/test/referenced")).toEqual([]);
+    cancelDuringCopy = false;
+    await fast.install(references);
+    expect(batches).toBe(3);
+    expect(inspections).toBe(1);
+    await fast.verifyPackage("test/referenced");
+    expect(inspections).toBe(2);
+  });
   it("moves package identity atomically and keeps the old package after a failed commit", async () => {
     const { provider, repository } = setup();
     await repository.install(await packageSource("one"));

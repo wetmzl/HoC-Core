@@ -1,3 +1,4 @@
+import { checkCancelled, copyFile, inspectFiles } from "./file-operations";
 import {
   HocpkgManifestSchema,
   HocpkgPortablePathSchema,
@@ -7,6 +8,8 @@ import {
 } from "../packages";
 import { commitCatalog, CONTENT_ROOT, emptyContentCatalog, readCurrentCatalog, type ContentCatalog } from "./catalog";
 import type {
+  ContentFileEntry,
+  ContentFileSource,
   ContentHost,
   ContentInstallOptions,
   ContentInstallResult,
@@ -16,7 +19,7 @@ import type {
   InstalledContentPackage,
   ResolvedContentAsset
 } from "./contracts";
-import { decodeText, encodeText, sha256, sha256Json, stableJson } from "./encoding";
+import { decodeText, encodeText, sha256Json, stableJson } from "./encoding";
 
 const MANIFEST_FILE = "hocpkg-info.json";
 const PENDING_FILE = ".pending";
@@ -174,12 +177,12 @@ export class FileContentRepository implements ContentRepository {
     const root = revisionRoot(packageId, currentRevision);
     const totalBytes = manifest.files.reduce((total, file) => total + file.bytes, 0);
     let completedBytes = 0;
-    for (const file of manifest.files) {
-      const bytes = await this.host.fileSystem.read(`${root}/${file.path}`);
-      if (!bytes) throw new ContentPackageIntegrityError(`内容文件缺失：${packageId}#${file.path}`);
-      if (bytes.byteLength !== file.bytes) throw new ContentPackageIntegrityError(`文件大小不符：${packageId}#${file.path}`);
-      if (await sha256(bytes) !== file.sha256) throw new ContentPackageIntegrityError(`文件摘要不符：${packageId}#${file.path}`);
-      completedBytes += bytes.byteLength;
+    const digests = await inspectFiles(this.host.fileSystem, manifest.files.map(file => `${root}/${file.path}`));
+    for (const [index, file] of manifest.files.entries()) {
+      const digest = digests[index]!;
+      if (digest.bytes !== file.bytes) throw new ContentPackageIntegrityError(`文件大小不符：${packageId}#${file.path}`);
+      if (digest.sha256 !== file.sha256) throw new ContentPackageIntegrityError(`文件摘要不符：${packageId}#${file.path}`);
+      completedBytes += digest.bytes;
       onProgress?.({ packageId, path: file.path, completedBytes, totalBytes });
     }
   }
@@ -297,15 +300,12 @@ export class FileContentRepository implements ContentRepository {
         throw new ContentPackageIntegrityError(`内容包 Manifest 与 catalog 不一致：${packageId}`);
       }
       const oldRoot = revisionRoot(packageId, current.currentRevision);
-      const fs = this.host.fileSystem;
       const source: ContentPackageSource = {
         manifest,
         receipt: { source: "identity-migration", previousPackageId: packageId },
         async *files() {
           for (const file of manifest.files) {
-            const bytes = await fs.read(`${oldRoot}/${file.path}`);
-            if (!bytes) throw new ContentPackageIntegrityError(`内容文件缺失：${packageId}#${file.path}`);
-            yield { path: file.path, bytes };
+            yield { path: file.path, source: { kind: "stored" as const, path: `${oldRoot}/${file.path}` } };
           }
         }
       };
@@ -314,9 +314,9 @@ export class FileContentRepository implements ContentRepository {
       const packages = { ...this.catalog.packages, [targetId]: { currentRevision: prepared.revision, enabled: current.enabled } };
       delete packages[packageId];
       const next: ContentCatalog = { ...this.catalog, packages, pluginOrder: this.catalog.pluginOrder.map((id) => id === packageId ? targetId : id) };
-      const committed = await commitCatalog(fs, next, this.now);
+      const committed = await commitCatalog(this.host.fileSystem, next, this.now);
       this.catalog = next;
-      if (committed.mirrored) await fs.remove(oldRoot).catch(() => undefined);
+      if (committed.mirrored) await this.host.fileSystem.remove(oldRoot).catch(() => undefined);
     });
     this.queue = operation;
     return operation;
@@ -354,6 +354,8 @@ export class FileContentRepository implements ContentRepository {
         const candidate = await this.prepare(sources[index]!, manifests[index]!, options, progress);
         if (candidate) prepared.push(candidate);
       }
+      checkCancelled({ signal: options.signal });
+      options.onCommit?.();
     } catch (error) {
       await Promise.all(prepared.map((entry) => this.host.fileSystem.remove(entry.root).catch(() => undefined)));
       throw error;
@@ -418,6 +420,13 @@ export class FileContentRepository implements ContentRepository {
 
     const declared = new Map(manifest.files.map((file) => [file.path, file]));
     const observed = new Set<string>();
+    const references: { entry: ContentFileEntry & { source: ContentFileSource }; expected: HocpkgManifest["files"][number] }[] = [];
+    const copied = (path: string, expected: HocpkgManifest["files"][number], digest: { bytes: number; sha256: string }) => {
+      if (digest.bytes !== expected.bytes) throw new ContentPackageIntegrityError(`文件大小不符：${path}`);
+      if (digest.sha256 !== expected.sha256) throw new ContentPackageIntegrityError(`文件摘要不符：${path}`);
+      progress.completedBytes += digest.bytes;
+      options.onProgress?.({ packageId, path, completedBytes: progress.completedBytes, totalBytes: progress.totalBytes });
+    };
     try {
       for await (const entry of source.files()) {
         const path = HocpkgPortablePathSchema.parse(entry.path);
@@ -425,15 +434,17 @@ export class FileContentRepository implements ContentRepository {
         const expected = declared.get(path);
         if (!expected) throw new ContentPackageIntegrityError(`候选包包含未声明文件：${path}`);
         observed.add(path);
-        if (entry.bytes.byteLength !== expected.bytes) throw new ContentPackageIntegrityError(`文件大小不符：${path}`);
-        if (await sha256(entry.bytes) !== expected.sha256) throw new ContentPackageIntegrityError(`文件摘要不符：${path}`);
-        await this.host.fileSystem.write(`${root}/${path}`, entry.bytes);
-        progress.completedBytes += entry.bytes.byteLength;
-        options.onProgress?.({ packageId, path, completedBytes: progress.completedBytes, totalBytes: progress.totalBytes });
+        if (entry.source && this.host.fileSystem.copyMany) references.push({ entry: { path, source: entry.source }, expected });
+        else copied(path, expected, await copyFile(this.host.fileSystem, entry, `${root}/${path}`, { signal: options.signal, onProgress: options.onIoProgress }));
       }
       const missing = [...declared.keys()].filter((path) => !observed.has(path));
       if (missing.length > 0) throw new ContentPackageIntegrityError(`候选包缺少文件：${missing.join(", ")}`);
-      await this.verifyStoredPackage(root, manifest);
+      if (references.length) {
+        const digests = await this.host.fileSystem.copyMany!(references.map(({ entry }) => ({ source: entry.source, destination: `${root}/${entry.path}` })), { signal: options.signal, onProgress: options.onIoProgress });
+        if (digests.length !== references.length) throw new ContentPackageIntegrityError("复制返回的文件数量不符。");
+        for (const [index, { entry, expected }] of references.entries()) copied(entry.path, expected, digests[index]!);
+      }
+      await this.verifyStoredPackage(root, manifest, options);
       await this.host.fileSystem.remove(`${root}/${PENDING_FILE}`);
       return { packageId, revision, manifest, root, previousRevision };
     } catch (error) {
@@ -442,12 +453,11 @@ export class FileContentRepository implements ContentRepository {
     }
   }
 
-  private async verifyStoredPackage(root: string, manifest: HocpkgManifest): Promise<void> {
-    for (const file of manifest.files) {
-      const bytes = await this.host.fileSystem.read(`${root}/${file.path}`);
-      if (!bytes || bytes.byteLength !== file.bytes || await sha256(bytes) !== file.sha256) {
-        throw new ContentPackageIntegrityError(`落盘文件复验失败：${file.path}`);
-      }
+  private async verifyStoredPackage(root: string, manifest: HocpkgManifest, options?: ContentInstallOptions): Promise<void> {
+    const digests = await inspectFiles(this.host.fileSystem, manifest.files.map(file => `${root}/${file.path}`), { signal: options?.signal, onProgress: options?.onIoProgress });
+    for (const [index, file] of manifest.files.entries()) {
+      const digest = digests[index]!;
+      if (digest.bytes !== file.bytes || digest.sha256 !== file.sha256) throw new ContentPackageIntegrityError(`落盘文件复验失败：${file.path}`);
     }
   }
 

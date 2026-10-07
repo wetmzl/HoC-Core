@@ -1,3 +1,5 @@
+import { browserIo, openBrowserArchive } from "./browser-io";
+import type { ContentFileSource, ContentOperationOptions, ContentDigest } from "./contracts";
 import type {
   ContentAssetResolver,
   ContentFileSystem,
@@ -21,6 +23,24 @@ function isMissing(error: unknown): boolean {
 
 export class OpfsContentFileSystem implements ContentFileSystem {
   constructor(private readonly root: FileSystemDirectoryHandle) {}
+
+  assetSource(url: string) { return url.startsWith("/") ? { kind: "asset" as const, path: url } : undefined; }
+
+  inspect(paths: readonly string[], options?: ContentOperationOptions): Promise<readonly ContentDigest[]> {
+    return browserIo({ action: "inspect", paths }, options);
+  }
+
+  copy(source: ContentFileSource, destination: string, options?: ContentOperationOptions): Promise<ContentDigest> {
+    return browserIo({ action: "copy", source, destination }, options);
+  }
+
+  copyMany(files: readonly { readonly source: ContentFileSource; readonly destination: string }[], options?: ContentOperationOptions): Promise<readonly ContentDigest[]> {
+    return browserIo({ action: "copyMany", files }, options);
+  }
+
+  openArchive(source: ContentFileSource, options?: ContentOperationOptions) {
+    return openBrowserArchive(this, source, options, true);
+  }
 
   private async directory(path: readonly string[], create: boolean): Promise<FileSystemDirectoryHandle> {
     let current = this.root;

@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { unzipSync, zipSync } from "fflate";
 import type { HocpkgManifest } from "../packages";
 import { MemoryContentHostProvider } from "../storage/memory-host";
+import { openBrowserArchive } from "../storage/browser-io";
+import type { ContentArchive, ContentFileSource, ContentOperationOptions } from "../storage/contracts";
 import { FileContentRepository } from "../storage/repository";
 import { encodeText, sha256 } from "../storage/encoding";
 import { embedHocpkgInPng, extractHocpkgFromPng, HocpkgTransfer } from "./hocpkg";
@@ -48,6 +50,53 @@ function clearZipUtf8Flags(bytes: Uint8Array): Uint8Array {
 }
 
 describe("hocpkg transfer", () => {
+  it("checks digests from batch archive extraction and keeps damaged candidates isolated", async () => {
+    const { host, transfer } = setup();
+    const pkg = await makePackage("batch", "1.0.0");
+    let batches = 0, corrupt = true;
+    const fs = host.fileSystem as typeof host.fileSystem & { openArchive(source: ContentFileSource, options?: ContentOperationOptions): Promise<ContentArchive> };
+    fs.openArchive = async (source, options) => {
+      const archive = await openBrowserArchive(fs, source, options);
+      return { ...archive, async extractMany(files, options) {
+        batches++;
+        const result = [];
+        for (const file of files) result.push(await archive.extract(file.path, file.destination, options));
+        return result.map(digest => ({ ...digest, sha256: corrupt ? "0".repeat(64) : digest.sha256 }));
+      } };
+    };
+    const damaged = await transfer.stage(file(pkg.bytes, "batch.hocpkg"));
+    expect(damaged.candidates[0]?.error).toMatch(/摘要不符/);
+    expect(await fs.list(`content/v1/imports/${damaged.id}/candidates`)).toEqual([]);
+    corrupt = false;
+    const valid = await transfer.stage(file(pkg.bytes, "batch.hocpkg"));
+    expect(valid.candidates[0]?.packageId).toBe("batch/hero");
+    expect(batches).toBe(2);
+  });
+  it("removes a cancelled staging session and permits the next import", async () => {
+    const { host, transfer } = setup();
+    const content = await makePackage("cancel", "1.0.0");
+    const abort = new AbortController();
+    const write = host.fileSystem.write.bind(host.fileSystem);
+    const spy = vi.spyOn(host.fileSystem, "write").mockImplementation(async (path, bytes) => {
+      await write(path, bytes);
+      if (path.endsWith("/resources/content.json")) abort.abort();
+    });
+    await expect(transfer.stage(file(content.bytes, "cancel.hocpkg"), { signal: abort.signal })).rejects.toThrow();
+    expect(await transfer.listSessions()).toEqual([]);
+    expect(await host.fileSystem.list("content/v1/imports")).toEqual([]);
+    spy.mockRestore();
+    expect((await transfer.stage(file(content.bytes, "retry.hocpkg"))).candidates[0]?.error).toBeUndefined();
+  });
+
+  it("reads only preview metadata without reading unrelated payloads", async () => {
+    const { host, transfer } = setup();
+    const content = await makePackage("preview", "1.0.0");
+    const session = await transfer.stage(file(content.bytes, "preview.hocpkg"));
+    const read = vi.spyOn(host.fileSystem, "read");
+    await transfer.preview(session.id, "0000");
+    expect(read.mock.calls.some(([path]) => path.endsWith("resources/content.json"))).toBe(false);
+  });
+
   it.each([undefined, "", "   ", "CC0", "CC-BY-NC-SA 4.0"])("preserves license %j through install and export, including legacy packages", async (license) => {
     const { transfer } = setup();
     const content = await makePackage("a", "1.0.0", "test", license);
@@ -111,7 +160,7 @@ describe("hocpkg transfer", () => {
     const playlist = await encodePlaylistHocpkg(playlistDocument("推荐", [{ packageId: "a/hero" }]), crypto.randomUUID());
     const session = await transfer.stage(file(zipSync({ "resource.hocpkg": content.bytes, "playlist.hocpkg": playlist }), "bundle.zip"));
     await host.fileSystem.remove(`content/v1/imports/${session.id}/candidates/0000/files/resources/content.json`);
-    await expect(transfer.installSelected(session.id, ["0000"])).rejects.toThrow(/暂存文件已丢失/);
+    await expect(transfer.installSelected(session.id, ["0000"])).rejects.toThrow(/内容来源不可读取/);
     expect((await transfer.listSessions())[0]?.candidates.map((candidate) => candidate.kind)).toEqual(["package", "playlist"]);
     expect(await transfer.readPlaylist(session.id, "0001")).toMatchObject({ name: "推荐" });
     expect(await repository.listPackages()).toEqual([]);
@@ -240,7 +289,7 @@ describe("hocpkg transfer", () => {
     }), "mixed.zip"));
     const secondRoot = `content/v1/imports/${mixed.id}/candidates/0001/files`;
     await host.fileSystem.remove(`${secondRoot}/resources/content.json`);
-    await expect(transfer.installSelected(mixed.id, ["0000", "0001"])).rejects.toThrow(/暂存文件已丢失/);
+    await expect(transfer.installSelected(mixed.id, ["0000", "0001"])).rejects.toThrow(/内容来源不可读取/);
     expect((await repository.listPackages())[0]!.currentRevision).toBe(beforeFailure);
     expect((await transfer.listSessions()).some((session) => session.id === mixed.id)).toBe(true);
   });

@@ -1,3 +1,4 @@
+import type { ContentImportFile, ContentOperationProgress } from "./content/storage/contracts";
 import type { ApplicationController } from "./application-controller";
 import { releasePackagePresentation, type ManagedContentPackage, type ManagedContentResourceCounts } from "./content/packages";
 import { compareHocpkgVersions } from "./content/packages/package-state";
@@ -64,6 +65,11 @@ export class LauncherView {
   private readonly selectedImportIds = new Set<string>();
   private readonly importPreviews = new Map<string, { url: string; description: string; isPlugin: boolean }>();
   private importError = "";
+  private importAbort?: AbortController;
+  private importCommitting = false;
+  private importLastProgress = 0;
+  private importLastRender = 0;
+  private importWatchdog?: ReturnType<typeof setInterval>;
   private importProgress = { value: 0, max: 1, label: "" };
   private importPlaylistChoice = "";
   private importActivate = false;
@@ -211,7 +217,7 @@ export class LauncherView {
     if (this.managerOpen) this.root.querySelector<HTMLDialogElement>("[data-playlist-manager]")?.showModal();
     if (this.importOpen) this.root.querySelector<HTMLDialogElement>("[data-playlist-import]")?.showModal();
     if (this.textExportId) this.root.querySelector<HTMLDialogElement>("[data-playlist-text-dialog]")?.showModal();
-    if (this.activeImportId) this.root.querySelector<HTMLDialogElement>("[data-import-dialog]")?.showModal();
+    if (this.activeImportId || (this.busy && this.importStep === "progress")) this.root.querySelector<HTMLDialogElement>("[data-import-dialog]")?.showModal();
     const list = this.root.querySelector<HTMLElement>(".package-list");
     if (list) list.scrollTop = this.listScrollTop;
   }
@@ -251,6 +257,11 @@ export class LauncherView {
     this.root.querySelectorAll<HTMLButtonElement>("[data-plugin-move]").forEach((button) => button.addEventListener("click", () => void this.movePlugin(button)));
     this.root.querySelectorAll<HTMLElement>("[data-plugin-drag]").forEach((handle) => handle.addEventListener("pointerdown", (event) => this.startPluginDrag(event, handle)));
     this.root.querySelectorAll<HTMLButtonElement>("[data-package-action]").forEach((button) => button.addEventListener("click", () => void this.mutatePackage(button)));
+    this.root.querySelector<HTMLInputElement>("[data-import-file]")?.addEventListener("click", (event) => {
+      if (!this.controller.hasImportPicker) return;
+      event.preventDefault();
+      void this.stageImportFile();
+    });
     this.root.querySelector<HTMLInputElement>("[data-import-file]")?.addEventListener("change", (event) => void this.stageImport(event.currentTarget as HTMLInputElement));
     this.root.querySelector<HTMLButtonElement>("[data-import-next]")?.addEventListener("click", () => void this.advanceImport());
     this.root.querySelector<HTMLButtonElement>("[data-import-activate]")?.addEventListener("click", () => void this.commitImport(true));
@@ -321,8 +332,9 @@ export class LauncherView {
 
   private renderImportDialog(): string {
     const session = this.importSessions.find((entry) => entry.id === this.activeImportId);
-    if (!session) return "";
-    const valid = session.candidates.filter((item) => !item.error);
+    if (!session && !(this.busy && this.importStep === "progress")) return "";
+    const candidates = session?.candidates ?? [];
+    const valid = candidates.filter((item) => !item.error);
     const groups = [
       { title: "播放集", items: valid.filter((item) => item.kind === "playlist") },
       { title: "插件", items: valid.filter((item) => item.kind === "package" && this.importPreviews.get(item.id)?.isPlugin) },
@@ -338,27 +350,70 @@ export class LauncherView {
       const title = candidate.title ?? candidate.packageId ?? candidate.source;
       return `<article class="import-candidate-item"><label class="import-candidate-card"><input type="checkbox" data-import-candidate data-package-id="${escapeHtml(candidate.packageId ?? "")}" value="${candidate.id}" ${this.selectedImportIds.has(candidate.id) ? "checked" : ""}><img src="${escapeHtml(preview?.url ?? PACKAGE_COVER_FALLBACK)}" alt="" loading="lazy"><span class="import-candidate-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(preview?.description ?? candidate.source)}</small><span>${escapeHtml(version)} · ${relation}</span><small>${escapeHtml(candidate.packageId ?? candidate.source)}</small></span></label><details class="import-candidate-details"><summary>详情</summary><p>${escapeHtml(title)} · ${escapeHtml(candidate.source)}</p><p>${escapeHtml(preview?.description ?? "暂无包说明。")}</p><p>${escapeHtml(candidate.packageId ?? "播放集")} · ${escapeHtml(version)}</p></details></article>`;
     }).join("")}</section>`).join("");
-    const damaged = session.candidates.filter((item) => item.error).map((item) => `<p class="package-error">${escapeHtml(item.source)}：${escapeHtml(item.error ?? "")}</p>`).join("");
+    const damaged = candidates.filter((item) => item.error).map((item) => `<p class="package-error">${escapeHtml(item.source)}：${escapeHtml(item.error ?? "")}</p>`).join("");
     const playlists = valid.filter((item) => item.kind === "playlist" && this.selectedImportIds.has(item.id));
     const body = this.importStep === "select" ? `${cards}${damaged}` : this.importStep === "playlist" ? `<p>是否启用包中附带的播放集？所选播放集都会保存。</p><select data-import-playlist-choice aria-label="选择导入的播放集">${playlists.map((item) => `<option value="${item.id}" ${item.id === this.importPlaylistChoice ? "selected" : ""}>${escapeHtml(item.title ?? item.source)}</option>`).join("")}</select>` : `<p>${escapeHtml(this.importStep === "error" ? this.importError : this.importProgress.label)}</p><progress max="${this.importProgress.max}" value="${this.importProgress.value}" aria-label="导入进度"></progress>`;
     const actions = this.importStep === "select" ? `<button type="button" class="secondary-button" data-import-cancel>放弃</button><button type="button" class="primary-button" data-import-next ${this.selectedImportIds.size ? "" : "disabled"}>安装所选包（${this.selectedImportIds.size}）</button>`
       : this.importStep === "playlist" ? `<button type="button" class="secondary-button" data-import-skip-playlist>放弃</button><button type="button" class="primary-button" data-import-activate>启用</button>`
-        : this.importStep === "error" ? `<button type="button" class="secondary-button" data-import-close>关闭</button><button type="button" class="primary-button" data-import-retry>重试</button>` : "";
+        : this.importStep === "error" ? `<button type="button" class="secondary-button" data-import-close>关闭</button><button type="button" class="primary-button" data-import-retry>重试</button>` : `<button type="button" class="secondary-button" data-import-cancel ${this.importCommitting ? "disabled" : ""}>${this.importCommitting ? "正在提交……" : "取消"}</button>`;
     return `<dialog class="import-review-dialog" data-import-dialog aria-label="导入内容包"><header><h2>导入内容包</h2><button type="button" class="modal-close" data-import-close aria-label="关闭导入窗口" ${this.importStep === "progress" ? "disabled" : ""}>×</button></header><div class="import-review-body" data-import-body>${body}</div><footer>${actions}</footer></dialog>`;
   }
 
+  private beginImportOperation(label: string): void {
+    this.busy = true;
+    this.importStep = "progress";
+    this.importCommitting = false;
+    this.importAbort = new AbortController();
+    this.importLastProgress = Date.now();
+    this.importProgress = { value: 0, max: 1, label };
+    this.importWatchdog = setInterval(() => {
+      if (Date.now() - this.importLastProgress < 30000) return;
+      const label = this.root.querySelector<HTMLElement>(".import-review-body p");
+      if (label) label.textContent = "处理暂时没有新进度，请等待或取消。";
+    }, 5000);
+    this.render();
+  }
+
+  private endImportOperation(): void {
+    clearInterval(this.importWatchdog);
+    this.importAbort = undefined;
+    this.importCommitting = false;
+    this.busy = false;
+    if (!this.activeImportId) this.importStep = "select";
+    this.render();
+  }
+
+  private updateImportProgress = (progress: ContentOperationProgress): void => {
+    this.importLastProgress = Date.now();
+    if (this.importLastProgress - this.importLastRender < 100) return;
+    this.importLastRender = this.importLastProgress;
+    const phase = { extracting: "正在提取", verifying: "正在校验", copying: "正在复制", committing: "正在提交" }[progress.phase];
+    this.importProgress = { value: progress.completedBytes, max: Math.max(1, progress.totalBytes, progress.completedBytes), label: `${phase} ${progress.path.split("/").at(-1)}` };
+    const bar = this.root.querySelector<HTMLProgressElement>(".import-review-dialog progress");
+    if (bar) { bar.max = this.importProgress.max; bar.value = this.importProgress.value; }
+    const label = this.root.querySelector<HTMLElement>(".import-review-body p");
+    if (label) label.textContent = this.importProgress.label;
+  };
+
   private async stageImport(input: HTMLInputElement): Promise<void> {
     const file = input.files?.[0];
-    if (!file || this.busy) return;
-    this.busy = true;
-    this.render();
+    if (file) await this.stageImportFile(file);
+  }
+
+  private async stageImportFile(input?: File | ContentImportFile): Promise<void> {
+    if (this.busy) return;
+    this.beginImportOperation("正在读取导入文件……");
     try {
-      const session = await this.controller.stagePackageFile(file);
+      const options = { signal: this.importAbort!.signal, onProgress: this.updateImportProgress };
+      const file = input ?? await this.controller.pickPackageFile(options);
+      if (!file) { this.importStep = "select"; return; }
+      const session = await this.controller.stagePackageFile(file, options);
       this.activeImportId = session.id;
       this.selectedImportIds.clear();
       this.releaseImportPreviews();
       const byPackage = new Map<string, typeof session.candidates[number]>();
       for (const candidate of session.candidates) {
+        options.signal.throwIfAborted();
         if (candidate.error) continue;
         if (candidate.kind === "playlist") { this.selectedImportIds.add(candidate.id); continue; }
         if (!candidate.packageId) continue;
@@ -375,10 +430,18 @@ export class LauncherView {
         const installed = this.packages.find((item) => item.packageId === candidate.packageId && item.currentRevision);
         if (!installed || compareHocpkgVersions(candidate.version!, manifestOf(installed)!.identity.version) >= 0) this.selectedImportIds.add(candidate.id);
       }
+      options.signal.throwIfAborted();
       this.importStep = "select";
       await this.refresh();
-    } catch (error) { this.transferMessage = error instanceof Error ? error.message : String(error); await this.refresh(); }
-    finally { this.busy = false; this.render(); }
+      options.signal.throwIfAborted();
+    } catch (error) {
+      if (this.importAbort?.signal.aborted && this.activeImportId) {
+        await this.controller.removeImportSession(this.activeImportId);
+        this.activeImportId = null;
+        this.releaseImportPreviews();
+      }
+      this.transferMessage = this.importAbort?.signal.aborted ? "导入已取消。" : error instanceof Error ? error.message : String(error); this.importStep = "select"; await this.refresh(); }
+    finally { this.endImportOperation(); }
   }
 
   private advanceImport(): void {
@@ -393,23 +456,22 @@ export class LauncherView {
     const session = this.importSessions.find((item) => item.id === this.activeImportId);
     if (!session || this.busy) return;
     this.importActivate = activate;
-    this.busy = true;
-    this.importStep = "progress";
     this.importError = "";
-    this.importProgress = { value: 0, max: 1, label: "正在安装所选资源……" };
-    this.render();
+    this.beginImportOperation("正在安装所选资源……");
     try {
       const packages = session.candidates.filter((item) => item.kind === "package" && this.selectedImportIds.has(item.id) && !this.importedPackageIds.has(item.id));
       if (packages.length) {
         await this.controller.installStagedPackages(session.id, packages.map((item) => item.id), (progress) => {
-          this.importProgress = { value: progress.completedBytes, max: Math.max(1, progress.totalBytes), label: `正在写入 ${progress.packageId} · ${formatBytes(progress.completedBytes)} / ${formatBytes(progress.totalBytes)}` };
-          const bar = this.root.querySelector<HTMLProgressElement>(".import-review-dialog progress");
-          if (bar) { bar.max = this.importProgress.max; bar.value = this.importProgress.value; }
-          const label = this.root.querySelector<HTMLElement>(".import-review-body p");
-          if (label) label.textContent = this.importProgress.label;
-        });
+          this.updateImportProgress({ phase: "copying", path: progress.path, completedBytes: progress.completedBytes, totalBytes: progress.totalBytes });
+        }, { signal: this.importAbort!.signal, onIoProgress: this.updateImportProgress, onCommit: () => {
+          this.importCommitting = true;
+          this.importProgress.label = "正在提交内容……";
+          this.render();
+        } });
         packages.forEach((item) => this.importedPackageIds.add(item.id));
       }
+      this.importAbort?.signal.throwIfAborted();
+      this.importCommitting = true;
       const selectedPlaylists = session.candidates.filter((item) => item.kind === "playlist" && this.selectedImportIds.has(item.id));
       if (selectedPlaylists.length && !this.savedImportPlaylists.length) {
         this.importProgress.label = "正在保存播放集……"; this.render();
@@ -433,11 +495,19 @@ export class LauncherView {
     } catch (error) {
       this.importError = `导入未完成：${error instanceof Error ? error.message : String(error)}。已完成部分已保留，可重试。`;
       this.importStep = "error";
-    } finally { this.busy = false; this.render(); }
+    } finally { this.endImportOperation(); }
   }
 
   private async cancelImport(): Promise<void> {
-    if (this.busy || !this.activeImportId) return;
+    if (this.busy) {
+      if (!this.importCommitting) {
+        this.importAbort?.abort(new DOMException("操作已取消。", "AbortError"));
+        const label = this.root.querySelector<HTMLElement>(".import-review-body p");
+        if (label) label.textContent = "正在停止并清理……";
+      }
+      return;
+    }
+    if (!this.activeImportId) return;
     const id = this.activeImportId;
     await this.controller.removeImportSession(id).catch((error) => { this.transferMessage = error instanceof Error ? error.message : String(error); });
     this.releaseImportPreviews();
