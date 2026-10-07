@@ -196,8 +196,10 @@ export class FileContentRepository implements ContentRepository {
       if (digest.bytes !== file.bytes) throw new ContentPackageIntegrityError(`文件大小不符：${packageId}#${file.path}`);
       if (digest.sha256 !== file.sha256) throw new ContentPackageIntegrityError(`文件摘要不符：${packageId}#${file.path}`);
       completedBytes += digest.bytes;
-      reported = Math.max(reported, completedBytes);
-      onProgress?.({ packageId, path: file.path, completedBytes: reported, totalBytes });
+      if (completedBytes > reported) {
+        reported = completedBytes;
+        onProgress?.({ packageId, path: file.path, completedBytes: reported, totalBytes });
+      }
     }
   }
 
