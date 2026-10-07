@@ -16,18 +16,35 @@ async function slice(blob: Blob, start: number, end: number): Promise<Uint8Array
   return new Uint8Array(await blob.slice(start, end).arrayBuffer());
 }
 
-// Read only the ZIP central directory, then inflate one requested entry. ZIP64 is
-// outside the 256 MiB input contract. Payloads never accumulate in a bundle map.
+function safe64(view: DataView, offset: number): number {
+  if (offset + 8 > view.byteLength) throw new Error("ZIP64 数据不完整。");
+  const value = view.getBigUint64(offset, true);
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("ZIP64 数值超过限额。");
+  return Number(value);
+}
+
+// Read only the bounded central directory, including ZIP64 archives that still
+// fit the existing input/entry limits, then inflate one requested entry.
 export async function zipIndex(blob: Blob): Promise<readonly ZipEntry[]> {
   const tail = await slice(blob, Math.max(0, blob.size - 65557), blob.size);
   const view = new DataView(tail.buffer);
   let end = tail.length - 22;
   while (end >= 0 && (view.getUint32(end, true) !== 0x06054b50 || end + 22 + view.getUint16(end + 20, true) !== tail.length)) end--;
   if (end < 0) throw new Error("ZIP 缺少中央目录。");
-  const count = view.getUint16(end + 10, true);
-  const size = view.getUint32(end + 12, true);
-  const start = view.getUint32(end + 16, true);
-  if (view.getUint16(end + 4, true) || view.getUint16(end + 6, true) || count !== view.getUint16(end + 8, true)
+  let count = view.getUint16(end + 10, true);
+  let size = view.getUint32(end + 12, true);
+  let start = view.getUint32(end + 16, true);
+  if (count === 0xffff || size === 0xffffffff || start === 0xffffffff) {
+    const locator = end - 20;
+    if (locator < 0 || view.getUint32(locator, true) !== 0x07064b50 || view.getUint32(locator + 4, true) || view.getUint32(locator + 16, true) !== 1) throw new Error("ZIP64 定位记录不安全。");
+    const position = safe64(view, locator + 8);
+    const record = new DataView((await slice(blob, position, position + 56)).buffer);
+    if (record.byteLength !== 56 || record.getUint32(0, true) !== 0x06064b50 || safe64(record, 4) < 44 || record.getUint32(16, true) || record.getUint32(20, true)) throw new Error("ZIP64 中央目录不安全。");
+    count = safe64(record, 32); size = safe64(record, 40); start = safe64(record, 48);
+    if (count !== safe64(record, 24)) throw new Error("不支持分卷 ZIP。");
+  }
+  if (view.getUint16(end + 4, true) || view.getUint16(end + 6, true) || (count !== view.getUint16(end + 8, true)
+    && view.getUint16(end + 8, true) !== 0xffff)
     || count > 1000 || start + size > blob.size || size > 4 * 1024 * 1024) throw new Error("ZIP 中央目录不安全或超过限额。");
   const bytes = await slice(blob, start, start + size);
   const directory = new DataView(bytes.buffer);
@@ -45,8 +62,27 @@ export async function zipIndex(blob: Blob): Promise<readonly ZipEntry[]> {
     const path = flags & 0x800 ? new TextDecoder().decode(name) : Array.from(name, n => String.fromCharCode(n)).join("");
     if (!path.endsWith("/")) {
       if ((flags & 1) || (method !== 0 && method !== 8)) throw new Error("不支持加密或此压缩方式的 ZIP。");
-      entries.push({ path, bytes: directory.getUint32(cursor + 24, true), compressedBytes: directory.getUint32(cursor + 20, true),
-        offset: directory.getUint32(cursor + 42, true), method, crc: directory.getUint32(cursor + 16, true) });
+      let expanded = directory.getUint32(cursor + 24, true), compressed = directory.getUint32(cursor + 20, true), offset = directory.getUint32(cursor + 42, true);
+      if (expanded === 0xffffffff || compressed === 0xffffffff || offset === 0xffffffff) {
+        let extra = cursor + 46 + nameLength;
+        const extraEnd = extra + directory.getUint16(cursor + 30, true);
+        let found = false;
+        while (extra + 4 <= extraEnd) {
+          const tag = directory.getUint16(extra, true), length = directory.getUint16(extra + 2, true);
+          if (extra + 4 + length > extraEnd) throw new Error("ZIP 扩展字段损坏。");
+          if (tag === 1) {
+            const values = new DataView(bytes.buffer, extra + 4, length); let valueOffset = 0;
+            if (expanded === 0xffffffff) { expanded = safe64(values, valueOffset); valueOffset += 8; }
+            if (compressed === 0xffffffff) { compressed = safe64(values, valueOffset); valueOffset += 8; }
+            if (offset === 0xffffffff) offset = safe64(values, valueOffset);
+            found = true; break;
+          }
+          extra += 4 + length;
+        }
+        if (!found) throw new Error("ZIP64 条目缺少扩展字段。");
+      }
+      if (directory.getUint16(cursor + 34, true)) throw new Error("不支持分卷 ZIP。");
+      entries.push({ path, bytes: expanded, compressedBytes: compressed, offset, method, crc: directory.getUint32(cursor + 16, true) });
     }
     cursor = next;
   }

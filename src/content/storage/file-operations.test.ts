@@ -7,6 +7,36 @@ import { copyFile, inspectFiles } from "./file-operations";
 import { encodeText, sha256 } from "./encoding";
 
 describe("host file operations", () => {
+  it("keeps bounded ZIP64 archives compatible and rejects unsafe 64-bit sizes", async () => {
+    const fs = new MemoryContentHostProvider().fileSystem;
+    const payload = encodeText("neutral ZIP64 fixture");
+    const normal = zipSync({ "payload": payload }, { level: 0 });
+    const oldView = new DataView(normal.buffer);
+    const start = oldView.getUint32(normal.length - 6, true);
+    const oldCentral = normal.slice(start, normal.length - 22);
+    const central = new Uint8Array(oldCentral.length + 28); central.set(oldCentral);
+    const directory = new DataView(central.buffer);
+    directory.setUint32(20, 0xffffffff, true); directory.setUint32(24, 0xffffffff, true);
+    directory.setUint16(30, 28, true); directory.setUint32(42, 0xffffffff, true);
+    const extra = oldCentral.length;
+    directory.setUint16(extra, 1, true); directory.setUint16(extra + 2, 24, true);
+    directory.setBigUint64(extra + 4, BigInt(payload.length), true);
+    directory.setBigUint64(extra + 12, BigInt(payload.length), true); directory.setBigUint64(extra + 20, 0n, true);
+    const trailer = new Uint8Array(98), view = new DataView(trailer.buffer);
+    view.setUint32(0, 0x06064b50, true); view.setBigUint64(4, 44n, true);
+    view.setUint16(12, 45, true); view.setUint16(14, 45, true);
+    view.setBigUint64(24, 1n, true); view.setBigUint64(32, 1n, true);
+    view.setBigUint64(40, BigInt(central.length), true); view.setBigUint64(48, BigInt(start), true);
+    view.setUint32(56, 0x07064b50, true); view.setBigUint64(64, BigInt(start + central.length), true); view.setUint32(72, 1, true);
+    view.setUint32(76, 0x06054b50, true); view.setUint16(84, 0xffff, true); view.setUint16(86, 0xffff, true);
+    view.setUint32(88, 0xffffffff, true); view.setUint32(92, 0xffffffff, true);
+    const blob = () => new Blob([normal.slice(0, start), central, trailer]);
+    const archive = await openBrowserArchive(fs, { kind: "blob", blob: blob() });
+    expect(await archive.extract("payload", "zip64")).toEqual({ bytes: payload.length, sha256: await sha256(payload) });
+    expect(await fs.read("zip64")).toEqual(payload);
+    view.setBigUint64(40, 1n << 60n, true);
+    await expect(openBrowserArchive(fs, { kind: "blob", blob: blob() })).rejects.toThrow(/限额/);
+  });
   it("keeps byte and stored sources equivalent and observes cancellation", async () => {
     const fs = new MemoryContentHostProvider().fileSystem;
     const bytes = encodeText("shared contents");
