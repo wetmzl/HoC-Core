@@ -178,7 +178,7 @@ export class FileContentRepository implements ContentRepository {
     const totalBytes = manifest.files.reduce((total, file) => total + file.bytes, 0);
     let completedBytes = 0;
     let offset = 0, reported = 0;
-    const offsets = new Map(manifest.files.map(file => {
+    const offsets = new Map<string, { path: string; offset: number }>(manifest.files.map(file => {
       const value = { path: file.path, offset };
       offset += file.bytes;
       return [`${root}/${file.path}`, value] as const;
