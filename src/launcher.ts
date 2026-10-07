@@ -63,7 +63,7 @@ export class LauncherView {
   private activeImportId: string | null = null;
   private importStep: "select" | "playlist" | "progress" | "error" = "select";
   private readonly selectedImportIds = new Set<string>();
-  private readonly importPreviews = new Map<string, { url: string; description: string; isPlugin: boolean }>();
+  private readonly importPreviews = new Map<string, { url: string; description: string; isPlugin: boolean; release?: () => void }>();
   private importError = "";
   private importAbort?: AbortController;
   private importCommitting = false;
@@ -117,6 +117,9 @@ export class LauncherView {
   }
 
   reportProgress(progress: { readonly phase: "seeding" | "verifying"; readonly packageId: string; readonly completedBytes: number; readonly totalBytes: number }): void {
+    const now = Date.now();
+    if (now - this.importLastRender < 100) return;
+    this.importLastRender = now;
     const status = this.root.querySelector<HTMLElement>("[data-launcher-status]");
     const bar = this.root.querySelector<HTMLProgressElement>("[data-launcher-progress]");
     if (status) status.textContent = `${progress.phase === "seeding" ? "正在写入" : "正在校验"} ${progress.packageId} · ${formatBytes(progress.completedBytes)} / ${formatBytes(progress.totalBytes)}`;
@@ -326,7 +329,7 @@ export class LauncherView {
   }
 
   private releaseImportPreviews(): void {
-    for (const preview of this.importPreviews.values()) if (preview.url.startsWith("blob:")) URL.revokeObjectURL(preview.url);
+    for (const preview of this.importPreviews.values()) preview.release?.();
     this.importPreviews.clear();
   }
 
@@ -422,7 +425,9 @@ export class LauncherView {
         try {
           const preview = await this.controller.previewImportCandidate(session.id, candidate.id);
           const bytes = preview.cover;
-          this.importPreviews.set(candidate.id, { url: bytes ? URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: preview.mediaType })) : PACKAGE_COVER_FALLBACK,
+          const url = preview.asset?.url ?? (bytes ? URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: preview.mediaType })) : PACKAGE_COVER_FALLBACK);
+          this.importPreviews.set(candidate.id, { url,
+            release: preview.asset ? () => preview.asset?.release?.() : bytes ? () => URL.revokeObjectURL(url) : undefined,
             description: preview.manifest.metadata.description, isPlugin: preview.manifest.resources.some((item) => item.type === "plugin.module") });
         } catch { /* Preview is optional. */ }
       }

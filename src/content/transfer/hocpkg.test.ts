@@ -88,6 +88,23 @@ describe("hocpkg transfer", () => {
     expect((await transfer.stage(file(content.bytes, "retry.hocpkg"))).candidates[0]?.error).toBeUndefined();
   });
 
+  it("resolves preview media through the host without reading cover bytes", async () => {
+    const { host, transfer } = setup();
+    const content = await makePackage("preview", "1.0.0");
+    const cover = readFileSync(new URL("../../../public/assets/package-cover-fallback.png", import.meta.url));
+    const manifest = { ...content.manifest, metadata: { ...content.manifest.metadata, coverImage: "cover.png" }, files: [...content.manifest.files, { path: "cover.png", bytes: cover.length, sha256: await sha256(cover), mediaType: "image/png" }] };
+    const session = await transfer.stage(file(zipSync({ ...unzipSync(content.bytes), "hocpkg-info.json": encodeText(JSON.stringify(manifest)), "cover.png": cover }), "preview.hocpkg"));
+    const read = vi.spyOn(host.fileSystem, "read");
+    const release = vi.fn();
+    const resolve = vi.fn(async () => ({ url: "host-media://cover", release }));
+    const preview = await transfer.preview(session.id, "0000", { resolve });
+    expect(preview.asset?.url).toBe("host-media://cover");
+    expect(preview.cover).toBeUndefined();
+    expect(read.mock.calls.some(([path]) => path.endsWith("cover.png"))).toBe(false);
+    expect(resolve).toHaveBeenCalledWith(expect.stringContaining("/cover.png"), "image/png");
+    preview.asset?.release?.();
+    expect(release).toHaveBeenCalledOnce();
+  });
   it("reads only preview metadata without reading unrelated payloads", async () => {
     const { host, transfer } = setup();
     const content = await makePackage("preview", "1.0.0");

@@ -177,13 +177,27 @@ export class FileContentRepository implements ContentRepository {
     const root = revisionRoot(packageId, currentRevision);
     const totalBytes = manifest.files.reduce((total, file) => total + file.bytes, 0);
     let completedBytes = 0;
-    const digests = await inspectFiles(this.host.fileSystem, manifest.files.map(file => `${root}/${file.path}`));
+    let offset = 0, reported = 0;
+    const offsets = new Map(manifest.files.map(file => {
+      const value = { path: file.path, offset };
+      offset += file.bytes;
+      return [`${root}/${file.path}`, value] as const;
+    }));
+    const digests = await inspectFiles(this.host.fileSystem, manifest.files.map(file => `${root}/${file.path}`), onProgress ? {
+      onProgress: progress => {
+        const file = offsets.get(progress.path);
+        if (!file) return;
+        reported = Math.max(reported, Math.min(totalBytes, file.offset + progress.completedBytes));
+        onProgress({ packageId, path: file.path, completedBytes: reported, totalBytes });
+      }
+    } : undefined);
     for (const [index, file] of manifest.files.entries()) {
       const digest = digests[index]!;
       if (digest.bytes !== file.bytes) throw new ContentPackageIntegrityError(`文件大小不符：${packageId}#${file.path}`);
       if (digest.sha256 !== file.sha256) throw new ContentPackageIntegrityError(`文件摘要不符：${packageId}#${file.path}`);
       completedBytes += digest.bytes;
-      onProgress?.({ packageId, path: file.path, completedBytes, totalBytes });
+      reported = Math.max(reported, completedBytes);
+      onProgress?.({ packageId, path: file.path, completedBytes: reported, totalBytes });
     }
   }
 

@@ -15,7 +15,7 @@ import {
 } from "./content/packages";
 import { createDefaultContentHostProviders } from "./content/storage/host-factory";
 import { FileContentRepository } from "./content/storage/repository";
-import { CONTENT_PERSISTENCE_REFUSED_WARNING, resolveContentHost, type ContentHostProvider, type ContentInstallProgress, type ContentInstallOptions, type ContentImportFile, type ContentOperationOptions, type ContentFileSystem } from "./content/storage/contracts";
+import { CONTENT_PERSISTENCE_REFUSED_WARNING, resolveContentHost, type ContentHostProvider, type ContentInstallProgress, type ContentInstallOptions, type ContentImportFile, type ContentOperationOptions, type ContentFileSystem, type ContentAssetResolver } from "./content/storage/contracts";
 import { loadPluginModules, type LoadedPluginModules } from "./content/packages/plugin-modules";
 import { migrateBuiltinPackageAuthors } from "./content/storage/builtin-author-migration";
 import { CORE_PACKAGE_AUTHOR_ID } from "./content/packages/builtin-authors";
@@ -55,6 +55,7 @@ export class ApplicationController {
   private manager?: ContentPackageManager;
   private transfer?: HocpkgTransfer;
   private fileSystem?: ContentFileSystem;
+  private assetResolver?: ContentAssetResolver;
   private playlists?: PlaylistStore;
   private contentInitialized = false;
   private runtime?: GameRuntimeHandle;
@@ -110,6 +111,7 @@ export class ApplicationController {
     this.repository = repository;
     this.manager = new ContentPackageManager(repository, this.embedded);
     this.fileSystem = host.fileSystem;
+    this.assetResolver = host.assetResolver;
     await host.fileSystem.remove("content/v1/import-inputs");
     this.transfer = new HocpkgTransfer(host.fileSystem, repository);
     this.playlists = new PlaylistStore(host.fileSystem, await this.installedPluginOrder());
@@ -226,7 +228,7 @@ export class ApplicationController {
 
   async previewImportCandidate(sessionId: string, candidateId: string) {
     this.beginIdleOperation();
-    try { await this.ensureInitialized(); if (!this.transfer) throw new Error("只读模式不能预览内容包。"); return await this.transfer.preview(sessionId, candidateId); }
+    try { await this.ensureInitialized(); if (!this.transfer) throw new Error("只读模式不能预览内容包。"); return await this.transfer.preview(sessionId, candidateId, this.assetResolver); }
     finally { this.idleOperationRunning = false; }
   }
 

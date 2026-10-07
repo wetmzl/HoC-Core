@@ -2,7 +2,7 @@ import { openBrowserArchive } from "../storage/browser-io";
 import { checkCancelled } from "../storage/file-operations";
 import { unzip, zip, type Unzipped, type Zippable } from "fflate";
 import { HocpkgManifestSchema, getHocpkgPackageId, type HocpkgManifest } from "../packages";
-import type { ContentArchive, ContentFileEntry, ContentFileSource, ContentFileSystem, ContentImportFile, ContentOperationOptions, ContentRepository } from "../storage/contracts";
+import type { ContentArchive, ContentAssetResolver, ResolvedContentAsset, ContentFileEntry, ContentFileSource, ContentFileSystem, ContentImportFile, ContentOperationOptions, ContentRepository } from "../storage/contracts";
 import { decodeText, encodeText } from "../storage/encoding";
 import { getContentRevision } from "../storage/repository";
 import { decodePlaylistArchiveFiles, MAX_PLAYLIST_FILE } from "../playlists/transfer";
@@ -365,7 +365,7 @@ export class HocpkgTransfer {
   }
 
 
-  async preview(sessionId: string, candidateId: string): Promise<{ manifest: HocpkgManifest; cover?: Uint8Array; mediaType?: string }> {
+  async preview(sessionId: string, candidateId: string, resolver?: ContentAssetResolver): Promise<{ manifest: HocpkgManifest; cover?: Uint8Array; asset?: ResolvedContentAsset; mediaType?: string }> {
     const source = await this.source(sessionId, candidateId);
     const root = this.filesRoot(sessionId, candidateId);
     let coverPath = source.manifest.metadata.coverImage;
@@ -376,7 +376,15 @@ export class HocpkgTransfer {
       }
     }
     const file = source.manifest.files.find((entry) => entry.path === coverPath && entry.mediaType.startsWith("image/"));
-    return { manifest: source.manifest, cover: file ? (await this.fs.read(`${root}/${file.path}`)) ?? undefined : undefined, mediaType: file?.mediaType };
+    let asset: ResolvedContentAsset | undefined;
+    let cover: Uint8Array | undefined;
+    try {
+      if (file) {
+        if (resolver) asset = await resolver.resolve(`${root}/${file.path}`, file.mediaType);
+        else cover = (await this.fs.read(`${root}/${file.path}`)) ?? undefined;
+      }
+    } catch { /* An optional cover must not change package validity. */ }
+    return { manifest: source.manifest, cover, asset, mediaType: file?.mediaType };
   }
 
   async installSelected(sessionId: string, candidateIds: readonly string[], onProgress?: (progress: import("../storage/contracts").ContentInstallProgress) => void, options: import("../storage/contracts").ContentInstallOptions = {}): Promise<readonly ImportOutcome[]> {
