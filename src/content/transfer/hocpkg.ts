@@ -1,7 +1,9 @@
+import { openBrowserArchive } from "../storage/browser-io";
+import { checkCancelled } from "../storage/file-operations";
 import { unzip, zip, type Unzipped, type Zippable } from "fflate";
 import { HocpkgManifestSchema, getHocpkgPackageId, type HocpkgManifest } from "../packages";
-import type { ContentFileSystem, ContentRepository } from "../storage/contracts";
-import { decodeText, encodeText, sha256 } from "../storage/encoding";
+import type { ContentArchive, ContentAssetResolver, ResolvedContentAsset, ContentFileEntry, ContentFileSource, ContentFileSystem, ContentImportFile, ContentOperationOptions, ContentRepository } from "../storage/contracts";
+import { decodeText, encodeText } from "../storage/encoding";
 import { getContentRevision } from "../storage/repository";
 import { decodePlaylistArchiveFiles, MAX_PLAYLIST_FILE } from "../playlists/transfer";
 import type { PlaylistDocument } from "../playlists/store";
@@ -66,10 +68,6 @@ function displayBundlePath(path: string): string {
 
 function isPng(bytes: Uint8Array): boolean {
   return PNG_SIGNATURE.every((byte, index) => bytes[index] === byte);
-}
-
-function isZip(bytes: Uint8Array): boolean {
-  return bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 3 && bytes[3] === 4;
 }
 
 function crc32(bytes: Uint8Array): number {
@@ -150,72 +148,6 @@ export function unzipChecked(bytes: Uint8Array, limits: { maxEntries?: number; m
   });
 }
 
-function hasRootManifest(bytes: Uint8Array): Promise<boolean> {
-  return new Promise((resolve, reject) => {
-    let found = false;
-    let count = 0;
-    unzip(bytes, { filter: (entry) => {
-      if (++count > MAX_ENTRIES) return false;
-      if (entry.name === "hocpkg-info.json") found = true;
-      return false;
-    } }, (error) => error ? reject(error) : count > MAX_ENTRIES
-      ? reject(new Error("ZIP 条目数量超过限制。")) : resolve(found));
-  });
-}
-
-interface BundleScan {
-  readonly files: Unzipped;
-  readonly invalid: readonly { path: string; error: Error }[];
-}
-
-async function scanBundle(bytes: Uint8Array): Promise<BundleScan> {
-  const { paths, invalid } = await new Promise<{ paths: string[]; invalid: { path: string; error: Error }[] }>((resolve, reject) => {
-    let count = 0;
-    let expanded = 0;
-    let limitError: Error | undefined;
-    const names = new Set<string>();
-    const duplicates = new Set<string>();
-    const paths: string[] = [];
-    const invalid: { path: string; error: Error }[] = [];
-    unzip(bytes, { filter: (entry) => {
-      if (entry.name.endsWith("/")) return false;
-      if (++count > MAX_ENTRIES) { limitError = new Error("ZIP 条目数量超过限制。"); return false; }
-      if (ignoredBundlePath(entry.name) || !nestedCarrier(entry.name)) return false;
-      if (!safeBundlePath(entry.name) || names.has(entry.name)) {
-        invalid.push({ path: entry.name, error: new Error(`ZIP 条目不安全或重复：${entry.name}`) });
-        duplicates.add(entry.name);
-        return false;
-      }
-      names.add(entry.name);
-      if (entry.originalSize > MAX_ENTRY_BYTES || expanded + entry.originalSize > MAX_ARCHIVE_BYTES
-        || (entry.size > 0 && entry.originalSize / entry.size > 200)) {
-        invalid.push({ path: entry.name, error: new Error(`ZIP 条目超过限额：${entry.name}`) });
-        return false;
-      }
-      expanded += entry.originalSize;
-      paths.push(entry.name);
-      return false;
-    } }, (error) => {
-      if (limitError) { reject(limitError); return; }
-      if (error) { reject(error); return; }
-      resolve({ paths: paths.filter((path) => !duplicates.has(path)), invalid });
-    });
-  });
-  const files: Unzipped = {};
-  for (const path of paths) {
-    try {
-      const extracted = await new Promise<Unzipped>((resolve, reject) => {
-        unzip(bytes, { filter: (entry) => entry.name === path }, (error, result) => error ? reject(error) : resolve(result));
-      });
-      if (!extracted[path]) throw new Error("ZIP 条目未能解压。");
-      files[path] = extracted[path];
-    } catch (caught) {
-      invalid.push({ path, error: caught instanceof Error ? caught : new Error(String(caught)) });
-    }
-  }
-  return { files, invalid };
-}
-
 export function zipFiles(files: Zippable): Promise<Uint8Array> {
   return new Promise((resolve, reject) => zip(files, { level: 6 }, (error, bytes) => error ? reject(error) : resolve(bytes)));
 }
@@ -243,93 +175,135 @@ export class HocpkgTransfer {
     await this.fs.remove(`${IMPORT_ROOT}/${id}`);
   }
 
-  async stage(file: File): Promise<ImportSession> {
+  async stage(file: File | ContentImportFile, options: ContentOperationOptions = {}): Promise<ImportSession> {
     if (file.size > MAX_INPUT_BYTES) throw new Error("导入文件超过 256 MiB 限额。");
     const id = crypto.randomUUID();
     const candidates: StagedCandidate[] = [];
-    const session = (): ImportSession => ({ id, createdAt, filename: file.name, candidates: [...candidates] });
     const createdAt = new Date().toISOString();
+    const session = (): ImportSession => ({ id, createdAt, filename: file.name, candidates: [...candidates] });
     let expandedBytes = 0;
     let expandedEntries = 0;
     const persist = () => this.fs.write(this.sessionPath(id), encodeText(JSON.stringify(session())));
-    await persist();
-    const addCandidate = async (source: string, files?: Unzipped, error?: unknown, inputBytes?: number) => {
+    const account = (entries: readonly { bytes: number }[]) => {
+      expandedEntries += entries.length;
+      expandedBytes += entries.reduce((sum, entry) => sum + entry.bytes, 0);
+      if (expandedEntries > MAX_ENTRIES || expandedBytes > MAX_ARCHIVE_BYTES) throw new Error("本次导入的解压总量超过限制。");
+    };
+    const addCandidate = async (source: string, archive?: ContentArchive, error?: unknown, inputBytes?: number) => {
+      checkCancelled(options);
       const candidateId = String(candidates.length).padStart(4, "0");
+      const root = this.filesRoot(id, candidateId);
       let candidate: StagedCandidate = { id: candidateId, source };
       try {
         if (error) throw error;
-        if (!files) throw new Error("压缩包没有文件。");
-        const manifestBytes = files["hocpkg-info.json"];
-        if (!manifestBytes) throw new Error("缺少根目录 hocpkg-info.json。");
+        if (!archive) throw new Error("压缩包没有文件。");
+        const names = new Set<string>();
+        let total = 0;
+        for (const entry of archive.entries) {
+          total += entry.bytes;
+          if (!safeZipPath(entry.path) || names.has(entry.path) || entry.bytes < 0 || entry.bytes > MAX_ENTRY_BYTES
+            || total > MAX_ARCHIVE_BYTES || (entry.compressedBytes > 0 && entry.bytes / entry.compressedBytes > 200)) throw new Error(`ZIP 条目不安全或超过限额：${entry.path}`);
+          names.add(entry.path);
+        }
+        account(archive.entries);
+        if (!names.has("hocpkg-info.json")) throw new Error("缺少根目录 hocpkg-info.json。");
+        await archive.extract("hocpkg-info.json", `${root}/hocpkg-info.json`, options);
+        const manifestBytes = (await this.fs.read(`${root}/hocpkg-info.json`))!;
         const manifest = HocpkgManifestSchema.parse(JSON.parse(decodeText(manifestBytes)));
-        if (manifest.resources.some((resource) => resource.type === "hoc.playlist")) {
+        if (manifest.resources.some(resource => resource.type === "hoc.playlist")) {
           candidate = { ...candidate, kind: "playlist" };
           if (inputBytes !== undefined && inputBytes > MAX_PLAYLIST_FILE) throw new Error("播放集文件超过 2 MiB 限额。");
+          const files: Unzipped = { "hocpkg-info.json": Uint8Array.from(manifestBytes) };
+          for (const entry of archive.entries) {
+            if (entry.path === "hocpkg-info.json") continue;
+            await archive.extract(entry.path, `${root}/${entry.path}`, options);
+            files[entry.path] = Uint8Array.from((await this.fs.read(`${root}/${entry.path}`))!);
+          }
           const document = await decodePlaylistArchiveFiles(files, await this.repository.listPluginOrder());
-          const root = this.filesRoot(id, candidateId);
-          await this.fs.write(`${root}/hocpkg-info.json`, manifestBytes);
-          await this.fs.write(`${root}/playlist.json`, files["playlist.json"]!);
           candidate = { ...candidate, title: document.name };
-          candidates.push(candidate);
-          await persist();
-          return;
+        } else {
+          const declared = new Set(manifest.files.map(entry => entry.path));
+          for (const path of names) if (path !== "hocpkg-info.json" && !declared.has(path)) throw new Error(`未声明文件：${path}`);
+          for (const entry of manifest.files) if (!names.has(entry.path)) throw new Error(`文件缺失或摘要不符：${entry.path}`);
+          if (archive.extractMany) {
+            const digests = await archive.extractMany(manifest.files.map(entry => ({ path: entry.path, destination: `${root}/${entry.path}` })), options);
+            if (digests.length !== manifest.files.length) throw new Error("提取返回的文件数量不符。");
+            for (const [index, entry] of manifest.files.entries()) {
+              const digest = digests[index]!;
+              if (digest.bytes !== entry.bytes || digest.sha256 !== entry.sha256) throw new Error(`文件缺失或摘要不符：${entry.path}`);
+            }
+          } else {
+            for (const entry of manifest.files) {
+              const digest = await archive.extract(entry.path, `${root}/${entry.path}`, options);
+              if (digest.bytes !== entry.bytes || digest.sha256 !== entry.sha256) throw new Error(`文件缺失或摘要不符：${entry.path}`);
+            }
+          }
+          candidate = { ...candidate, kind: "package", packageId: getHocpkgPackageId(manifest.identity), version: manifest.identity.version,
+            digest: await getContentRevision(manifest), title: manifest.metadata.title };
         }
-        const declared = new Set(manifest.files.map((entry) => entry.path));
-        for (const path of Object.keys(files)) if (path !== "hocpkg-info.json" && !declared.has(path)) throw new Error(`未声明文件：${path}`);
-        for (const entry of manifest.files) {
-          const bytes = files[entry.path];
-          if (!bytes || bytes.byteLength !== entry.bytes || await sha256(bytes) !== entry.sha256) throw new Error(`文件缺失或摘要不符：${entry.path}`);
-        }
-        const root = this.filesRoot(id, candidateId);
-        await this.fs.write(`${root}/hocpkg-info.json`, manifestBytes);
-        for (const entry of manifest.files) await this.fs.write(`${root}/${entry.path}`, files[entry.path]!);
-        candidate = { ...candidate, kind: "package", packageId: getHocpkgPackageId(manifest.identity), version: manifest.identity.version,
-          digest: await getContentRevision(manifest), title: manifest.metadata.title };
       } catch (caught) {
         await this.fs.remove(`${IMPORT_ROOT}/${id}/candidates/${candidateId}`).catch(() => undefined);
+        checkCancelled(options);
         candidate = { ...candidate, error: caught instanceof Error ? caught.message : String(caught) };
       }
       candidates.push(candidate);
       await persist();
     };
-    const visit = async (bytes: Uint8Array, source: string, depth: number, carrier: "root" | "hocpkg" | "zip" | "png" = "root"): Promise<void> => {
+    const visit = async (input: ContentFileSource, source: string, depth: number, inputBytes: number, carrier: "root" | "hocpkg" | "zip" | "png" = "root"): Promise<void> => {
+      checkCancelled(options);
       if (depth > MAX_DEPTH) { await addCandidate(source, undefined, new Error("压缩包嵌套层数超过限制。")); return; }
+      let archive: ContentArchive | undefined;
       try {
-        let payload = bytes;
-        if (isPng(bytes)) {
-          try { payload = extractHocpkgFromPng(bytes); }
-          catch (error) {
-            if (carrier === "png" && error instanceof Error && error.message === "PNG 中没有 hocpkg 内容包。") return;
-            throw error;
-          }
-        }
-        if (!isZip(payload)) throw new Error("文件不是 hocpkg、ZIP 或内嵌 hocpkg 的 PNG。");
-        if (await hasRootManifest(payload)) {
-          const files = await unzipChecked(payload);
-          expandedEntries += Object.keys(files).length;
-          expandedBytes += Object.values(files).reduce((total, entry) => total + entry.byteLength, 0);
-          if (expandedEntries > MAX_ENTRIES || expandedBytes > MAX_ARCHIVE_BYTES) throw new Error("本次导入的解压总量超过限制。");
-          await addCandidate(source, files, undefined, bytes.byteLength);
-          return;
-        }
+        archive = this.fs.openArchive ? await this.fs.openArchive(input, options) : await openBrowserArchive(this.fs, input, options);
+        if (archive.entries.some(entry => entry.path === "hocpkg-info.json")) { await addCandidate(source, archive, undefined, inputBytes); return; }
         if (carrier === "hocpkg") throw new Error("缺少根目录 hocpkg-info.json。");
-        const bundle = await scanBundle(payload);
-        expandedEntries += Object.keys(bundle.files).length;
-        expandedBytes += Object.values(bundle.files).reduce((total, entry) => total + entry.byteLength, 0);
-        if (expandedEntries > MAX_ENTRIES || expandedBytes > MAX_ARCHIVE_BYTES) throw new Error("本次导入的解压总量超过限制。");
-        for (const entry of bundle.invalid) await addCandidate(`${source}/${displayBundlePath(entry.path)}`, undefined, entry.error);
-        for (const [path, nested] of Object.entries(bundle.files)) {
-          const kind = path.toLowerCase().endsWith(".hocpkg") ? "hocpkg" : path.toLowerCase().endsWith(".png") ? "png" : "zip";
-          await visit(nested, `${source}/${displayBundlePath(path)}`, depth + 1, kind);
+        const names = new Set<string>();
+        const duplicates = new Set<string>();
+        for (const entry of archive.entries) {
+          if (names.has(entry.path)) duplicates.add(entry.path);
+          names.add(entry.path);
+        }
+        const seen = new Set<string>();
+        for (const entry of archive.entries) {
+          checkCancelled(options);
+          if (ignoredBundlePath(entry.path) || !nestedCarrier(entry.path)) continue;
+          const nestedSource = `${source}/${displayBundlePath(entry.path)}`;
+          if (!safeBundlePath(entry.path) || duplicates.has(entry.path) || entry.bytes < 0 || entry.bytes > MAX_ENTRY_BYTES
+            || (entry.compressedBytes > 0 && entry.bytes / entry.compressedBytes > 200)) {
+            if (!seen.has(entry.path)) await addCandidate(nestedSource, undefined, new Error(`ZIP 条目不安全或超过限额：${entry.path}`));
+            seen.add(entry.path); continue;
+          }
+          account([entry]);
+          const temporary = `${IMPORT_ROOT}/${id}/carriers/${crypto.randomUUID()}`;
+          try {
+            await archive.extract(entry.path, temporary, options);
+            const kind = entry.path.toLowerCase().endsWith(".hocpkg") ? "hocpkg" : entry.path.toLowerCase().endsWith(".png") ? "png" : "zip";
+            await visit({ kind: "stored", path: temporary }, nestedSource, depth + 1, entry.bytes, kind);
+          } catch (error) { checkCancelled(options); await addCandidate(nestedSource, undefined, error); }
+          finally { await this.fs.remove(temporary).catch(() => undefined); }
         }
         if (carrier === "root" && candidates.length === 0) throw new Error("压缩包中没有可导入的 hocpkg。");
-      } catch (error) { await addCandidate(source, undefined, error); }
+      } catch (error) {
+        checkCancelled(options);
+        if (carrier === "png" && error instanceof Error && error.message === "PNG 中没有 hocpkg 内容包。") return;
+        await addCandidate(source, undefined, error);
+      } finally { await archive?.close(); }
     };
-    await visit(new Uint8Array(await file.arrayBuffer()), file.name, 0);
-    return session();
+    try {
+      await persist();
+      const source: ContentFileSource = "source" in file ? file.source : { kind: "blob", blob: file };
+      await visit(source, file.name, 0, file.size);
+      checkCancelled(options);
+      return session();
+    } catch (error) {
+      await this.removeSession(id).catch(() => undefined);
+      throw error;
+    } finally {
+      if ("source" in file && file.source.kind === "stored" && file.source.path.startsWith("content/v1/import-inputs/")) await this.fs.remove(file.source.path).catch(() => undefined);
+    }
   }
 
-  async source(sessionId: string, candidateId: string): Promise<{ manifest: HocpkgManifest; files(): AsyncIterable<{ path: string; bytes: Uint8Array }> }> {
+  async source(sessionId: string, candidateId: string): Promise<{ manifest: HocpkgManifest; files(): AsyncIterable<ContentFileEntry> }> {
     const session = (await this.listSessions()).find((entry) => entry.id === sessionId);
     const candidate = session?.candidates.find((entry) => entry.id === candidateId && !entry.error);
     if (!candidate) throw new Error("暂存候选不存在。");
@@ -337,12 +311,9 @@ export class HocpkgTransfer {
     const manifestBytes = await this.fs.read(`${root}/hocpkg-info.json`);
     if (!manifestBytes) throw new Error("暂存 Manifest 已丢失。");
     const manifest = HocpkgManifestSchema.parse(JSON.parse(decodeText(manifestBytes)));
-    const fs = this.fs;
     return { manifest, async *files() {
       for (const entry of manifest.files) {
-        const bytes = await fs.read(`${root}/${entry.path}`);
-        if (!bytes) throw new Error(`暂存文件已丢失：${entry.path}`);
-        yield { path: entry.path, bytes };
+        yield { path: entry.path, source: { kind: "stored" as const, path: `${root}/${entry.path}` } };
       }
     } };
   }
@@ -394,22 +365,29 @@ export class HocpkgTransfer {
   }
 
 
-  async preview(sessionId: string, candidateId: string): Promise<{ manifest: HocpkgManifest; cover?: Uint8Array; mediaType?: string }> {
+  async preview(sessionId: string, candidateId: string, resolver?: ContentAssetResolver): Promise<{ manifest: HocpkgManifest; cover?: Uint8Array; asset?: ResolvedContentAsset; mediaType?: string }> {
     const source = await this.source(sessionId, candidateId);
-    const files = new Map<string, Uint8Array>();
-    for await (const file of source.files()) files.set(file.path, file.bytes);
+    const root = this.filesRoot(sessionId, candidateId);
     let coverPath = source.manifest.metadata.coverImage;
     if (!coverPath) {
       const descriptor = source.manifest.resources.find((entry) => entry.type === "game.character-match");
       if (descriptor) {
-        try { coverPath = (JSON.parse(decodeText(files.get(descriptor.entry)!)) as { definition?: { assets?: { cover?: string } } }).definition?.assets?.cover; } catch { /* Optional preview. */ }
+        try { coverPath = (JSON.parse(decodeText((await this.fs.read(`${root}/${descriptor.entry}`))!)) as { definition?: { assets?: { cover?: string } } }).definition?.assets?.cover; } catch { /* Optional preview. */ }
       }
     }
     const file = source.manifest.files.find((entry) => entry.path === coverPath && entry.mediaType.startsWith("image/"));
-    return { manifest: source.manifest, cover: file ? files.get(file.path) : undefined, mediaType: file?.mediaType };
+    let asset: ResolvedContentAsset | undefined;
+    let cover: Uint8Array | undefined;
+    try {
+      if (file) {
+        if (resolver) asset = await resolver.resolve(`${root}/${file.path}`, file.mediaType);
+        else cover = (await this.fs.read(`${root}/${file.path}`)) ?? undefined;
+      }
+    } catch { /* An optional cover must not change package validity. */ }
+    return { manifest: source.manifest, cover, asset, mediaType: file?.mediaType };
   }
 
-  async installSelected(sessionId: string, candidateIds: readonly string[], onProgress?: (progress: import("../storage/contracts").ContentInstallProgress) => void): Promise<readonly ImportOutcome[]> {
+  async installSelected(sessionId: string, candidateIds: readonly string[], onProgress?: (progress: import("../storage/contracts").ContentInstallProgress) => void, options: import("../storage/contracts").ContentInstallOptions = {}): Promise<readonly ImportOutcome[]> {
     if (candidateIds.length === 0 || new Set(candidateIds).size !== candidateIds.length) throw new Error("请选择有效且不重复的候选包。");
     const session = (await this.listSessions()).find((entry) => entry.id === sessionId);
     if (!session) throw new Error("导入会话不存在。");
@@ -436,7 +414,7 @@ export class HocpkgTransfer {
       }
       sources.push(source);
     }
-    if (sources.length) await this.repository.installBatch(sources, { allowDowngrade: true, allowSameVersionReplacement: true, newPackagesEnabled: false, onProgress });
+    if (sources.length) await this.repository.installBatch(sources, { allowDowngrade: true, allowSameVersionReplacement: true, newPackagesEnabled: false, ...options, onProgress });
     const retained = session.candidates.filter((candidate) => !candidateIds.includes(candidate.id));
     for (const id of candidateIds) await this.fs.remove(`${IMPORT_ROOT}/${sessionId}/candidates/${id}`).catch(() => undefined);
     if (retained.length) await this.fs.write(this.sessionPath(sessionId), encodeText(JSON.stringify({ ...session, candidates: retained })));

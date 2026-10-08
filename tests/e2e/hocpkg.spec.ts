@@ -118,3 +118,45 @@ test("hocpkg 在 Chromium OPFS 预览、取消、安装与导出", async ({ page
     return names.length;
   })).toBe(1);
 });
+
+test("归档处理中取消后可以重新导入并开始游戏", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto("/");
+  await expect(page.locator("[data-start-game]")).toBeEnabled();
+  await page.locator("[data-open-packages]").click();
+  // A neutral stored entry takes long enough to exercise a live Worker, without
+  // crossing the compression ratio limit or depending on community content.
+  const body = Buffer.from("{}".padEnd(32 * 1024 * 1024, " "));
+  const manifest = {
+    format: "house-of-chances-hocpkg", formatVersion: 1,
+    identity: { authorId: "e2e", packageName: "cancel-test", version: "1.0.0" },
+    metadata: { title: "取消测试", description: "E2E", tags: [], creators: [{ displayName: "E2E", roles: ["design"] }] },
+    resources: [{ id: "data", type: "test.data", apiVersion: 1, entry: "resources/data.json", requires: [] }],
+    files: [{ path: "resources/data.json", bytes: body.length, sha256: createHash("sha256").update(body).digest("hex"), mediaType: "application/json" }], extensions: {}
+  };
+  const bytes = zipSync({ "hocpkg-info.json": Buffer.from(JSON.stringify(manifest)), "resources/data.json": body }, { level: 0 });
+  await page.locator("[data-import-file]").setInputFiles({ name: "cancel.hocpkg", mimeType: "application/zip", buffer: Buffer.from(bytes) });
+  await expect(page.locator("[data-import-dialog] progress")).toBeVisible();
+  await page.locator("[data-import-cancel]").click();
+  await expect(page.locator("[data-import-dialog]")).toHaveCount(0);
+  await expect(page.locator(".package-import-result")).toContainText("导入已取消");
+  await expect(page.locator("[data-start-game]")).toBeEnabled();
+  const smallBody = Buffer.from("retry");
+  const retry = { ...manifest, files: [{ ...manifest.files[0], bytes: smallBody.length, sha256: createHash("sha256").update(smallBody).digest("hex") }] };
+  await page.locator("[data-import-file]").setInputFiles({ name: "retry.hocpkg", mimeType: "application/zip", buffer: Buffer.from(zipSync({ "hocpkg-info.json": Buffer.from(JSON.stringify(retry)), "resources/data.json": smallBody })) });
+  await expect(page.locator("[data-import-dialog]")).toContainText("e2e/cancel-test");
+  await page.locator("[data-import-next]").click();
+  await expect(page.locator("[data-import-dialog]")).toHaveCount(0);
+  await expect(page.locator('.package-card[data-package-id="e2e/cancel-test"]')).toHaveAttribute("data-package-state", "disabled");
+  await page.locator("[data-close-packages]").click();
+  await page.locator("[data-start-game]").click();
+  await expect(page.locator("[data-import-dialog]")).toHaveCount(0);
+  await page.locator("[data-acknowledge-adult-content]").click();
+  await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
+  await page.locator("[data-exit-launcher]").click();
+  await page.reload();
+  await expect(page.locator("[data-start-game]")).toBeEnabled();
+  await page.locator("[data-start-game]").click();
+  await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
+  await expect(page.locator("[data-import-dialog]")).toHaveCount(0);
+});

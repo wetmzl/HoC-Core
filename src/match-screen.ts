@@ -1485,7 +1485,7 @@ function renderMatch(state: MatchState): void {
   }
 }
 function devHud(state: MatchState): string {
-  if (!new URLSearchParams(window.location.search).has("debug")) return "";
+  if (!import.meta.env.DEV || !new URLSearchParams(window.location.search).has("debug")) return "";
   const ai = state.lastAiDecision;
   const text = JSON.stringify({ gameVersion: save.gameVersion, seed: state.seed, round: state.roundIndex, phase: state.round.phase, currentActor: state.round.currentActor, relevantMatchState: state, recentActionsOrEvents: state.history.slice(-8), lastAction, lastDomainEvent, aiDecision: ai }, null, 2);
   const profile = state.aiProfile;

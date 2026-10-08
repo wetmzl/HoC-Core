@@ -18,6 +18,7 @@
     "android:sync": "npm run build:android:web && npm run android:prepare && cap sync android",
     "android:open": "cap open android",
     "android:build": "npm run android:sync && node scripts/android.mjs build",
+    "android:build:debug": "npm run android:sync && node scripts/android.mjs build --debug",
     "android:prepare": "node scripts/ensure-android.mjs"
   },
   "dependencies": {

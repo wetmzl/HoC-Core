@@ -1,3 +1,4 @@
+import { nativeIo } from "./native-io";
 import { Capacitor } from "@capacitor/core";
 import { Directory, Filesystem } from "@capacitor/filesystem";
 import type {
@@ -56,6 +57,13 @@ function base64ToBytes(value: string): Uint8Array {
 
 export class CapacitorContentFileSystem implements ContentFileSystem {
   constructor(private readonly files: CapacitorFilesystemPort = Filesystem) {}
+
+  inspect = nativeIo.inspect;
+  copy = nativeIo.copy;
+  copyMany = nativeIo.copyMany;
+  openArchive = nativeIo.openArchive;
+  pickFile = nativeIo.pickFile;
+  assetSource(url: string) { return url.startsWith("/") ? { kind: "asset" as const, path: url } : undefined; }
 
   async read(path: string): Promise<Uint8Array | null> {
     try {

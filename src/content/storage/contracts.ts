@@ -1,8 +1,40 @@
 import type { HocpkgManifest } from "../packages/schema";
 
-export interface ContentFileEntry {
+export type ContentFileSource = { readonly kind: "stored"; readonly path: string }
+  | { readonly kind: "asset"; readonly path: string }
+  | { readonly kind: "blob"; readonly blob: Blob };
+
+export type ContentFileEntry = { readonly path: string } & (
+  { readonly bytes: Uint8Array; readonly source?: never }
+  | { readonly source: ContentFileSource; readonly bytes?: never }
+);
+
+export interface ContentDigest { readonly bytes: number; readonly sha256: string; }
+export interface ContentOperationProgress {
+  readonly phase: "extracting" | "verifying" | "copying" | "committing";
   readonly path: string;
-  readonly bytes: Uint8Array;
+  readonly completedBytes: number;
+  readonly totalBytes: number;
+}
+export interface ContentOperationOptions {
+  readonly signal?: AbortSignal;
+  readonly onProgress?: (progress: ContentOperationProgress) => void;
+}
+export interface ContentArchiveEntry {
+  readonly path: string;
+  readonly bytes: number;
+  readonly compressedBytes: number;
+}
+export interface ContentArchive {
+  readonly entries: readonly ContentArchiveEntry[];
+  extract(path: string, destination: string, options?: ContentOperationOptions): Promise<ContentDigest>;
+  extractMany?(files: readonly { readonly path: string; readonly destination: string }[], options?: ContentOperationOptions): Promise<readonly ContentDigest[]>;
+  close(): Promise<void>;
+}
+export interface ContentImportFile {
+  readonly name: string;
+  readonly size: number;
+  readonly source: ContentFileSource;
 }
 
 export interface ContentPackageSource {
@@ -16,6 +48,12 @@ export interface ContentFileSystem {
   write(path: string, bytes: Uint8Array): Promise<void>;
   list(prefix: string): Promise<readonly string[]>;
   remove(path: string): Promise<void>;
+  inspect?(paths: readonly string[], options?: ContentOperationOptions): Promise<readonly ContentDigest[]>;
+  copy?(source: ContentFileSource, destination: string, options?: ContentOperationOptions): Promise<ContentDigest>;
+  copyMany?(files: readonly { readonly source: ContentFileSource; readonly destination: string }[], options?: ContentOperationOptions): Promise<readonly ContentDigest[]>;
+  openArchive?(source: ContentFileSource, options?: ContentOperationOptions): Promise<ContentArchive>;
+  assetSource?(url: string): ContentFileSource | undefined;
+  pickFile?(options?: ContentOperationOptions): Promise<ContentImportFile | null>;
 }
 
 export interface ResolvedContentAsset {
@@ -56,6 +94,9 @@ export interface InstalledContentPackage {
 }
 
 export interface ContentInstallOptions {
+  readonly signal?: AbortSignal;
+  readonly onCommit?: () => void;
+  readonly onIoProgress?: (progress: ContentOperationProgress) => void;
   readonly allowDowngrade?: boolean;
   readonly allowSameVersionReplacement?: boolean;
   readonly newPackagesEnabled?: boolean;

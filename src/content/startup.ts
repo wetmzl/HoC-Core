@@ -36,6 +36,7 @@ export async function startContent(options: ContentStartupOptions = {}): Promise
   try {
     const host = await resolveContentHost(options.providers ?? createDefaultContentHostProviders());
     if (!host) throw new Error("当前宿主没有可用的持久化内容目录。");
+    embedded.assetSource = host.fileSystem.assetSource?.bind(host.fileSystem);
     const repository = new FileContentRepository(host);
     await repository.open();
     const index = await embedded.loadIndex();
