@@ -1,0 +1,69 @@
+{
+  "definition": {
+    "id": "switcheroo",
+    "name": "偷梁换柱",
+    "description": "将最后一张手牌与牌库当前顶牌交换。",
+    "usage": "玩家回合可用；交换不消耗行动权，但是也可能导致爆牌。",
+    "triggerNotice": "最后一张手牌已与牌库顶牌交换。",
+    "profileLore": "牌还是那张牌，登记簿上的名字却换了。于是赌场很快交出一份人人满意的结案报告。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "cheater",
+    "skillTags": [
+      "cheater"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "availability": [
+        {
+          "type": "hand-card-count",
+          "target": "owner",
+          "operator": "gt",
+          "value": 0
+        },
+        {
+          "type": "draw-pile-card-exists"
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "swap-top-card",
+        "trigger": "on-ability-played",
+        "conditions": [
+          {
+            "type": "hand-card-count",
+            "target": "owner",
+            "operator": "gt",
+            "value": 0
+          },
+          {
+            "type": "draw-pile-card-exists"
+          }
+        ],
+        "effects": [
+          {
+            "type": "swap-last-hand-card-with-draw-pile-top",
+            "target": "owner"
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "active-skill-card",
+      "rule-control",
+      "hand-mutation"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

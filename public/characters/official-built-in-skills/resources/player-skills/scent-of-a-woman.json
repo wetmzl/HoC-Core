@@ -1,0 +1,50 @@
+{
+  "definition": {
+    "id": "scent-of-a-woman",
+    "name": "闻香识女人",
+    "description": "窥见对手当前所有手牌的花色；每张技能牌可发动2次。",
+    "usage": "玩家回合可用；揭示对手当前所有手牌的花色；次数耗尽后才弃掉技能牌。",
+    "triggerNotice": "揭示对手当前所有手牌的花色。",
+    "profileLore": "她们一个接一个地来，又一个接一个地没能离开。多年以后，香水、火药与血腥味混在一起，成了这里最稳定的气味。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "intelligence-officer",
+    "skillTags": [
+      "intelligence-officer"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "uses": 2
+    },
+    "rules": [
+      {
+        "id": "reveal-rival-suit",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "reveal-hand-card-suit",
+            "target": "rival",
+            "card": "all-current-cards",
+            "viewer": "owner"
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "active-skill-card",
+      "information",
+      "opponent-reading"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

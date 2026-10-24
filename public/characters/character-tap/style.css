@@ -1,0 +1,3 @@
+/* Character activation is provided by the host's generic interaction surface. */
+.character-portrait[role="button"] { cursor: pointer; }
+.character-portrait[role="button"]:focus-visible { outline: 2px solid var(--gold, #d4b86a); outline-offset: 2px; }

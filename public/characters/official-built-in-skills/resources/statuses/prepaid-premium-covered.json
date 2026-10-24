@@ -1,0 +1,27 @@
+{
+  "id": "prepaid-premium-covered",
+  "defaultDuration": "round",
+  "rules": [
+    {
+      "id": "cancel-covered-trigger",
+      "trigger": "before-trigger-pull",
+      "conditions": [
+        {
+          "type": "round-penalty-target-is",
+          "target": "owner"
+        }
+      ],
+      "effects": [
+        {
+          "type": "cancel-pending-trigger",
+          "target": "owner"
+        },
+        {
+          "type": "remove-status",
+          "target": "owner",
+          "statusDefinitionId": "prepaid-premium-covered"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "official-built-in-talents",
+    "version": "1.1.0"
+  },
+  "metadata": {
+    "title": "官方内嵌天赋包",
+    "license": "CC0",
+    "description": "随游戏安装并由策展人成长进度解锁的天赋。",
+    "coverImage": "cover.png",
+    "tags": [
+      "built-in",
+      "talents"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "talent:early-preparation",
+      "type": "game.talent",
+      "apiVersion": 2,
+      "entry": "resources/talents/early-preparation.json",
+      "requires": []
+    },
+    {
+      "id": "talent:resilient-spirit",
+      "type": "game.talent",
+      "apiVersion": 2,
+      "entry": "resources/talents/resilient-spirit.json",
+      "requires": []
+    },
+    {
+      "id": "talent:second-chance",
+      "type": "game.talent",
+      "apiVersion": 2,
+      "entry": "resources/talents/second-chance.json",
+      "requires": []
+    },
+    {
+      "id": "talent:well-prepared",
+      "type": "game.talent",
+      "apiVersion": 2,
+      "entry": "resources/talents/well-prepared.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "cover.png",
+      "bytes": 383714,
+      "sha256": "25db73c4dff1e52de1add46eaeb1bee56352a1a0a9e0ba17ee843771407026a8",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/talents/early-preparation.json",
+      "bytes": 928,
+      "sha256": "1b61ee3defed80761bc3e9c82ec53bb1c577d89ddfd4f19ff856120463b5374b",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/talents/resilient-spirit.json",
+      "bytes": 1065,
+      "sha256": "6aee9294800e23d315f93f94789701f884dbc2bc708df196e0f1eec81fc84b96",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/talents/second-chance.json",
+      "bytes": 892,
+      "sha256": "57f7745b5acd45c2e1a76faa409826c58b642833bf5c4285e1523917d342fd43",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/talents/well-prepared.json",
+      "bytes": 924,
+      "sha256": "4d2af2a79915a310305ebfed28b2877abfa750392d1e278d9df3d61bb8e3dde8",
+      "mediaType": "application/json"
+    }
+  ],
+  "extensions": {}
+}

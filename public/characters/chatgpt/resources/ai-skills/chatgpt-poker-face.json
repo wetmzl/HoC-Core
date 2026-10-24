@@ -1,0 +1,83 @@
+{
+  "id": "chatgpt-poker-face",
+  "name": "扑克脸的执行者",
+  "description": "玩家要牌后，下一次行动必定要牌；玩家停牌后恢复正常决策。",
+  "profileLore": "能干你就多干点！",
+  "triggerNotice": "跟随玩家要牌。",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "gambler",
+  "tags": [
+    "ai-skill",
+    "blackjack",
+    "action-override"
+  ],
+  "activation": {
+    "type": "automatic"
+  },
+  "rules": [
+    {
+      "id": "mark-rival-hit",
+      "trigger": "after-card-draw",
+      "notify": false,
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "rival"
+        }
+      ],
+      "effects": [
+        {
+          "type": "set-status-stacks",
+          "target": "owner",
+          "statusDefinitionId": "chatgpt-follow-hit",
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "id": "follow-hit",
+      "trigger": "before-ai-decision",
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "owner"
+        },
+        {
+          "type": "status-present",
+          "target": "owner",
+          "statusDefinitionId": "chatgpt-follow-hit"
+        }
+      ],
+      "effects": [
+        {
+          "type": "set-pending-ai-action",
+          "target": "owner",
+          "action": "hit"
+        }
+      ]
+    },
+    {
+      "id": "clear-on-rival-stand",
+      "trigger": "after-stand",
+      "notify": false,
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "rival"
+        },
+        {
+          "type": "status-present",
+          "target": "owner",
+          "statusDefinitionId": "chatgpt-follow-hit"
+        }
+      ],
+      "effects": [
+        {
+          "type": "remove-status",
+          "target": "owner",
+          "statusDefinitionId": "chatgpt-follow-hit"
+        }
+      ]
+    }
+  ]
+}

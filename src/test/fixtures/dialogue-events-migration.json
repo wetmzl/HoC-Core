@@ -1,0 +1,122 @@
+{
+  "sourceCommit": "1feb63b51450374da2baf551d21677a348e96e35",
+  "resourceBaselineRevisions": {
+    "gemini/resources/character-match.json": "0.1.1-beta.1: neutral demonstration-video reference in subtitle; dialogue pools, rules and other fields unchanged"
+  },
+  "fromDialogueApi": 1,
+  "toDialogueApi": 2,
+  "characterMatchApi": 4,
+  "characters": [
+    {
+      "character": "chatgpt",
+      "fromVersion": "1.0.4",
+      "toVersion": "1.0.5",
+      "pools": 21,
+      "lines": 86,
+      "poolsSha256": "49e7674d7a0e416530fc917be713fd8390132a1578584e323077ffb531b4d6bf",
+      "rulesSha256": "49bf776a436fba8e392315e2bbac69bf6209a63c21f7bbac12e9a6cc4e033146",
+      "mediaSha256": {
+        "conflicted.png": "8ef812cbc3f119f46882dd1865b0a7394837be14847629833082832a2dd67695",
+        "cover.png": "1112d0736b45dbd1f2afb4697313e431881bb0cc320cbde396a52df05829d906",
+        "mocking.png": "76d7217790d62369a40b447b7ccecd379a118ca83a0e241e9eaa0ab5f9f6f1c6",
+        "relaxed.png": "24c34b8179a7f45969267e997f24d5767420978424712fa7eced0603d1fff73a",
+        "threatened.png": "cb6141deae93ffba34371895835776909925fc1f666dd7bcf0d863415f97d16a",
+        "unconscious-reclined.png": "f752ebb8812e93250fecb67bcc59d040ed09dc053fbd4515f78bc1da37b831ac"
+      },
+      "resourcesSha256": {
+        "resources/ai-skills/chatgpt-poker-face.json": "abfc7737f7b974ebd1832839767ba154c8eddaf87e21db06f2cd738f06697daa",
+        "resources/ai-skills/chatgpt-reset.json": "ef8f87645be05e4f9a19bec75c75f711044e50571561e85f6d6203638391757d",
+        "resources/character-match.json": "ef08aaeefe4341ef55bd8e7d95c7bd9a8eaba06a1031cdce6a907c90f0fba8e3",
+        "resources/statuses/chatgpt-follow-hit.json": "2c25c15f631f2f875502933110d60a49d9c1861ab9af6e178a83170f9d06e499",
+        "resources/statuses/chatgpt-reset-charge.json": "24ed5ae1ed99903d16220f41b7c84f3c003ef493bd731ebc524f02becab29890"
+      }
+    },
+    {
+      "character": "claude",
+      "fromVersion": "1.1.0",
+      "toVersion": "1.1.1",
+      "pools": 21,
+      "lines": 83,
+      "poolsSha256": "7ae4be9f1df7ed89f8481025cbc907020c248c3f5f703407f1e98e51f18457ca",
+      "rulesSha256": "49bf776a436fba8e392315e2bbac69bf6209a63c21f7bbac12e9a6cc4e033146",
+      "mediaSha256": {
+        "conflicted.png": "48a94e403c65992ffc00f613d3790bdcc530ce2324564a9b3448970be14e3524",
+        "cover.png": "a1dd716105d703f77e8927ae7a616b57d10078fc9e232841b8af0e5386b0ffda",
+        "mocking.png": "c7fd5b4ffd6069926dcba974fbf70a6c0d5114be5286b71341b29f9f68a9974f",
+        "relaxed.png": "04cac35febae2c085901c5b88cd28c8e74a5322d8754d0223b83ab211514874b",
+        "threatened.png": "f52f0412c3d3ada029a6e69a667a9ab2bdf3a1117512ac117504c160d567e234",
+        "unconscious-reclined.png": "c16ed277ec36029cf29da777d77bfeed46712979164db8e2b05391e18e6932a2"
+      },
+      "resourcesSha256": {
+        "resources/ai-skills/claude-moment.json": "1d2e2b7397105bf48050dcc43adc834a04c51cf115a680976edc237c7a3b4183",
+        "resources/ai-skills/claude-safety-constitution.json": "b26a5e6c56a6c2d1bc3859625f9b20e5f970d26e95a1611ff26a2c2d9036ee76",
+        "resources/character-match.json": "047741eb2daa6f91ecde5470e30ac41c59d8424aed4ac2e67ba6ddac6eaf1b74",
+        "resources/statuses/claude-moment-limit.json": "be58de5c79503fabc7911302582dc2c63f3df62f6de49320f8440f0359e524ed",
+        "resources/statuses/claude-safety-no-hit.json": "e7061b8a8e2d82bf341fb8e30743594756dd06038b4a2ce2a4d5dc29ab827a67"
+      }
+    },
+    {
+      "character": "deepseek",
+      "fromVersion": "1.1.3",
+      "toVersion": "1.1.4",
+      "pools": 21,
+      "lines": 52,
+      "poolsSha256": "21060b768c4687f813067f13f8b1fbb1f907e31dfaad4e8d4cd827faecce90a7",
+      "rulesSha256": "49bf776a436fba8e392315e2bbac69bf6209a63c21f7bbac12e9a6cc4e033146",
+      "mediaSha256": {
+        "conflicted.png": "fcf9109312cd444b0bc4dc4ac38de28f50ed51833cacdd4c8078614c86158d90",
+        "cover.png": "386519405fc5cdcd5274502707851fd94e95bcd8d2edd8fddeb802421e87286a",
+        "mocking.png": "bcbb009375cead350f22d03dd57c961cf59746042d0527c128b4dec71042ff6e",
+        "relaxed.png": "c14a12375bdfd8e7fb533086a842a67df97b7bd9f699cd8cc521b5ef984ba961",
+        "threatened.png": "4d070012a3790c04d5a84cd9b2f32d8e8f34d6bc1274a1f146a403dda5230da3",
+        "unconscious-reclined.png": "e914b2f177dfdac87305c8a82f22ce8f2d44ed155e6a33f1e12c6362a721d83b"
+      },
+      "resourcesSha256": {
+        "resources/ai-skills/deepseek-stealing-food.json": "18dba78454f84b68be3a2bfafe6c6030229edefb66d697bd118c54300ee6c553",
+        "resources/character-match.json": "6c85611be3c8b301dc1930f8121f1538a94477df9f920fc884b971b54e41b288",
+        "resources/statuses/deepseek-stealing-food-penalty.json": "6d218ad01534fba737f0290a8e9f550575926cdf05b99f71508179cc3e9d1257"
+      }
+    },
+    {
+      "character": "gemini",
+      "fromVersion": "1.1.2",
+      "toVersion": "1.1.3",
+      "pools": 21,
+      "lines": 40,
+      "poolsSha256": "1c72c9865e2f443f5500f4be13d6800b01edecc6b485809d095be422673c8ccc",
+      "rulesSha256": "49bf776a436fba8e392315e2bbac69bf6209a63c21f7bbac12e9a6cc4e033146",
+      "mediaSha256": {
+        "conflicted.png": "53036d86c55f06e7205bd9bcd7eebe1a9f7ee8420d380cf919d558f47d000dc2",
+        "cover.png": "31b7ef9f645c8d1bf521a7c8a109e5ae942298d6cf3427bf6a975893a9288cc8",
+        "mocking.png": "177eb9ca99705b31918ba533fe9e1a726c3e3f16830e10a0d7dd85f751490019",
+        "relaxed.png": "e5a01e8c40f108f0f8cb650dea22e16d3f2cf95d86428adcde42d5cf5feaf846",
+        "threatened.png": "c885bbba325aafb158f7f2827f10ecb1092ac861d8426a48421b168067f4fcef",
+        "unconscious-reclined.png": "399eacf3b5f50ca5b69d496876b83e85601d1c017ede7d701f2c4ac2d77c623a"
+      },
+      "resourcesSha256": {
+        "resources/ai-skills/gemini-world-knowledge.json": "b5f0d31152454cdd0edf32f6fb386b370059f1cff4de3c93371ca2512bdf4df0",
+        "resources/character-match.json": "5716d49319fbeaa769c34e09a75edb2f11071a5d41dfc51a0d1c395768dcbe9a"
+      }
+    },
+    {
+      "character": "llama",
+      "fromVersion": "1.0.0",
+      "toVersion": "1.0.1",
+      "pools": 21,
+      "lines": 73,
+      "poolsSha256": "6ef55c425180474a5f5acc363a59d5ac9bd5f43a3a08f948d990ee3f3f86060d",
+      "rulesSha256": "49bf776a436fba8e392315e2bbac69bf6209a63c21f7bbac12e9a6cc4e033146",
+      "mediaSha256": {
+        "conflicted.png": "d523240a0e8fc10ca390068cef280ae054ef4b26ddce80562d8e7a9b93de4b3c",
+        "cover.png": "517349349a8c1862fd0b0058aed2d9d90ee3922030681abb57b05ef32c1aff94",
+        "mocking.png": "640919cda0677e0a6878d1fe4fcc1189e5e9c0a9620b85d64b8efe4275b02b29",
+        "relaxed.png": "54c6e5e40c7685078c934093333d277e9c8f43ce0f93e005719cda00ab0a23cc",
+        "threatened.png": "567550d157ce480b6c8f35920eb892cc8469ac9c2fafdc5680e16a1ef1c776d6",
+        "unconscious-reclined.png": "6b0cf4409ae87324d6b0d98880924e121bd533f909f349dc1c96a6a39b0e2a2c"
+      },
+      "resourcesSha256": {
+        "resources/character-match.json": "af5d697e725b5cfb5f20d55f70d32c936d911ba03042eb72334991499aedf765"
+      }
+    }
+  ]
+}

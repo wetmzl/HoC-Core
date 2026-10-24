@@ -1,0 +1,127 @@
+{
+  "definition": {
+    "id": "gemini-vast-world",
+    "name": "大千世界",
+    "description": "场上凑齐四种花色时可用，你本回合点数优势 +2。",
+    "usage": "玩家回合使用，每张一次。双方当前手牌含暗牌、派生牌，合计凑齐四种花色时可发动；获得本回合固定 +2 比较点数，多张可叠加，之后花色减少也不撤销，不改变爆牌判断。",
+    "triggerNotice": "玩家本回合点数优势 +2。",
+    "profileLore": "世界如此广阔，你却只关心眼前这四种颜色。也好，至少这一次，它们终于凑齐了。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "gambler",
+    "skillTags": [
+      "gambler"
+    ],
+    "tags": [
+      "player-skill",
+      "active-skill-card",
+      "blackjack",
+      "point-advantage"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "uses": 1,
+      "availability": [
+        {
+          "type": "scalar-compare",
+          "left": {
+            "type": "add",
+            "left": {
+              "type": "hand-card-suit-count",
+              "target": "owner",
+              "suit": "spades"
+            },
+            "right": {
+              "type": "hand-card-suit-count",
+              "target": "rival",
+              "suit": "spades"
+            }
+          },
+          "operator": "gte",
+          "right": 1
+        },
+        {
+          "type": "scalar-compare",
+          "left": {
+            "type": "add",
+            "left": {
+              "type": "hand-card-suit-count",
+              "target": "owner",
+              "suit": "hearts"
+            },
+            "right": {
+              "type": "hand-card-suit-count",
+              "target": "rival",
+              "suit": "hearts"
+            }
+          },
+          "operator": "gte",
+          "right": 1
+        },
+        {
+          "type": "scalar-compare",
+          "left": {
+            "type": "add",
+            "left": {
+              "type": "hand-card-suit-count",
+              "target": "owner",
+              "suit": "diamonds"
+            },
+            "right": {
+              "type": "hand-card-suit-count",
+              "target": "rival",
+              "suit": "diamonds"
+            }
+          },
+          "operator": "gte",
+          "right": 1
+        },
+        {
+          "type": "scalar-compare",
+          "left": {
+            "type": "add",
+            "left": {
+              "type": "hand-card-suit-count",
+              "target": "owner",
+              "suit": "clubs"
+            },
+            "right": {
+              "type": "hand-card-suit-count",
+              "target": "rival",
+              "suit": "clubs"
+            }
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "activate",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "add-status",
+            "target": "owner",
+            "statusDefinitionId": "gemini-vast-world-advantage"
+          }
+        ],
+        "triggerNotice": "玩家本回合点数优势 +2。"
+      }
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "defeat-character",
+    "characterResourceId": "match",
+    "label": "首次击败Gemini"
+  }
+}

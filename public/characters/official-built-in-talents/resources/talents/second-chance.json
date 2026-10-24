@@ -1,0 +1,39 @@
+{
+  "id": "second-chance",
+  "name": "再给一次机会",
+  "description": "每次技能抽取可刷新候选 1 次。",
+  "usage": "天赋效果：每次技能抽取可刷新候选 1 次。",
+  "triggerNotice": "每次技能抽取可刷新候选 1 次。",
+  "profileLore": "不喜欢眼前的选项，就请命运重新报价。",
+  "sourceKind": "talent",
+  "primaryDomain": "cheater",
+  "unlock": {
+    "type": "defeat-count",
+    "count": 5,
+    "label": "击败 5 名角色"
+  },
+  "activation": {
+    "type": "passive"
+  },
+  "rules": [
+    {
+      "id": "grant-benefit",
+      "trigger": "on-match-created",
+      "effects": [
+        {
+          "type": "add-skill-draw-refreshes",
+          "target": "owner",
+          "amount": 1
+        }
+      ],
+      "limit": {
+        "perMatch": 1
+      }
+    }
+  ],
+  "tags": [
+    "talent",
+    "skill-economy",
+    "draw-control"
+  ]
+}

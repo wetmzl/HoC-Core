@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="felt" x2="0" y2="1">
+      <stop stop-color="#23636b"/>
+      <stop offset=".38" stop-color="#173f43"/>
+      <stop offset="1" stop-color="#0d3339"/>
+    </linearGradient>
+    <radialGradient id="lamplight" cx=".26" cy=".12" r=".9">
+      <stop stop-color="#88bfb6" stop-opacity=".1"/>
+      <stop offset="1" stop-color="#061b20" stop-opacity=".16"/>
+    </radialGradient>
+    <!-- Faint texture stays subordinate to the scene lighting. -->
+    <pattern id="grain" width="1000" height="250" patternUnits="userSpaceOnUse">
+      <g fill="none" stroke="#061d20" stroke-opacity=".055">
+        <path d="M-30 27 C180 9 265 48 470 31 S780 11 1030 29 M-20 33 C190 17 280 55 470 38 S800 19 1020 35" stroke-width="2"/>
+        <path d="M-20 108 C170 122 230 78 425 92 S740 132 1020 105 M-20 117 C170 130 235 87 425 101 S740 140 1020 114"/>
+        <path d="M-20 192 C250 170 390 216 610 197 S850 176 1020 187 M-20 201 C250 180 395 226 610 205 S855 184 1020 196" stroke-width="2"/>
+        <path d="M70 63 Q330 81 570 62 M400 154 Q650 137 930 158 M110 234 Q330 220 700 238"/>
+      </g>
+      <g fill="none" stroke="#85b5a5" stroke-opacity=".022" stroke-width="2">
+        <path d="M-20 39 C190 23 280 61 470 44 S800 25 1020 41 M-20 124 C170 137 235 94 425 108 S740 147 1020 121 M-20 209 C250 188 395 234 610 213 S855 192 1020 204"/>
+      </g>
+    </pattern>
+    <linearGradient id="fade" x2="0" y2="1">
+      <stop offset="0" stop-color="white"/>
+      <stop offset=".65" stop-color="white"/>
+      <stop offset=".83" stop-color="white" stop-opacity=".65"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rim-fade" gradientUnits="userSpaceOnUse" x2="0" y2="1000">
+      <stop stop-color="white"/>
+      <stop offset=".42" stop-color="white"/>
+      <stop offset=".64" stop-color="black"/>
+    </linearGradient>
+    <mask id="soft-base" maskUnits="userSpaceOnUse" x="0" y="0" width="1000" height="1000">
+      <path fill="url(#fade)" d="M0 0H1000V1000H0Z"/>
+    </mask>
+    <mask id="upper-rim" maskUnits="userSpaceOnUse" x="0" y="0" width="1000" height="1000">
+      <path fill="url(#rim-fade)" d="M0 0H1000V1000H0Z"/>
+    </mask>
+    <!-- Rounded far corners meet the straight top and gently widening sides. -->
+    <path id="surface" d="M90 1H910Q940 1 943 50.95L1000 1000H0L57 50.95Q60 1 90 1Z"/>
+    <!-- End the open rim before the surface begins fading at 65% height. -->
+    <path id="rim" d="M21.6 640L57 50.95Q60 1 90 1H910Q940 1 943 50.95L978.4 640"/>
+  </defs>
+  <g mask="url(#soft-base)">
+    <use href="#surface" fill="url(#felt)"/>
+    <use href="#surface" fill="url(#grain)"/>
+    <use href="#surface" fill="url(#lamplight)"/>
+  </g>
+  <g mask="url(#upper-rim)" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <use href="#rim" stroke="#59d9a0" stroke-opacity=".15" stroke-width="5" vector-effect="non-scaling-stroke"/>
+    <use href="#rim" stroke="#80d9b3" stroke-opacity=".82" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+  </g>
+</svg>

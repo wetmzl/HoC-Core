@@ -1,0 +1,20 @@
+{
+  "chatgpt/resources/ai-skills/chatgpt-reset.json": {
+    "before": {
+      "description": "首回合没有 RESET，之后每回合增加一次，可跨回合累积。爆牌时消耗一次，弃掉全部手牌并重发一明一暗两张初始牌。"
+    },
+    "after": {
+      "description": "第二轮起，每轮积攒1次重置。爆牌时消耗1次，重发初始手牌。",
+      "usage": "首回合没有 RESET，之后每回合增加一次，可跨回合累积。爆牌时消耗一次，弃掉全部手牌并重发一明一暗两张初始牌。"
+    }
+  },
+  "gemini/resources/ai-skills/gemini-world-knowledge.json": {
+    "before": {
+      "description": "初始点数优势为-2；场上双方手牌每存在一种花色，点数优势+1。同一花色只计算一次。"
+    },
+    "after": {
+      "description": "初始优势为−2。场上每有一种花色，获得1点优势。",
+      "usage": "初始点数优势为-2；场上双方手牌每存在一种花色，点数优势+1。同一花色只计算一次。"
+    }
+  }
+}

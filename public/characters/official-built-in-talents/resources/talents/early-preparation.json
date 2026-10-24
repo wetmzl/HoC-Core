@@ -1,0 +1,39 @@
+{
+  "id": "early-preparation",
+  "name": "早有准备",
+  "description": "游戏开局时获得 1 次抽卡次数。",
+  "usage": "天赋效果：游戏开局时获得 1 次抽卡次数。",
+  "triggerNotice": "获得 1 次抽卡次数。",
+  "profileLore": "既然设宴待客，礼数自然不能少，你是否想好了应该如何招待远道而来的客人？",
+  "sourceKind": "talent",
+  "primaryDomain": "cheater",
+  "unlock": {
+    "type": "defeat-count",
+    "count": 1,
+    "label": "击败 1 名角色"
+  },
+  "activation": {
+    "type": "passive"
+  },
+  "rules": [
+    {
+      "id": "grant-opening-skill-draw",
+      "trigger": "on-match-created",
+      "effects": [
+        {
+          "type": "add-skill-draws",
+          "target": "owner",
+          "amount": 1
+        }
+      ],
+      "limit": {
+        "perMatch": 1
+      }
+    }
+  ],
+  "tags": [
+    "talent",
+    "skill-economy",
+    "draw-control"
+  ]
+}

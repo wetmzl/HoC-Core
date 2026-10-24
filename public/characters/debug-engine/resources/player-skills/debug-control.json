@@ -1,0 +1,208 @@
+{
+  "definition": {
+    "id": "builtin-debug-control",
+    "name": "调试引擎",
+    "description": "独立调节本场对决的点数优势、公共爆牌上限与当前子弹。",
+    "hidden": true,
+    "sourceKind": "player-skill",
+    "primaryDomain": "cheater",
+    "skillTags": [
+      "cheater"
+    ],
+    "tags": [
+      "debug-control"
+    ],
+    "activation": {
+      "type": "automatic"
+    },
+    "parameters": {
+      "playerAdvantage": {
+        "type": "number",
+        "default": 0
+      },
+      "aiAdvantage": {
+        "type": "number",
+        "default": 0
+      },
+      "bustBonus": {
+        "type": "number",
+        "default": 0
+      },
+      "playerBulletDelta": {
+        "type": "number",
+        "default": 0
+      },
+      "aiBulletDelta": {
+        "type": "number",
+        "default": 0
+      }
+    },
+    "rules": [
+      {
+        "id": "comparison",
+        "trigger": "before-round-resolution",
+        "notify": false,
+        "conditions": [
+          {
+            "type": "round-reason-is",
+            "value": "comparison"
+          }
+        ],
+        "effects": [
+          {
+            "type": "add-to-pending-comparison-score",
+            "target": "owner",
+            "amount": {
+              "type": "parameter",
+              "key": "playerAdvantage"
+            }
+          },
+          {
+            "type": "add-to-pending-comparison-score",
+            "target": "rival",
+            "amount": {
+              "type": "parameter",
+              "key": "aiAdvantage"
+            }
+          }
+        ]
+      },
+      {
+        "id": "public-limit",
+        "trigger": "before-bust-check",
+        "notify": false,
+        "effects": [
+          {
+            "type": "add-to-pending-bust-limit",
+            "target": "event-actor",
+            "amount": {
+              "type": "parameter",
+              "key": "bustBonus"
+            },
+            "allowDecrease": true
+          }
+        ]
+      },
+      {
+        "id": "owner-add-bullets",
+        "trigger": "on-ability-played",
+        "notify": false,
+        "conditions": [
+          {
+            "type": "scalar-compare",
+            "left": {
+              "type": "parameter",
+              "key": "playerBulletDelta"
+            },
+            "operator": "gt",
+            "right": 0
+          }
+        ],
+        "effects": [
+          {
+            "type": "add-gun-bullets",
+            "target": "owner",
+            "amount": {
+              "type": "parameter",
+              "key": "playerBulletDelta"
+            }
+          }
+        ]
+      },
+      {
+        "id": "owner-remove-bullets",
+        "trigger": "on-ability-played",
+        "notify": false,
+        "conditions": [
+          {
+            "type": "scalar-compare",
+            "left": {
+              "type": "parameter",
+              "key": "playerBulletDelta"
+            },
+            "operator": "lt",
+            "right": 0
+          }
+        ],
+        "effects": [
+          {
+            "type": "remove-gun-bullets",
+            "target": "owner",
+            "amount": {
+              "type": "multiply",
+              "left": {
+                "type": "parameter",
+                "key": "playerBulletDelta"
+              },
+              "right": -1
+            }
+          }
+        ]
+      },
+      {
+        "id": "rival-add-bullets",
+        "trigger": "on-ability-played",
+        "notify": false,
+        "conditions": [
+          {
+            "type": "scalar-compare",
+            "left": {
+              "type": "parameter",
+              "key": "aiBulletDelta"
+            },
+            "operator": "gt",
+            "right": 0
+          }
+        ],
+        "effects": [
+          {
+            "type": "add-gun-bullets",
+            "target": "rival",
+            "amount": {
+              "type": "parameter",
+              "key": "aiBulletDelta"
+            }
+          }
+        ]
+      },
+      {
+        "id": "rival-remove-bullets",
+        "trigger": "on-ability-played",
+        "notify": false,
+        "conditions": [
+          {
+            "type": "scalar-compare",
+            "left": {
+              "type": "parameter",
+              "key": "aiBulletDelta"
+            },
+            "operator": "lt",
+            "right": 0
+          }
+        ],
+        "effects": [
+          {
+            "type": "remove-gun-bullets",
+            "target": "rival",
+            "amount": {
+              "type": "multiply",
+              "left": {
+                "type": "parameter",
+                "key": "aiBulletDelta"
+              },
+              "right": -1
+            }
+          }
+        ]
+      }
+    ],
+    "drop": {
+      "enabled": false,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

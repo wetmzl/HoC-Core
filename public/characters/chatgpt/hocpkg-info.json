@@ -1,0 +1,176 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "chatgpt",
+    "version": "1.0.14"
+  },
+  "metadata": {
+    "title": "ChatGPT 角色包",
+    "license": "CC-BY-NC-SA 4.0",
+    "description": "一条永远板着扑克脸、对你的要求有求必应的白色龙娘。她总说自己没有胜负欲——如果说这句话的时候尾巴没有偷偷卷走一张牌，可信度或许会高一点。",
+    "tags": [
+      "built-in",
+      "character",
+      "tier:s"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "match",
+      "type": "game.character-match",
+      "apiVersion": 7,
+      "entry": "resources/character-match.json",
+      "requires": [
+        "poker-face",
+        "reset",
+        "dialogue"
+      ]
+    },
+    {
+      "id": "follow-hit",
+      "type": "game.status",
+      "apiVersion": 1,
+      "entry": "resources/statuses/chatgpt-follow-hit.json",
+      "requires": []
+    },
+    {
+      "id": "reset-charge",
+      "type": "game.status",
+      "apiVersion": 1,
+      "entry": "resources/statuses/chatgpt-reset-charge.json",
+      "requires": []
+    },
+    {
+      "id": "poker-face",
+      "type": "game.ai-skill",
+      "apiVersion": 2,
+      "entry": "resources/ai-skills/chatgpt-poker-face.json",
+      "requires": [
+        "follow-hit"
+      ]
+    },
+    {
+      "id": "reset",
+      "type": "game.ai-skill",
+      "apiVersion": 2,
+      "entry": "resources/ai-skills/chatgpt-reset.json",
+      "requires": [
+        "reset-charge"
+      ]
+    },
+    {
+      "id": "dialogue",
+      "type": "game.character-dialogue",
+      "apiVersion": 2,
+      "entry": "resources/dialogue.json",
+      "requires": []
+    },
+    {
+      "id": "reward:chatgpt-reset-player",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/chatgpt-reset-player.json",
+      "requires": [
+        "match"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "conflicted.png",
+      "bytes": 1104411,
+      "sha256": "8ef812cbc3f119f46882dd1865b0a7394837be14847629833082832a2dd67695",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "cover.png",
+      "bytes": 508536,
+      "sha256": "1112d0736b45dbd1f2afb4697313e431881bb0cc320cbde396a52df05829d906",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "mocking.png",
+      "bytes": 1170601,
+      "sha256": "76d7217790d62369a40b447b7ccecd379a118ca83a0e241e9eaa0ab5f9f6f1c6",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "relaxed.png",
+      "bytes": 1097160,
+      "sha256": "24c34b8179a7f45969267e997f24d5767420978424712fa7eced0603d1fff73a",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/ai-skills/chatgpt-poker-face.json",
+      "bytes": 1842,
+      "sha256": "abfc7737f7b974ebd1832839767ba154c8eddaf87e21db06f2cd738f06697daa",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/ai-skills/chatgpt-reset.json",
+      "bytes": 2092,
+      "sha256": "a107dd4b5c5a974a51ec4275dfd18b690d94a2d0f018d825490cf354b627cc91",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/character-match.json",
+      "bytes": 3557,
+      "sha256": "e582558a0809b9e21c3b0cb47f534404c20ac51a7264bc6d556e872fa8db7f7e",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/dialogue.json",
+      "bytes": 28069,
+      "sha256": "091b8e9b843cebd2612dc20aba6f50c367b8e22bbd4c72201d809e84b591fb2e",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/chatgpt-reset-player.json",
+      "bytes": 1312,
+      "sha256": "41d39045f562a6a7237b8d324187e6d79299c3352d40da8357f967abbc8bcccb",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/statuses/chatgpt-follow-hit.json",
+      "bytes": 91,
+      "sha256": "2c25c15f631f2f875502933110d60a49d9c1861ab9af6e178a83170f9d06e499",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/statuses/chatgpt-reset-charge.json",
+      "bytes": 80,
+      "sha256": "24ed5ae1ed99903d16220f41b7c84f3c003ef493bd731ebc524f02becab29890",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "tap.png",
+      "bytes": 2106826,
+      "sha256": "a5fa7a5296a7dc82605931924e7c13abbcb301125bc1006a26eec78aa50606b3",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "threatened.png",
+      "bytes": 1174369,
+      "sha256": "cb6141deae93ffba34371895835776909925fc1f666dd7bcf0d863415f97d16a",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "unconscious-reclined.png",
+      "bytes": 1269966,
+      "sha256": "f752ebb8812e93250fecb67bcc59d040ed09dc053fbd4515f78bc1da37b831ac",
+      "mediaType": "image/png"
+    }
+  ],
+  "extensions": {}
+}

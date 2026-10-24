@@ -1,0 +1,208 @@
+{
+  "module": "module.js",
+  "style": "style.css",
+  "provides": [
+    "plugin.character-tap"
+  ],
+  "dialogueEvents": [
+    {
+      "id": "tap",
+      "apiVersion": 1,
+      "title": "角色激活",
+      "description": "立绘内容盒内点击或键盘激活",
+      "data": {
+        "type": "object",
+        "properties": {
+          "actor": {
+            "const": "opponent"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "y": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "首个命中的作者区域 ID，否则为固定内置 full-portrait（显示名称：全立绘）；键盘为 null"
+          }
+        },
+        "required": [
+          "actor",
+          "x",
+          "y",
+          "region"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "presentationState": {
+    "apiVersion": 1,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "roundIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "roundCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "consecutiveCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "totalCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "roundIndex",
+        "roundCount",
+        "consecutiveCount",
+        "totalCount"
+      ],
+      "additionalProperties": false
+    },
+    "initial": {
+      "roundIndex": 0,
+      "roundCount": 0,
+      "consecutiveCount": 0,
+      "totalCount": 0
+    }
+  },
+  "dialoguePrimitives": [
+    {
+      "id": "round-count",
+      "apiVersion": 1,
+      "title": "round-count",
+      "description": "只读角色交互事实",
+      "returnType": "number",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "dependencies": [
+        "event"
+      ]
+    },
+    {
+      "id": "consecutive-count",
+      "apiVersion": 1,
+      "title": "consecutive-count",
+      "description": "只读角色交互事实",
+      "returnType": "number",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "dependencies": [
+        "event"
+      ]
+    },
+    {
+      "id": "total-count",
+      "apiVersion": 1,
+      "title": "total-count",
+      "description": "只读角色交互事实",
+      "returnType": "number",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "dependencies": [
+        "event"
+      ]
+    },
+    {
+      "id": "x",
+      "apiVersion": 1,
+      "title": "x",
+      "description": "只读角色交互事实",
+      "returnType": "number",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "dependencies": [
+        "event"
+      ]
+    },
+    {
+      "id": "y",
+      "apiVersion": 1,
+      "title": "y",
+      "description": "只读角色交互事实",
+      "returnType": "number",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "dependencies": [
+        "event"
+      ]
+    },
+    {
+      "id": "region",
+      "apiVersion": 1,
+      "title": "region",
+      "description": "无参数返回首个命中区域或 full-portrait；传入 id 查询对应区域，full-portrait 固定覆盖所有有效点击",
+      "returnType": "string",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "dependencies": [
+        "event"
+      ]
+    }
+  ],
+  "characterExtensions": [
+    {
+      "type": "plugin.character-tap",
+      "apiVersion": 2,
+      "title": "立绘交互区域",
+      "description": "先声明自定义区域 ID，图片标定引用这些 ID；full-portrait（全立绘）固定内置",
+      "schema": "authoring/regions.schema.json",
+      "guide": "authoring/GUIDE.md",
+      "examples": [
+        "authoring/neutral.hocpkg"
+      ]
+    }
+  ]
+}

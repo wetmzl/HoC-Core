@@ -1,0 +1,47 @@
+{
+  "name": "hoc-core",
+  "version": "0.1.0-dev.20261024.3",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "description": "Versioned development contracts and content build tools",
+  "exports": {
+    "./plugin-api": {
+      "types": "./types/src/plugin-api.d.ts",
+      "import": "./plugin-api.js"
+    },
+    "./authoring-api": {
+      "types": "./types/src/authoring-api.d.ts",
+      "import": "./authoring-api.js"
+    },
+    "./capabilities": {
+      "types": "./types/src/sdk-capabilities.d.ts",
+      "import": "./capabilities.js"
+    },
+    "./image-build": {
+      "types": "./types/scripts/image-build.d.mts",
+      "import": "./image-build.mjs"
+    },
+    "./package-tools": {
+      "types": "./package-tools.d.mts",
+      "import": "./package-tools.mjs"
+    },
+    "./schema": "./schemas/hocpkg.schema.json",
+    "./package.json": "./package.json",
+    "./audio-build": {
+      "types": "./types/scripts/audio-build.d.mts",
+      "import": "./audio-build.mjs"
+    }
+  },
+  "bin": {
+    "hocpkg": "./cli.mjs"
+  },
+  "dependencies": {
+    "zod": "4.6.7",
+    "fflate": "0.8.3",
+    "sharp": "0.35.5"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "id": "claude-safety-no-hit",
+  "defaultDuration": "round",
+  "blocksActions": ["hit"],
+  "rules": []
+}

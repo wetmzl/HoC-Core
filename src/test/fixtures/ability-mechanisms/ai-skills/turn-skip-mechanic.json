@@ -1,0 +1,24 @@
+{
+  "id": "turn-skip-mechanic",
+  "name": "跳过回合测试机制",
+  "description": "测试专用：在另一方仍可行动时跳过自己的当前回合。",
+  "hidden": true,
+  "sourceKind": "ai-skill",
+  "primaryDomain": "cheater",
+  "activation": { "type": "automatic" },
+  "rules": [
+    {
+      "id": "skip-owner-turn",
+      "trigger": "before-turn",
+      "notify": false,
+      "conditions": [
+        { "type": "actor-is", "actor": "owner" },
+        { "type": "pending-turn-can-skip", "target": "owner" }
+      ],
+      "effects": [
+        { "type": "skip-turn", "target": "owner" }
+      ]
+    }
+  ],
+  "tags": ["test-fixture", "turn-control", "ai-skill"]
+}

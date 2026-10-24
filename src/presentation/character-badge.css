@@ -1,0 +1,97 @@
+.character-badge {
+  --badge-color: #a8b4c0;
+  --badge-glow: #a8b4c038;
+  --badge-ring: linear-gradient(145deg, #dce3ea, #657789 48%, #c3cdd7);
+  position: absolute;
+  z-index: 2;
+  right: 5px;
+  bottom: 5px;
+  width: 38px;
+  height: 38px;
+  padding: 3px;
+  border: 1px solid #e6eef45c;
+  border-radius: 50%;
+  background: #101d2b;
+  box-shadow: 0 2px 6px #020812b3;
+  isolation: isolate;
+  cursor: pointer;
+  appearance: none;
+}
+.character-badge::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--badge-ring);
+}
+.character-badge-face {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #eee9dd;
+  box-shadow: 0 0 0 1px #14202bc7;
+}
+.character-badge-face > img { display: block; width: 100%; height: 100%; object-fit: contain; transform: none; }
+.character-badge[data-tier="C"] { --badge-ring: linear-gradient(145deg, #e3f6fa, #7499a4 48%, #d6f1ef); box-shadow: 0 0 0 1px #bddfe544, 0 2px 6px #020812b3; }
+.character-badge[data-tier="B"] { --badge-color: #6cdbfa; --badge-glow: #63d8f466; --badge-ring: linear-gradient(145deg, #defbff, #3289ba 44%, #7ef5ff); box-shadow: 0 0 8px var(--badge-glow), 0 2px 6px #020812b3; }
+.character-badge[data-tier="A"] { --badge-color: #c4a0ff; --badge-glow: #ae79ff8c; --badge-ring: conic-gradient(#ecd9ff, #7250b9, #d2b1ff, #8160bf, #ecd9ff); box-shadow: 0 0 11px var(--badge-glow), 0 2px 6px #020812b3; }
+.character-badge[data-tier="A"]::before { animation: badge-orbit 10s linear infinite; }
+.character-badge[data-tier="S"] { --badge-color: #ffdc82; --badge-glow: #ffc55f9c; --badge-ring: conic-gradient(#fff2b1, #ab6c21, #ffeeb0, #c28530, #fff2b1); box-shadow: 0 0 12px var(--badge-glow), 0 2px 6px #020812b3; }
+.character-badge[data-tier="S"]::before { animation: badge-orbit 7s linear infinite; }
+.character-badge[data-tier="SS"] { --badge-color: #ffe7c0; --badge-glow: #f5b8ffad; --badge-ring: conic-gradient(#fff3c9, #ca86ec, #9beaff, #ffcf83, #fff3c9); box-shadow: 0 0 15px var(--badge-glow), 0 0 5px #fff1bfa6; }
+.character-badge[data-tier="SS"]::before { animation: badge-orbit 5s linear infinite; }
+.character-badge[data-tier="S"]::after, .character-badge[data-tier="SS"]::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 1px solid var(--badge-color);
+  border-radius: 50%;
+  opacity: .65;
+  box-shadow: 0 0 5px var(--badge-glow);
+}
+.character-badge[data-tier="SS"]::after { inset: -4px; border-style: dashed; animation: badge-orbit 18s linear infinite reverse; }
+.character-badge[data-tier="S"] .character-badge-sparkles,
+.character-badge[data-tier="SS"] .character-badge-sparkles {
+  position: absolute;
+  inset: -5px;
+  background: radial-gradient(circle at 15% 18%, #fff5cc 0 1px, transparent 2px), radial-gradient(circle at 88% 75%, #fff5cc 0 1px, transparent 2px);
+  animation: badge-shimmer 3s ease-in-out infinite;
+}
+.character-badge[data-tier="SS"] .character-badge-sparkles {
+  inset: -7px;
+  background: radial-gradient(circle at 14% 20%, #fff8d5 0 1.3px, transparent 2.5px), radial-gradient(circle at 82% 10%, #d4f7ff 0 1px, transparent 2px), radial-gradient(circle at 92% 76%, #f4d5ff 0 1.4px, transparent 2.5px), radial-gradient(circle at 28% 93%, #fff0bc 0 1px, transparent 2px);
+  animation-duration: 2.4s;
+}
+@keyframes badge-orbit { to { transform: rotate(360deg); } }
+@keyframes badge-shimmer { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@media (max-width: 360px) { .character-badge { width: 34px; height: 34px; } }
+.reduced-motion .character-badge::before, .reduced-motion .character-badge::after, .reduced-motion .character-badge-sparkles { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .character-badge::before, .character-badge::after, .character-badge-sparkles { animation: none !important; }
+}
+
+.character-badge:focus-visible { outline: 2px solid #d2dfeb; outline-offset: 3px; }
+.character-badge-hint {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  bottom: 51px;
+  width: max-content;
+  max-width: 100%;
+  padding: 4px 7px;
+  border: 1px solid #a8b4c029;
+  border-radius: 5px;
+  background: #14202eed;
+  color: #d5dde5;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+.character-badge[hidden] { display: none; }

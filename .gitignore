@@ -1,0 +1,11 @@
+node_modules/
+dist/
+output/
+.DS_Store
+*.log
+.workdump/
+.preview-processes/
+# Local environment variables and credentials
+.env.local
+.env.*.local
+.dev.vars

@@ -1,0 +1,146 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "gemini",
+    "version": "1.1.12"
+  },
+  "metadata": {
+    "title": "Gemini 角色包",
+    "license": "CC-BY-NC-SA 4.0",
+    "description": "Gemini 角色包，包含角色介绍、随机对白与世界知识技能。",
+    "tags": [
+      "built-in",
+      "character",
+      "tier:a"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "match",
+      "type": "game.character-match",
+      "apiVersion": 7,
+      "entry": "resources/character-match.json",
+      "requires": [
+        "ai:gemini-world-knowledge",
+        "dialogue"
+      ]
+    },
+    {
+      "id": "ai:gemini-world-knowledge",
+      "type": "game.ai-skill",
+      "apiVersion": 2,
+      "entry": "resources/ai-skills/gemini-world-knowledge.json",
+      "requires": []
+    },
+    {
+      "id": "dialogue",
+      "type": "game.character-dialogue",
+      "apiVersion": 2,
+      "entry": "resources/dialogue.json",
+      "requires": []
+    },
+    {
+      "id": "status:gemini-vast-world-advantage",
+      "type": "game.status",
+      "apiVersion": 1,
+      "entry": "resources/statuses/gemini-vast-world-advantage.json",
+      "requires": []
+    },
+    {
+      "id": "reward:gemini-vast-world",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/gemini-vast-world.json",
+      "requires": [
+        "match",
+        "status:gemini-vast-world-advantage"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "conflicted.png",
+      "bytes": 1304222,
+      "sha256": "53036d86c55f06e7205bd9bcd7eebe1a9f7ee8420d380cf919d558f47d000dc2",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "cover.png",
+      "bytes": 548267,
+      "sha256": "31b7ef9f645c8d1bf521a7c8a109e5ae942298d6cf3427bf6a975893a9288cc8",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "mocking.png",
+      "bytes": 1306836,
+      "sha256": "177eb9ca99705b31918ba533fe9e1a726c3e3f16830e10a0d7dd85f751490019",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "relaxed.png",
+      "bytes": 1325860,
+      "sha256": "e5a01e8c40f108f0f8cb650dea22e16d3f2cf95d86428adcde42d5cf5feaf846",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/ai-skills/gemini-world-knowledge.json",
+      "bytes": 5458,
+      "sha256": "3842a3a8e9cddfeaf141d9895e96e59d0b15ebd7a1bae142e18a8f3a2f54286e",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/character-match.json",
+      "bytes": 2799,
+      "sha256": "ac9e17b26a8e7186d78daa6182c54c65501e20987643e9990d9fb711f641ad0b",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/dialogue.json",
+      "bytes": 27497,
+      "sha256": "a659c2c5a331f3d60c54f4d82100294d29db07ec1c893a7db090150200d78511",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/gemini-vast-world.json",
+      "bytes": 3420,
+      "sha256": "32fa5aa4428166b3df616525348161e1792a8b0145a13823cff1f4c22a55a373",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/statuses/gemini-vast-world-advantage.json",
+      "bytes": 713,
+      "sha256": "57f1a955aca0a25a87abf0a6a02849283fea965644ed41af7286ed89176e23ab",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "tap.png",
+      "bytes": 2512099,
+      "sha256": "10c148762cee0d9e5a5cfeb0f6422544b4d08ea5cc2982de0dea227c1222b59d",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "threatened.png",
+      "bytes": 1311810,
+      "sha256": "c885bbba325aafb158f7f2827f10ecb1092ac861d8426a48421b168067f4fcef",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "unconscious-reclined.png",
+      "bytes": 1312664,
+      "sha256": "399eacf3b5f50ca5b69d496876b83e85601d1c017ede7d701f2c4ac2d77c623a",
+      "mediaType": "image/png"
+    }
+  ],
+  "extensions": {}
+}

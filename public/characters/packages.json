@@ -1,0 +1,100 @@
+{
+  "format": "house-of-chances-builtin-package-index",
+  "formatVersion": 2,
+  "abilityCatalogVersion": "abilities-v42",
+  "defaultCharacterId": "chatgpt",
+  "playerSkillOrder": [
+    "hunter-instinct",
+    "critical-judgment",
+    "situation-assessment",
+    "live-ammunition-bet",
+    "prepaid-premium",
+    "heart-hunter",
+    "switcheroo",
+    "scent-of-a-woman",
+    "compound-interest",
+    "counterclockwise-clock",
+    "sissas-table",
+    "a-single-coin",
+    "mimic-eggplant",
+    "before-the-shuffle",
+    "sleight-of-hand",
+    "chatgpt-reset-player",
+    "claude-account-ban",
+    "gemini-vast-world",
+    "deepseek-stealing-food-player"
+  ],
+  "packages": [
+    {
+      "manifest": "official-built-in-skills/hocpkg-info.json",
+      "packageId": "hoc-core/official-built-in-skills",
+      "version": "1.0.6",
+      "contentDigest": "8b68a71423c50d7026a4aa892a8b1fad54bf78574c4b7842dea1c93b0a3edc3d",
+      "bytes": 409288
+    },
+    {
+      "manifest": "official-built-in-talents/hocpkg-info.json",
+      "packageId": "hoc-core/official-built-in-talents",
+      "version": "1.1.0",
+      "contentDigest": "a7a3820ecfc4c6df33a258a459a7fa08ceb6773ce2d3837ab0a8c631e76f7147",
+      "bytes": 387523
+    },
+    {
+      "manifest": "chatgpt/hocpkg-info.json",
+      "packageId": "hoc-core/chatgpt",
+      "version": "1.0.14",
+      "contentDigest": "f70787bda2513b91668917e40c914bfe1f36cdf3280f9a73c3222781340f04d2",
+      "bytes": 8468912
+    },
+    {
+      "manifest": "claude/hocpkg-info.json",
+      "packageId": "hoc-core/claude",
+      "version": "1.1.9",
+      "contentDigest": "d6988c700b77254a88d9265da863b5ae1706145fa8a98db7e891fd948bf93f80",
+      "bytes": 9246411
+    },
+    {
+      "manifest": "gemini/hocpkg-info.json",
+      "packageId": "hoc-core/gemini",
+      "version": "1.1.12",
+      "contentDigest": "ea01aa086715f550f3923485d44ae5323bb4dfe22372f420bea0e6b3341b5b84",
+      "bytes": 9661645
+    },
+    {
+      "manifest": "deepseek/hocpkg-info.json",
+      "packageId": "hoc-core/deepseek",
+      "version": "1.1.12",
+      "contentDigest": "eeec2604117a9f56eaea24100f29e636128cbc3ed79494fca31b8ff85d88256b",
+      "bytes": 7708695
+    },
+    {
+      "manifest": "llama/hocpkg-info.json",
+      "packageId": "hoc-core/llama",
+      "version": "1.0.8",
+      "contentDigest": "2b0cb1ee233d176f53cc6785a1807fb6cc31f2d031f1feca053e01a0d4da855f",
+      "bytes": 6804703
+    },
+    {
+      "manifest": "character-tap/hocpkg-info.json",
+      "packageId": "hoc-core/character-tap",
+      "version": "1.2.0",
+      "contentDigest": "a19234d15e8df4b229cb03b5fdfffe192e5a4b9c156def16216ecdd3021ad462",
+      "bytes": 448717
+    },
+    {
+      "manifest": "debug-engine/hocpkg-info.json",
+      "packageId": "hoc-core/debug-engine",
+      "version": "1.0.1",
+      "contentDigest": "46565876758aa321b8ac3d0f3e3ba20813bf50d101c6aa3e9a9e7beeb3eb66fa",
+      "bytes": 646452
+    },
+    {
+      "manifest": "official-factions/hocpkg-info.json",
+      "packageId": "hoc-core/official-factions",
+      "version": "1.0.1",
+      "contentDigest": "d458ed74f37942181169a75c4e8cc00cdd6f67d924e0ab7ba971bc36ac2349a2",
+      "bytes": 999137
+    }
+  ],
+  "releaseDigest": "669ae760802cff172b7f13f86429e75ef9dd6e56647971db81cc68a8b1c1d278"
+}

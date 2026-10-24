@@ -1,0 +1,21 @@
+{
+  "module": "module.js",
+  "style": "style.css",
+  "provides": [],
+  "settings": {
+    "version": 1,
+    "fields": [
+      {
+        "id": "enabled",
+        "label": "调试引擎",
+        "description": "由版本号隐藏入口确认后开启",
+        "hidden": true,
+        "apply": "immediate",
+        "default": false,
+        "schema": {
+          "type": "boolean"
+        }
+      }
+    ]
+  }
+}

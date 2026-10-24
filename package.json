@@ -1,0 +1,56 @@
+{
+  "name": "hoc-core",
+  "private": true,
+  "version": "0.1.1-beta.1",
+  "releaseName": "\u7f24\u7eb7\u591a\u5f69\u7684\u5927\u5343\u4e16\u754c",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run packages:check && tsc -b && node scripts/build.mjs",
+    "build:android:web": "npm run packages:check && tsc -b && node scripts/build.mjs --mode capacitor",
+    "test": "node --test scripts/image-build.test.mjs scripts/audio-build.test.mjs && vitest run",
+    "test:e2e": "playwright test",
+    "test:pwa": "npm run build && playwright test --config playwright.pwa.config.ts",
+    "test:watch": "vitest",
+    "preview": "vite preview",
+    "packages:sync": "node scripts/builtin-character-packages.mjs sync",
+    "packages:check": "node scripts/builtin-character-packages.mjs check",
+    "android:sync": "npm run build:android:web && npm run android:prepare && cap sync android",
+    "android:open": "cap open android",
+    "android:build": "npm run android:sync && node scripts/android.mjs build",
+    "android:build:debug": "npm run android:sync && node scripts/android.mjs build --debug",
+    "android:prepare": "node scripts/ensure-android.mjs",
+    "build:packages": "npm run packages:check && node scripts/build-packages.mjs",
+    "test:build": "node --test scripts/image-build.test.mjs scripts/audio-build.test.mjs",
+    "build:sdk": "node scripts/build-sdk.mjs",
+    "test:sdk": "npm run build:sdk && node --test scripts/sdk.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/filesystem": "^8.1.3",
+    "@capacitor/share": "^8.0.1",
+    "dexie": "^4.0.11",
+    "fflate": "^0.8.3",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^22.10.2",
+    "sharp": "0.35.5",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^4.1.11"
+  },
+  "exports": {
+    "./plugin-api": "./src/plugin-api.ts",
+    "./authoring-api": "./src/authoring-api.ts",
+    "./image-build": "./scripts/image-build.mjs",
+    "./package-tools": "./scripts/package-tools.mjs",
+    "./audio-build": "./scripts/audio-build.mjs"
+  }
+}

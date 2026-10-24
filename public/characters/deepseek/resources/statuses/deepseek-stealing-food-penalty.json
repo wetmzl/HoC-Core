@@ -1,0 +1,32 @@
+{
+  "id": "deepseek-stealing-food-penalty",
+  "defaultDuration": "round",
+  "rules": [
+    {
+      "id": "apply-stealing-food-penalty",
+      "trigger": "before-round-resolution",
+      "notify": false,
+      "conditions": [
+        {
+          "type": "round-reason-is",
+          "value": "comparison"
+        }
+      ],
+      "effects": [
+        {
+          "type": "add-to-pending-comparison-score",
+          "target": "rival",
+          "amount": {
+            "type": "multiply",
+            "left": {
+              "type": "status-stacks",
+              "target": "owner",
+              "statusDefinitionId": "deepseek-stealing-food-penalty"
+            },
+            "right": -1
+          }
+        }
+      ]
+    }
+  ]
+}

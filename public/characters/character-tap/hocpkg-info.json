@@ -1,0 +1,93 @@
+{
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "character-tap",
+    "version": "1.2.0"
+  },
+  "metadata": {
+    "title": "角色拍一拍",
+    "description": "独立的角色交互事件、计数与区域原语",
+    "license": "GPL-3.0-only AND CC-BY-NC-SA-4.0",
+    "tags": [
+      "built-in",
+      "plugin"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC Core",
+        "roles": [
+          "maintainer"
+        ]
+      },
+      {
+        "displayName": "ZipZipPipe",
+        "roles": [
+          "art"
+        ]
+      }
+    ],
+    "coverImage": "cover.png"
+  },
+  "resources": [
+    {
+      "id": "module",
+      "type": "plugin.module",
+      "apiVersion": 5,
+      "entry": "resources.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "ART-CREDITS.md",
+      "bytes": 541,
+      "sha256": "c3969cb58c4a77b78decb704abcc88512a58dbf6c66e2113e95ebef2b026839d",
+      "mediaType": "text/markdown"
+    },
+    {
+      "path": "authoring/GUIDE.md",
+      "bytes": 4520,
+      "sha256": "a3ecbd14281f30423aac95379f93d8200ea1bacd019347469933aa48f0965470",
+      "mediaType": "text/markdown"
+    },
+    {
+      "path": "authoring/neutral.hocpkg",
+      "bytes": 2384,
+      "sha256": "c15006cf7c7e37ee1df92b25a2d3deacb5de51216315854b3490b20f9c351b45",
+      "mediaType": "application/zip"
+    },
+    {
+      "path": "authoring/regions.schema.json",
+      "bytes": 4084,
+      "sha256": "6b65a1bd61b9c41f9d54f968de5afae82691ee48b18bca1fc2f7fa4c7548c921",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cover.png",
+      "bytes": 427500,
+      "sha256": "4e588829458906439190d692bde76879dd3edf0a6370f67baa9835e1afd3607f",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "module.js",
+      "bytes": 4695,
+      "sha256": "e05c929383458c8df3ccf9692250e2f54cc498830df3764200ba596b6b8d36fe",
+      "mediaType": "text/javascript"
+    },
+    {
+      "path": "resources.json",
+      "bytes": 4740,
+      "sha256": "e3dc1cfde8f4460800e7748753532db3e235294952c1cb5c44f6c25fa78aa052",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "style.css",
+      "bytes": 253,
+      "sha256": "9487c7992016a9caef0aeb72989c35741c1fb5014c70199a0c10eda6a05fb396",
+      "mediaType": "text/css"
+    }
+  ],
+  "extensions": {}
+}

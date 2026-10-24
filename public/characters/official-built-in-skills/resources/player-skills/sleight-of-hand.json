@@ -1,0 +1,64 @@
+{
+  "definition": {
+    "id": "sleight-of-hand",
+    "name": "顺手牵羊",
+    "description": "把对手最后一张实体手牌直接偷进自己的手牌，不会生成衍生牌。",
+    "usage": "玩家回合可用；对手最后一张手牌为衍生牌时不可用。偷来的牌会立即计入点数，也可能让你爆牌。",
+    "triggerNotice": "偷走了对手最后一张实体手牌。",
+    "profileLore": "一只洗得过分干净的手套。指纹没有，赃物倒总能从别人的袖口里长出来。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "cheater",
+    "skillTags": [
+      "cheater"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "availability": [
+        {
+          "type": "hand-card-source-is",
+          "target": "rival",
+          "card": "last-card",
+          "source": "shoe"
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "steal-rival-last-card",
+        "trigger": "on-ability-played",
+        "conditions": [
+          {
+            "type": "hand-card-source-is",
+            "target": "rival",
+            "card": "last-card",
+            "source": "shoe"
+          }
+        ],
+        "effects": [
+          {
+            "type": "transfer-last-physical-hand-card",
+            "from": "rival",
+            "target": "owner"
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "active-skill-card",
+      "hand-mutation",
+      "card-theft"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

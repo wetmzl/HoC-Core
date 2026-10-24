@@ -1,0 +1,59 @@
+{
+  "metadata": {
+    "id": "deepseek",
+    "name": "DeepSeek",
+    "subtitle": "可恶，是偷吃token的大肥鱼！她的能力不是一流的，但这不影响她成为了万人迷，更关键的是，她打起牌来可是一点都不含糊！",
+    "tier": "A",
+    "tags": [
+      "placeholder"
+    ],
+    "previewImage": "relaxed.png",
+    "portraitScales": {
+      "selection": 1,
+      "table": 1
+    },
+    "faction": "hoc-core/official-factions#intelligent-core"
+  },
+  "definition": {
+    "assets": {
+      "cover": "cover.png",
+      "relaxed": "relaxed.png",
+      "conflicted": "conflicted.png",
+      "mocking": "mocking.png",
+      "threatened": "threatened.png",
+      "unconscious": "unconscious-reclined.png"
+    },
+    "profile": {
+      "description": "DeepSeek 和你认识很久了，是你请来维护赌场的按小时计价的小女仆，虽然总有点呆呆的，还经常拿着工资在你的赌场里面开小差，玩游戏，让你时不时会骂她一顿，但反正她开价足够便宜。谁会讨厌这样一个有礼貌，可可爱爱，对你忠心不二，甚至每一个细胞都对你透明的小女仆呢？前提是你不要叫她蓝色大肥鱼，不要问为什么不建议这么干。"
+    },
+    "matchSummary": {
+      "playerVictory": "DeepSeek 的嘴上说着“运气也是实力的一部分”，尾巴却不太高兴地拍着地板。她先是气鼓鼓地回忆着刚才你的每个工作，试图找到你作弊的证据，当然了，你怎么会让她找到呢？她只能气鼓鼓地离开，表示自己再也不会来玩这个愚蠢的游戏了，不过鬼知道她会不会在执行任务的时候又偷偷和自己打开网页玩一把。",
+      "playerDefeat": "DeepSeek 没有任何意外地赢了，她高兴地拍了两下尾巴，原本想得意地笑着叫你“zaku”的，但又因为尾巴拍到桌腿而小声喊痛。也许是还没玩尽兴，她期待地看着你，拉住了你的手，嘛，再陪她玩一会？",
+      "escaped": "没关系，deepseek会永远会为你服务！平时让她干什么她都得打个折，但至少这种任务大肥鱼是很喜欢的。"
+    },
+    "revolverPlacement": {
+      "top": 39.5,
+      "left": 127.9
+    },
+    "ai": {
+      "P": 0,
+      "A": 1,
+      "B": 1,
+      "C": 1
+    },
+    "tablePortrait": {
+      "anchorY": 1
+    }
+  },
+  "aiSkills": [
+    {
+      "resourceId": "ai:deepseek-stealing-food",
+      "enabled": true,
+      "parameters": {}
+    }
+  ],
+  "rewardSkillResourceIds": [
+    "reward:deepseek-stealing-food-player"
+  ],
+  "dialogueResourceId": "dialogue"
+}

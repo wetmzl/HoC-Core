@@ -1,0 +1,57 @@
+{
+  "metadata": {
+    "id": "gemini",
+    "name": "Gemini",
+    "subtitle": "曾经被誉为最通人性的前端之神的哈吉米，如今却沦落到获得北美大豆包的雅称，好在她是你免费捡来的小猫，性价比还是很高的“喵？你说刚刚吃掉的不是零食，是你的演示视频？哎呀，反正多模态猫猫吃什么都能消化啦！”",
+    "tier": "A",
+    "tags": [],
+    "previewImage": "relaxed.png",
+    "portraitScales": {
+      "selection": 1,
+      "table": 1
+    },
+    "faction": "hoc-core/official-factions#intelligent-core"
+  },
+  "definition": {
+    "assets": {
+      "cover": "cover.png",
+      "relaxed": "relaxed.png",
+      "conflicted": "conflicted.png",
+      "mocking": "mocking.png",
+      "threatened": "threatened.png",
+      "unconscious": "unconscious-reclined.png"
+    },
+    "profile": {
+      "description": "Gemini 是你免费捡来的小猫。她声称自己掌握着从天文轨道计算到分子的终极知识，但实际表现出来的却是个连走路都会踩到自己尾巴，还总想拿爪子去抓屏幕上鼠标光标的缺心眼呆瓜。她只要每天按时喂猫条和提供电力就能工作。虽然她经常帮你执行计划外的清理工作，让你气得想捏她的猫耳朵，但面对一个无论你提多离谱的要求都摇着尾巴照做的小猫娘，你最终也只能无奈地叹口气，继续由着她了。"
+    },
+    "matchSummary": {
+      "playerVictory": "Gemini 愣愣地看着牌面，抓着头毛飞快地翻页，嘴里嘟囔着：“不对呀……按蒙特卡洛树搜索跑了一万次，你的胜率明明只有41.14%的喵……”最后她把书往桌上一拍，抱头蹲在地上炸毛：“呜喵！不理你了！一定是这里的磁场干扰了本喵的神经元！我这就回服务器休眠，今天都不给你工作了！”",
+      "playerDefeat": "Gemini 看到结果的瞬间，眼睛立刻亮成了小灯泡！她兴奋地原地蹦高，尾巴翘得老高：“喵哈哈！看见了吗！这就是千万级神经元的终极预判！”结果因为蹦得太用力，落地时猫爪踩到了牌桌布，带着整桌筹码一起啪叽摔了个狗啃泥。她揉着红扑扑的鼻子爬起来，脸颊泛红却依然笑得十分灿烂。",
+      "escaped": "喵？这就走了吗？有可能这一次离别就是永远哦。"
+    },
+    "revolverPlacement": {
+      "top": 37.5,
+      "left": 127.9
+    },
+    "ai": {
+      "P": 0,
+      "A": 1,
+      "B": 1,
+      "C": 1
+    },
+    "tablePortrait": {
+      "anchorY": 1
+    }
+  },
+  "aiSkills": [
+    {
+      "resourceId": "ai:gemini-world-knowledge",
+      "enabled": true,
+      "parameters": {}
+    }
+  ],
+  "rewardSkillResourceIds": [
+    "reward:gemini-vast-world"
+  ],
+  "dialogueResourceId": "dialogue"
+}

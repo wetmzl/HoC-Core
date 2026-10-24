@@ -1,0 +1,88 @@
+{
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "debug-engine",
+    "version": "1.0.1"
+  },
+  "metadata": {
+    "title": "官方调试引擎",
+    "description": "五连点版本号确认开启的可选对局调试工具",
+    "license": "GPL-3.0-only AND CC-BY-NC-SA-4.0",
+    "tags": [
+      "built-in",
+      "plugin"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC Core",
+        "roles": [
+          "maintainer"
+        ]
+      },
+      {
+        "displayName": "ZipZipPipe",
+        "roles": [
+          "art"
+        ]
+      }
+    ],
+    "coverImage": "cover.png"
+  },
+  "resources": [
+    {
+      "id": "module",
+      "type": "plugin.module",
+      "apiVersion": 6,
+      "entry": "resources.json",
+      "requires": []
+    },
+    {
+      "id": "skill:debug-control",
+      "type": "game.player-skill",
+      "apiVersion": 2,
+      "entry": "resources/player-skills/debug-control.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "ART-CREDITS.md",
+      "bytes": 532,
+      "sha256": "526e84f0f31a7108d95887b44fa3f48fc39aae15196012876fc923d101b7470e",
+      "mediaType": "text/markdown"
+    },
+    {
+      "path": "cover.png",
+      "bytes": 624501,
+      "sha256": "4ec9d60aaf102b3b243810f1a195da234f09904b33b00f0f9049cf9a4788e526",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "module.js",
+      "bytes": 13039,
+      "sha256": "b466884d9c7f53c17ae63398120b4ed7fcaa6eeaf8ff41232af516ef88808fa9",
+      "mediaType": "text/javascript"
+    },
+    {
+      "path": "resources/player-skills/debug-control.json",
+      "bytes": 4800,
+      "sha256": "eaa036df2fbd9ed695d95ee225119872347da1c45f97d2030c375284512406c6",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources.json",
+      "bytes": 409,
+      "sha256": "392dde7e4bfb3567192620e38f3dffd33fb4a27070d4cf98316480dc5d86ff9b",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "style.css",
+      "bytes": 3171,
+      "sha256": "bdf0ae303f2e9f9e8b3a25b6cbe33513056d88b2466f6ff17b9d075983f14a4b",
+      "mediaType": "text/css"
+    }
+  ],
+  "extensions": {}
+}

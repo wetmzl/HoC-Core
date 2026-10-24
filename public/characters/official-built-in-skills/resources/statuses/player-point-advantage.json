@@ -1,0 +1,28 @@
+{
+  "id": "player-point-advantage",
+  "defaultDuration": "round",
+  "rules": [
+    {
+      "id": "apply-player-point-advantage",
+      "trigger": "before-round-resolution",
+      "notify": false,
+      "conditions": [
+        {
+          "type": "round-reason-is",
+          "value": "comparison"
+        }
+      ],
+      "effects": [
+        {
+          "type": "add-to-pending-comparison-score",
+          "target": "owner",
+          "amount": {
+            "type": "status-stacks",
+            "target": "owner",
+            "statusDefinitionId": "player-point-advantage"
+          }
+        }
+      ]
+    }
+  ]
+}

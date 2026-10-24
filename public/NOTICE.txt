@@ -1,0 +1,48 @@
+House of Chances — 许可证与资源署名
+
+程序代码：GNU General Public License v3.0 only（GPL-3.0-only）。
+完整条款：licenses/GPL-3.0.txt
+官方条款：https://www.gnu.org/licenses/gpl-3.0.html
+
+角色包图片：Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+International（CC BY-NC-SA 4.0）。
+美术原作者：ZipZipPipe。
+完整条款：licenses/CC-BY-NC-SA-4.0.txt
+官方条款：https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+适用范围：characters/chatgpt/、characters/claude/、characters/deepseek/、
+characters/gemini/、characters/llama/ 中的图片；favicon.ico、favicon.svg、icons/ 中的图标，
+以及 Android res/ 下的 ic_launcher*.png 与 splash.png；
+assets/save-share-cover.png 默认存档分享封面；
+characters/character-tap/cover.png、characters/debug-engine/cover.png 官方插件封面。
+项目包含基于原始角色美术生成改绘、缩放与裁切后的资源；再分发或改编时请保留
+ZipZipPipe 署名与许可信息、标明修改，并遵守非商业性使用及相同方式共享条件。
+网页与应用图标、启动图基于 DeepSeek 角色美术经 AI 改绘为 Q 版铁盆造型，
+再经缩放、补边及圆形裁切；角色美术原作者仍为 ZipZipPipe。
+默认存档分享封面参考上述五位角色美术，经 AI 改绘为五位 Q 版角色合照，
+调整为深色牌桌背景并缩放；角色美术原作者署名与 CC BY-NC-SA 4.0 许可保留。
+
+官方拍一拍和调试引擎封面参考 DeepSeek 角色美术，经 AI 改绘为黑底 Q 版插画并缩放，
+角色美术原作者仍为 ZipZipPipe，沿用 CC BY-NC-SA 4.0；逐包声明见 ART-CREDITS.md。
+
+其余项目美术：AI 生成，使用 CC0 1.0 Universal。
+适用范围：assets/ 中除 save-share-cover.png 外的图片、characters/official-built-in-skills/ 和
+characters/official-built-in-talents/ 中的图片，以及
+characters/official-factions/intelligent-core.png 共享阵营徽标。
+智能核心徽标由 AI 独立生成，未引用角色原画。
+CC0 适用于项目在这些资源中享有的权利。
+完整条款：licenses/CC0-1.0.txt
+官方条款：https://creativecommons.org/publicdomain/zero/1.0/
+
+另有第三方许可声明的文件遵循原声明。
+代码、美术和音频的许可证分别适用。
+音效的原作者、来源、CC BY 4.0／CC0 许可与加工说明见 AUDIO-CREDITS.txt。
+CC BY 4.0 完整条款：licenses/CC-BY-4.0.txt
+大厅音乐：Gymnopedie No. 1，作曲 Erik Satie，编曲与演奏 Kevin MacLeod。
+牌局音乐：Clair de lune，作曲 Claude Debussy，演奏 Laurens Goedhart。
+两份录音使用 CC BY 3.0；完整来源、署名与加工说明见 AUDIO-CREDITS.txt。
+CC BY 3.0 完整条款：licenses/CC-BY-3.0.txt
+result.ogg 使用 CC0 1.0；详见音频署名清单。
+依赖库及其他第三方文件保留各自的许可证。
+
+依赖组件许可及版权声明：THIRD-PARTY-NOTICES.txt

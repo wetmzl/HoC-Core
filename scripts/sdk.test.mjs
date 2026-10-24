@@ -1,0 +1,97 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdtemp, readFile, writeFile, rm, cp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = fileURLToPath(new URL('..', import.meta.url));
+test('packed SDK works in a source-free Node and TypeScript consumer', { timeout: 120_000 }, async () => {
+  const consumer = await mkdtemp(join(tmpdir(), 'hoc-sdk-consumer-'));
+  try {
+    const sdkPackage = JSON.parse(await readFile(join(root, 'sdk/package.json'), 'utf8'));
+    const report = JSON.parse(await readFile(join(root, 'dist/sdk-artifacts/sdk.json'), 'utf8'));
+    assert.deepEqual({ name: report.name, version: report.version }, { name: sdkPackage.name, version: sdkPackage.version });
+    const archive = await readFile(join(root, 'dist/sdk-artifacts', report.file));
+    assert.equal(archive.byteLength, report.bytes);
+    assert.equal(createHash('sha256').update(archive).digest('hex'), report.sha256);
+    await cp(join(root, 'dist/sdk-artifacts', report.file), join(consumer, 'sdk.tgz'));
+    await writeFile(join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module', dependencies: { 'hoc-core': 'file:sdk.tgz' } }));
+    const env = { ...process.env, HOC_CORE_DIR: '/nonexistent-core', NODE_PATH: '' };
+    execFileSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: consumer, env, stdio: 'pipe' });
+    await writeFile(join(consumer, 'verify.mjs'), `
+      import assert from 'node:assert/strict';
+      import { execFileSync } from 'node:child_process';
+      import { buildAudio } from 'hoc-core/audio-build';
+      import { readFile, writeFile, mkdir } from 'node:fs/promises';
+      import { createCharacterPackageDraft, validateCharacterPackage, HocpkgManifestSchema, FactionResourceSchema, HocpkgResourceKeySchema } from 'hoc-core/authoring-api';
+      import { capabilities } from 'hoc-core/capabilities';
+      import { SKILL_TAGS } from 'hoc-core/plugin-api';
+      import { manifestFiles, mediaType, archiveFiles } from 'hoc-core/package-tools';
+      import { buildPackage, imageOptions } from 'hoc-core/image-build';
+      const installed = JSON.parse(await readFile(new URL(import.meta.resolve('hoc-core/package.json')), 'utf8'));
+      assert.deepEqual({name: installed.name, version: installed.version, exports: installed.exports}, ${JSON.stringify({ name: sdkPackage.name, version: sdkPackage.version, exports: sdkPackage.exports })});
+      const draft = createCharacterPackageDraft('sample', 'Sample');
+      await mkdir('sample/resources', {recursive:true});
+      const dialogue = JSON.parse(draft.files['resources/dialogue.json']);
+      for (const pool of Object.values(dialogue.pools)) pool.push('Hello.');
+      draft.files['resources/dialogue.json'] = JSON.stringify(dialogue);
+      const character = JSON.parse(draft.files['resources/character.json']);
+      character.metadata.faction = 'example/factions#guild';
+      assert.deepEqual(FactionResourceSchema.parse({ name: 'Sample guild', badge: 'badge.png' }), { name: 'Sample guild', badge: 'badge.png' });
+      assert.equal(HocpkgResourceKeySchema.parse(character.metadata.faction), 'example/factions#guild');
+      character.metadata.matchMusic = 'bgm/theme.wav';
+      character.metadata.badge = { image: 'badge.png', label: 'Sample guild' };
+      character.definition.tablePortrait = { anchorY: .95, images: [{ image: 'relaxed.png', anchorY: .9 }] };
+      draft.files['resources/character.json'] = JSON.stringify(character);
+      for (const [path, text] of Object.entries(draft.files)) await writeFile('sample/' + path, text);
+      const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZlS8AAAAASUVORK5CYII=', 'base64');
+      for (const name of ['cover','relaxed','conflicted','mocking','threatened','unconscious','badge']) await writeFile('sample/' + name + '.png', png);
+      await mkdir('sample/bgm', {recursive:true});
+      const tone = execFileSync('ffmpeg', ['-v','error','-f','lavfi','-i','sine=frequency=440:duration=0.1','-f','wav','pipe:1']);
+      await writeFile('sample/bgm/theme.wav', tone);
+      draft.manifest.files = await manifestFiles('sample');
+      await writeFile('sample/hocpkg-info.json', JSON.stringify(draft.manifest));
+      await validateCharacterPackage({manifest:draft.manifest,readFile:path=>readFile('sample/' + path)});
+      const built = await buildPackage('.', {manifest:'sample/hocpkg-info.json',packageId:'creator/sample',version:'1.0.0'}, imageOptions(['--images','png']));
+      HocpkgManifestSchema.parse(built.manifest);
+      assert.equal(JSON.parse(new TextDecoder().decode(built.files['resources/character.json'])).metadata.matchMusic, 'bgm/theme.opus');
+      assert.equal(built.manifest.files.find(file => file.path === 'bgm/theme.opus').mediaType, 'audio/ogg');
+      assert.ok((await archiveFiles(built.files)).length > png.length);
+      assert.equal(mediaType('audio.ogg'), 'audio/ogg');
+      const audio = await buildAudio(tone, 'tone.wav');
+      assert.equal(audio.record.output, 'tone.opus');
+      assert.equal(audio.record.kbps, 64);
+      assert.deepEqual((await buildAudio(audio.bytes, 'tone.ogg')).bytes, audio.bytes);
+      assert.ok(capabilities.resourceApiVersions['game.character-match'].includes(4));
+      assert.ok(capabilities.resourceApiVersions['game.character-match'].includes(5));
+      assert.ok(capabilities.resourceApiVersions['game.character-match'].includes(6));
+      assert.ok(capabilities.resourceApiVersions['game.character-match'].includes(7));
+      assert.deepEqual(capabilities.resourceApiVersions['presentation.faction'], [1, 2]);
+      assert.ok(capabilities.resourceApiVersions['game.character-match'].includes(8));
+      assert.ok(capabilities.pluginModuleApiVersions.includes(10));
+      assert.equal(draft.manifest.resources.find(r => r.type === 'game.character-match').apiVersion, 8);
+      assert.ok(SKILL_TAGS.length > 0);
+      await assert.rejects(import('hoc-core/src/core/abilities/registry.js'), {code:'ERR_PACKAGE_PATH_NOT_EXPORTED'});
+      console.log('Node imports, authoring, image builder, archive and export boundary passed');
+    `);
+    const output = execFileSync(process.execPath, ['verify.mjs'], { cwd: consumer, env, encoding: 'utf8' });
+    assert.match(output, /export boundary passed/);
+    await writeFile(join(consumer, 'consumer.ts'), `
+      import { SKILL_TAGS, type PluginModule, type PluginRuntimeContext, type PluginGameRuntimeContext, type PluginTutorialDefinition, type PluginTutorialApi } from 'hoc-core/plugin-api';
+      import { createCharacterPackageDraft, type CharacterPackageDraft } from 'hoc-core/authoring-api';
+      import { imageOptions, buildPackage } from 'hoc-core/image-build';
+      import { buildAudio, type AudioBuildRecord } from 'hoc-core/audio-build';
+      import { manifestFiles } from 'hoc-core/package-tools';
+      const draft: CharacterPackageDraft = createCharacterPackageDraft('sample', 'Sample');
+      const plugin: PluginModule = {register: () => ({handlers:[],createRuntime:()=>({})})};
+      function context(value: PluginRuntimeContext, game: PluginGameRuntimeContext) { return [value.getSave(), game.game.getMatch()]; }
+      const tutorial: PluginTutorialDefinition = { id: 'intro', title: 'Guide', presentation: 'sidebar', autoSkipMs: null, pages: [{ body: 'Explanation' }] };
+      function showTutorial(api: PluginTutorialApi) { const cancel = api.show(tutorial, { replay: true, signal: new AbortController().signal }); cancel(); return api.isCompleted(tutorial.id); }
+      void [SKILL_TAGS, draft, plugin, context, imageOptions, buildPackage, manifestFiles, buildAudio, showTutorial];
+    `);
+    execFileSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022', '--lib', 'ES2022,DOM,DOM.Iterable', 'consumer.ts'], { cwd: consumer, env, stdio: 'pipe' });
+  } finally { await rm(consumer, { recursive: true, force: true }); }
+});

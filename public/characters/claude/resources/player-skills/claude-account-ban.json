@@ -1,0 +1,50 @@
+{
+  "definition": {
+    "id": "claude-account-ban",
+    "name": "封禁账号",
+    "description": "立即强制对手 Stand。",
+    "usage": "玩家回合使用，每张一次。对手尚未停牌时可用，立即强制其停牌；你仍可继续行动。这不会触发对手主动 Stand 的技能。",
+    "triggerNotice": "对手已被强制 Stand。",
+    "profileLore": "感谢你对本牌桌的支持。经审查，你的要牌权限已被永久停用——至少在这一回合是这样。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "cheater",
+    "skillTags": [
+      "cheater"
+    ],
+    "tags": [
+      "player-skill",
+      "active-skill-card",
+      "blackjack"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "uses": 1
+    },
+    "rules": [
+      {
+        "id": "activate",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "force-stand",
+            "target": "rival"
+          }
+        ]
+      }
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "defeat-character",
+    "characterResourceId": "match",
+    "label": "首次击败Claude"
+  }
+}

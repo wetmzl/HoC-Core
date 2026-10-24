@@ -1,0 +1,45 @@
+{
+  "id": "resilient-spirit",
+  "name": "越挫越勇",
+  "description": "每轮黑杰克失败后，额外获得 1 次技能抽取。",
+  "usage": "天赋效果：每轮黑杰克失败后，额外获得 1 次技能抽取。",
+  "triggerNotice": "每轮黑杰克失败后，额外获得 1 次技能抽取。",
+  "profileLore": "输了一轮？至少你还赚到了一次翻盘的机会。",
+  "sourceKind": "talent",
+  "primaryDomain": "cheater",
+  "unlock": {
+    "type": "defeat-count",
+    "count": 3,
+    "label": "击败 3 名角色"
+  },
+  "activation": {
+    "type": "passive"
+  },
+  "rules": [
+    {
+      "id": "grant-benefit",
+      "trigger": "after-bullet-load",
+      "effects": [
+        {
+          "type": "add-skill-draws",
+          "target": "owner",
+          "amount": 1
+        }
+      ],
+      "limit": {
+        "perRound": 1
+      },
+      "conditions": [
+        {
+          "type": "round-penalty-target-is",
+          "target": "owner"
+        }
+      ]
+    }
+  ],
+  "tags": [
+    "talent",
+    "skill-economy",
+    "draw-control"
+  ]
+}

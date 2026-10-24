@@ -1,0 +1,50 @@
+{
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "official-factions",
+    "version": "1.0.1"
+  },
+  "metadata": {
+    "title": "智能核心阵营包",
+    "license": "CC0",
+    "description": "内置 AI 与会者的阵营定义与共享徽标；停用不影响角色对局。",
+    "coverImage": "intelligent-core.png",
+    "tags": [
+      "faction"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "intelligent-core",
+      "type": "presentation.faction",
+      "apiVersion": 1,
+      "entry": "resources/intelligent-core.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "intelligent-core.png",
+      "bytes": 999073,
+      "sha256": "0c8343c9af629b13a96cf1979b337807664cf68463d5a64e01b74d089587c339",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/intelligent-core.json",
+      "bytes": 64,
+      "sha256": "54baba91c6126ed2a4a516a40e4fcf3b2b8a189f4f5488a5e59156ebf275166a",
+      "mediaType": "application/json"
+    }
+  ],
+  "extensions": {}
+}

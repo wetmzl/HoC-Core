@@ -1,0 +1,25 @@
+.table-stage { container-type: size; }
+.character-intel { position: absolute; z-index: 8; top: 8px; left: calc(-1 * var(--table-inline-inset)); width: min(300px, calc(100% + var(--table-inline-inset))); max-height: min(300px, calc(100% - 16px)); pointer-events: none; color: #e9e8e2; }
+.character-intel-tab { position: relative; display: flex; align-items: center; gap: 6px; width: 110px; min-height: 44px; padding: 8px; border: 1px solid #879c9c80; border-left: 0; border-radius: 0 9px 4px 0; background: linear-gradient(120deg, #243a43f5, #152731ed); box-shadow: 0 4px 0 -1px #14252ef0, 0 5px 0 #748d9260, 0 8px 18px #030c1540; cursor: pointer; list-style: none; pointer-events: auto; touch-action: manipulation; user-select: none; }
+.character-intel-tab::-webkit-details-marker { display: none; }
+.character-intel-tab::before { content: ""; position: absolute; top: 6px; bottom: 6px; left: 0; width: 2px; border-radius: 2px; background: #e0c397; }
+.character-intel-tab strong { display: block; font-size: .68rem; font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
+.character-intel-icon { width: 17px; height: 17px; flex: none; fill: none; stroke: #d3c19e; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.character-intel-chevron { width: 11px; height: 11px; margin-left: auto; flex: none; fill: none; stroke: #b9cdd0; stroke-width: 1.5; transition: transform .2s; }
+.character-intel-tab:hover, .character-intel-tab:focus-visible { border-color: #c3d8d1; outline: none; background: #29434e; }
+.character-intel[open] > .character-intel-tab { border-bottom-color: #243943; border-radius: 0 9px 0 0; box-shadow: none; z-index: 1; }
+.character-intel[open] .character-intel-chevron { transform: rotate(180deg); }
+.character-intel-sheet { max-height: min(256px, calc(100cqh - 60px)); display: flex; flex-direction: column; min-height: 0; margin-top: -1px; border: 1px solid #879c9c80; border-left: 0; border-radius: 0 12px 12px 0; background: linear-gradient(150deg, #213741f5, #101e2af7); backdrop-filter: blur(16px); box-shadow: 0 16px 36px #020a13a0, inset 0 1px #e9dec510; overflow: hidden; pointer-events: auto; animation: character-intel-unfold .2s ease-out; transform-origin: top left; }
+.character-intel-scroll { overflow: auto; min-height: 0; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #8ca7aa66 transparent; padding: 3px 16px; }
+.character-intel-scroll:focus-visible { outline: 1px solid #92bdc5; outline-offset: -2px; }
+.character-intel-skill { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 9px; padding: 12px 0; }
+.character-intel-skill + .character-intel-skill { border-top: 1px solid #9aaead20; }
+.character-intel-index { padding-top: 3px; color: #a7906b; font-size: .58rem; font-variant-numeric: tabular-nums; }
+.character-intel-skill h3 { margin: 0 0 7px; color: #eee3cd; font-size: .81rem; line-height: 1.4; font-weight: 600; }
+.character-intel-skill p, .character-intel-empty { margin: 0; color: #c0cdd2; font-size: .73rem; line-height: 1.75; overflow-wrap: anywhere; white-space: pre-wrap; }
+.character-intel-empty { padding: 18px 0; }
+.character-intel-skill .skill-rules { margin: 8px 0 0; }
+.character-intel-skill .skill-rules summary { color: #93b9c1; font-size: .62rem; min-height: 32px; padding-block: 7px; cursor: pointer; }
+.character-intel-skill .skill-rules p { color: #a4b9c2; font-size: .68rem; }
+@keyframes character-intel-unfold { from { opacity: 0; transform: translateY(-7px) scaleY(.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .character-intel-sheet { animation: none; } .character-intel-chevron { transition: none; } }

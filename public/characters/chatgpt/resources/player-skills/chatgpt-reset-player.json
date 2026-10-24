@@ -1,0 +1,50 @@
+{
+  "definition": {
+    "id": "chatgpt-reset-player",
+    "name": "RESET",
+    "description": "弃掉全部手牌，重发一明一暗两张牌。",
+    "usage": "玩家回合使用，每张一次。弃掉自己的全部扑克牌，从剩余牌堆重发一明一暗两张；至少需要两张剩余实体牌，不计为 Hit，也不重置本回合。",
+    "triggerNotice": "弃掉全部手牌，重发一明一暗两张牌。",
+    "profileLore": "新建对话。上一手的错误已经不在当前上下文中了。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "cheater",
+    "skillTags": [
+      "cheater"
+    ],
+    "tags": [
+      "player-skill",
+      "active-skill-card",
+      "blackjack"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "uses": 1
+    },
+    "rules": [
+      {
+        "id": "activate",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "redeal-initial-hand",
+            "target": "owner"
+          }
+        ]
+      }
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "defeat-character",
+    "characterResourceId": "match",
+    "label": "首次击败ChatGPT"
+  }
+}

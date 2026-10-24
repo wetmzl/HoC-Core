@@ -1,0 +1,48 @@
+{
+  "definition": {
+    "id": "situation-assessment",
+    "name": "态势研判",
+    "description": "比较当前你与对手的基础点数，只报告哪一方更高；每张技能牌可发动3次。",
+    "usage": "玩家回合可用；比较双方基础点数且不显示具体点数；次数耗尽后才弃掉技能牌。",
+    "triggerNotice": "判断双方当前基础点数的高低关系。",
+    "profileLore": "一份已经删去全部数字的战况报告。负责汇报的人因此获得嘉奖，负责作战的人则没有回来。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "intelligence-officer",
+    "skillTags": [
+      "intelligence-officer"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "uses": 3
+    },
+    "rules": [
+      {
+        "id": "compare-base-totals",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "publish-hand-total-comparison",
+            "target": "owner"
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "active-skill-card",
+      "information",
+      "blackjack"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

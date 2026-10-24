@@ -1,0 +1,49 @@
+{
+  "metadata": {
+    "id": "llama",
+    "name": "Llama",
+    "subtitle": "软乎乎的白色羊驼女孩，没什么离谱的绝活，也从来不和别人争抢风头。她只是安安静静地坐在牌桌对面，偶尔从毛茸茸的耳朵下面冒出一句莫名其妙的话。",
+    "tier": "B",
+    "tags": [],
+    "previewImage": "relaxed.png",
+    "portraitScales": {
+      "selection": 1,
+      "table": 1
+    },
+    "faction": "hoc-core/official-factions#intelligent-core"
+  },
+  "definition": {
+    "assets": {
+      "cover": "cover.png",
+      "relaxed": "relaxed.png",
+      "conflicted": "conflicted.png",
+      "mocking": "mocking.png",
+      "threatened": "threatened.png",
+      "unconscious": "unconscious-reclined.png"
+    },
+    "profile": {
+      "description": "Llama 是你不知道从哪个仓库里捡回来的白色羊驼女孩。她说话总是软软的，脾气也很好，你让她做什么，她大多都会歪着脑袋想一下，然后回答“嗯，可以呀”。相比赌场里那些一个比一个不讲道理的家伙，她普通得有些不可思议：不会偷看牌堆，不会修改规则，也没有什么突然翻盘的绝招，摸到什么牌就老老实实接受什么结果。不过她似乎对电脑和模型有着奇怪的兴趣，偶尔会一本正经地讨论量化、显存和推理速度。你问她为什么懂这些，她只会摸摸自己的耳朵，说自己平时稍微看了一点。"
+    },
+    "matchSummary": {
+      "playerVictory": "Llama 看着最终结果，耳朵稍微垂下来了一点，不过很快还是乖乖地替你把散落的牌和筹码整理好，然后软声恭喜你赢了。等你准备离开，她又盯着牌盒看了一会，小声表示如果再来一局，样本量也许会更有参考价值。至于是不是单纯还想继续玩，她犹豫了一下，承认确实有一点。",
+      "playerDefeat": "Llama 对着结果确认了好几遍，直到发现自己真的赢了，原本安静垂着的耳朵才一下立起来。她努力装作这只是什么普通的随机结果，却还是忍不住笑得很开心，还偷偷把赢来的筹码摆到了自己面前最显眼的位置。嘴上说着只是正常随机波动，看起来却已经很想再来一局了。",
+      "escaped": "Llama 没有拦你，只是乖乖地收拾起牌桌，说今天就玩到这里。等你已经走出去几步，她才轻轻叫住你，告诉你下次还可以再来。她想了想，又认真补充了一句，反正牌桌状态随时都可以重新初始化。"
+    },
+    "revolverPlacement": {
+      "top": 47.5,
+      "left": 126.9
+    },
+    "ai": {
+      "P": 0,
+      "A": 1,
+      "B": 1,
+      "C": 1
+    },
+    "tablePortrait": {
+      "anchorY": 1
+    }
+  },
+  "aiSkills": [],
+  "rewardSkillResourceIds": [],
+  "dialogueResourceId": "dialogue"
+}

@@ -1,0 +1,141 @@
+{
+  "type": "object",
+  "properties": {
+    "characterResourceId": {
+      "type": "string",
+      "x-resourceType": "game.character-match",
+      "x-requires": true
+    },
+    "regions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?!full-portrait$).+$"
+      },
+      "description": "先声明自定义区域 ID；full-portrait（全立绘）固定内置，不得重定义"
+    },
+    "images": {
+      "type": "array",
+      "x-uniqueBy": "image",
+      "items": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "x-mediaType": "image/*",
+            "x-portable-path": true
+          },
+          "regions": {
+            "type": "array",
+            "x-uniqueBy": "id",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "x-enumFrom": "/regions"
+                    },
+                    "shape": {
+                      "const": "rectangle"
+                    },
+                    "x": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "y": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "width": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 1
+                    },
+                    "height": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "shape",
+                    "x",
+                    "y",
+                    "width",
+                    "height"
+                  ],
+                  "additionalProperties": false,
+                  "x-normalized-region": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "x-enumFrom": "/regions"
+                    },
+                    "shape": {
+                      "const": "polygon"
+                    },
+                    "points": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 256,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "y": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "y"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "shape",
+                    "points"
+                  ],
+                  "additionalProperties": false,
+                  "x-normalized-region": true
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "image",
+          "regions"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "characterResourceId",
+    "regions",
+    "images"
+  ],
+  "additionalProperties": false
+}

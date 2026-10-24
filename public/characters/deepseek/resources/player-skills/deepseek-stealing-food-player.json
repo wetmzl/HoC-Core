@@ -1,0 +1,53 @@
+{
+  "definition": {
+    "id": "deepseek-stealing-food-player",
+    "name": "偷吃",
+    "description": "对手本回合点数优势 −1。",
+    "usage": "玩家回合使用，每张一次。对手本回合比较点数减少 1，多张可叠加，不改变其手牌点数或爆牌判断。",
+    "triggerNotice": "对手本回合点数优势 −1。",
+    "profileLore": "只是尝一口。等对方回过神来，盘子里的分数已经少了一点。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "cheater",
+    "skillTags": [
+      "cheater"
+    ],
+    "tags": [
+      "player-skill",
+      "active-skill-card",
+      "blackjack",
+      "point-advantage"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "uses": 1
+    },
+    "rules": [
+      {
+        "id": "activate",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "add-status",
+            "target": "owner",
+            "statusDefinitionId": "deepseek-stealing-food-player-penalty"
+          }
+        ],
+        "triggerNotice": "对手本回合点数优势 −1。"
+      }
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "defeat-character",
+    "characterResourceId": "match",
+    "label": "首次击败DeepSeek"
+  }
+}

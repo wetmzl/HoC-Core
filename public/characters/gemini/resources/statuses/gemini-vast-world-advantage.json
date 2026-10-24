@@ -1,0 +1,32 @@
+{
+  "id": "gemini-vast-world-advantage",
+  "defaultDuration": "round",
+  "rules": [
+    {
+      "id": "apply-advantage",
+      "trigger": "before-round-resolution",
+      "notify": false,
+      "conditions": [
+        {
+          "type": "round-reason-is",
+          "value": "comparison"
+        }
+      ],
+      "effects": [
+        {
+          "type": "add-to-pending-comparison-score",
+          "target": "owner",
+          "amount": {
+            "type": "multiply",
+            "left": {
+              "type": "status-stacks",
+              "target": "owner",
+              "statusDefinitionId": "gemini-vast-world-advantage"
+            },
+            "right": 2
+          }
+        }
+      ]
+    }
+  ]
+}

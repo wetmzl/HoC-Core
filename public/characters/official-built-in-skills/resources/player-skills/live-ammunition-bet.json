@@ -1,0 +1,48 @@
+{
+  "definition": {
+    "id": "live-ammunition-bet",
+    "name": "实弹加注",
+    "description": "本轮输家额外装填1发子弹。",
+    "usage": "本轮输家额外装填1发子弹（可叠加使用）。",
+    "triggerNotice": "本轮输家的装填数增加1发。",
+    "profileLore": "一枚由黄铜弹壳压成的筹码，没有面值，只刻着“+1”。赌场拒绝解释它究竟是什么意思，不过输家通常很快就能弄明白。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "gunslinger",
+    "skillTags": [
+      "gunslinger"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card"
+    },
+    "rules": [
+      {
+        "id": "raise-loser-load",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "add-status",
+            "target": "owner",
+            "statusDefinitionId": "live-ammunition-bet-bonus"
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "active-skill-card",
+      "roulette",
+      "load-control"
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "installed"
+  }
+}

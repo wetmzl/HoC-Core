@@ -1,0 +1,39 @@
+{
+  "id": "well-prepared",
+  "name": "有备而来",
+  "description": "开局随机获得的技能卡从 3 张增加至 4 张。",
+  "usage": "天赋效果：开局随机获得的技能卡从 3 张增加至 4 张。",
+  "triggerNotice": "开局随机获得的技能卡从 3 张增加至 4 张。",
+  "profileLore": "礼数之外，口袋里还应留一点底气。",
+  "sourceKind": "talent",
+  "primaryDomain": "cheater",
+  "unlock": {
+    "type": "defeat-count",
+    "count": 7,
+    "label": "击败 7 名角色"
+  },
+  "activation": {
+    "type": "passive"
+  },
+  "rules": [
+    {
+      "id": "grant-benefit",
+      "trigger": "on-match-created",
+      "effects": [
+        {
+          "type": "add-opening-skill-cards",
+          "target": "owner",
+          "amount": 1
+        }
+      ],
+      "limit": {
+        "perMatch": 1
+      }
+    }
+  ],
+  "tags": [
+    "talent",
+    "skill-economy",
+    "draw-control"
+  ]
+}
