@@ -15,7 +15,9 @@ function run(command, args, input) {
     child.stderr.on('data', bytes => errors.push(bytes));
     child.on('error', error => reject(new Error(`Audio build requires ffmpeg (with libopus) and ffprobe on PATH: ${error.message}`)));
     child.on('close', code => code === 0 ? resolve(Buffer.concat(output)) : reject(new Error(`${command} failed (${code}): ${Buffer.concat(errors).toString().trim()}`)));
-    child.stdin.on('error', error => { if (error.code !== 'EPIPE') reject(error); });
+    // Probes can close stdin after reading the header. Windows reports EOF
+    // where POSIX reports EPIPE; the child's exit status remains authoritative.
+    child.stdin.on('error', error => { if (error.code !== 'EPIPE' && error.code !== 'EOF') reject(error); });
     child.stdin.end(input);
   });
 }

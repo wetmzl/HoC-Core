@@ -1,3 +1,4 @@
+import { expectSkillSheet } from "./skill-sheet-assertions";
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -49,6 +50,8 @@ for (const [width, height] of [[1280, 900], [390, 844], [320, 720]]) {
     await shot("01-ready");
     await page.locator('[data-skill-info="chatgpt-reset-player"]').click();
     await expect(page.locator("#skill-info-dialog")).toContainText("每张一次");
+    await expectSkillSheet(page.locator("#skill-info-dialog .skill-sheet"));
+    await page.locator("#skill-info-dialog .skill-sheet summary").click();
     await shot("02-reset-info");
     await page.locator("[data-skill-close]").click();
     await page.locator('[data-skill-id="gemini-vast-world"]').click();

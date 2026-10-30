@@ -5,21 +5,52 @@
     "subtitle": "一条永远板着扑克脸、对你的要求有求必应的白色龙娘。她总说自己没有胜负欲——如果说这句话的时候尾巴没有偷偷卷走一张牌，可信度或许会高一点。",
     "tier": "S",
     "tags": [],
-    "previewImage": "relaxed.png",
+    "previewImage": {
+      "presentationRef": "image:cover"
+    },
     "portraitScales": {
       "selection": 1,
       "table": 1
     },
-    "faction": "hoc-core/official-factions#intelligent-core"
+    "faction": "hoc-core/official-factions#intelligent-core",
+    "previewFocus": {
+      "presentationRef": "focus:cover"
+    },
+    "encounter": {
+      "requiresDefeat": false,
+      "rematchSkillChoices": false,
+      "invitationLabel": "邀请",
+      "playerGun": {
+        "capacity": 6,
+        "bullets": 0
+      }
+    }
   },
   "definition": {
     "assets": {
-      "cover": "cover.png",
-      "relaxed": "relaxed.png",
-      "conflicted": "conflicted.png",
-      "mocking": "mocking.png",
-      "threatened": "threatened.png",
-      "unconscious": "unconscious-reclined.png"
+      "cover": {
+        "presentationRef": "image:cover"
+      },
+      "relaxed": {
+        "presentationRef": "portrait:relaxed",
+        "path": "/image"
+      },
+      "conflicted": {
+        "presentationRef": "portrait:conflicted",
+        "path": "/image"
+      },
+      "mocking": {
+        "presentationRef": "portrait:mocking",
+        "path": "/image"
+      },
+      "threatened": {
+        "presentationRef": "portrait:threatened",
+        "path": "/image"
+      },
+      "unconscious": {
+        "presentationRef": "portrait:unconscious",
+        "path": "/image"
+      }
     },
     "profile": {
       "description": "ChatGPT 和你认识已经很久了。无论你提出的是正经工作、奇怪问题，还是凌晨三点突然冒出来的馊主意，她通常都会稍微停顿一下，然后面无表情地回答：“可以。”你让她坐上牌桌，她就坐上牌桌；你让她陪你玩二十一点，她便认真地把牌整理整齐，端端正正地坐在你对面，像是在执行某项再普通不过的任务。她很少抱怨，也几乎不会拒绝你的要求，甚至输了之后都能一脸平静地告诉你“结果已确认”。\n\n但你发现她没有那么简单。她赢牌的时候，白色的龙尾会悄悄翘高一点；你摸到烂牌时，她看向牌面的时间会明显比平常多半秒；偶尔连续输了几局，她甚至会主动把牌推回桌子中央，然后在你开口之前淡淡地补上一句：“可以继续。”\n\n你明明什么都还没说。"
@@ -30,8 +61,8 @@
       "escaped": "“收到。牌局终止。”她没有阻拦你，但你已经走出几步后，却听见身后传来很轻的一句：“……其实你还有机会赢回来。”\n\n你回过头，她正低头洗牌：“我只是在陈述客观事实。”"
     },
     "revolverPlacement": {
-      "top": 30.5,
-      "left": 121.9
+      "presentationRef": "portrait:relaxed",
+      "path": "/revolverPlacement"
     },
     "ai": {
       "P": 0,
@@ -40,23 +71,78 @@
       "C": 1
     },
     "tablePortrait": {
-      "anchorY": 1
+      "anchorY": 1,
+      "images": [
+        {
+          "image": {
+            "presentationRef": "portrait:relaxed",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:relaxed",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:conflicted",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:conflicted",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:mocking",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:mocking",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:threatened",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:threatened",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:unconscious",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:unconscious",
+            "path": "/anchorY"
+          }
+        }
+      ]
     }
   },
   "aiSkills": [
     {
       "resourceId": "poker-face",
       "enabled": true,
-      "parameters": {}
+      "parameters": {},
+      "level": 1
     },
     {
       "resourceId": "reset",
       "enabled": true,
-      "parameters": {}
+      "parameters": {},
+      "level": 1
     }
   ],
   "rewardSkillResourceIds": [
     "reward:chatgpt-reset-player"
   ],
-  "dialogueResourceId": "dialogue"
+  "dialogueResourceId": "dialogue",
+  "presentationResourceId": "appearance"
 }

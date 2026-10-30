@@ -8,6 +8,8 @@ import { sha256 } from "../storage/encoding";
 
 function fixture() {
   const draft = createCharacterDraft("sample", "中性对手");
+  // This fixture deliberately exercises resource APIs predating encounter policies.
+  Reflect.deleteProperty(draft.match.metadata, "encounter");
   for (const pool of Object.values(draft.dialogue.pools)) (pool as string[]).push("测试对白");
   const tablePortrait = { anchorY: .94, images: [{ image: "tap.png", anchorY: .86 }] };
   const match = { ...draft.match, definition: { ...draft.match.definition, tablePortrait } };
@@ -63,4 +65,18 @@ it("validates the full portable package and refuses undeclared calibration image
   await expect(validateCharacterPackage({ manifest, readFile: async path => files[path] })).resolves.toBeUndefined();
   manifest.files = manifest.files.filter(file => file.path !== "tap.png");
   await expect(validateCharacterPackage({ manifest, readFile: async path => files[path] })).rejects.toThrow("已声明的图片");
+});
+
+
+it("gates horizontal positioning behind API 14 and preserves it through package loading", async () => {
+  const { draft, match, manifest, context } = fixture();
+  const horizontal = { ...match, metadata: { ...match.metadata, encounter: createCharacterDraft("sample", "中性对手").match.metadata.encounter }, definition: { ...match.definition, tablePortrait: { ...match.definition.tablePortrait, offsetX: -.06, images: [{ image: "tap.png", anchorY: .86, offsetX: 0 }] } } };
+  await expect(createCharacterMatchResourceHandler().parse(horizontal, { ...context, descriptor: { ...context.descriptor, apiVersion: 12 } })).rejects.toThrow("API 14");
+  manifest.resources[0] = { ...manifest.resources[0], apiVersion: 14 };
+  const source = { packages: async () => [{ packageId: "example/sample", manifest, async *files() {}, readJson: async (path: string) => path === "match.json" ? horizontal : draft.dialogue, resolveAsset: async (path: string) => ({ url: `blob:sample/${path}`, release() {} }) }] };
+  const index: BuiltinPackageIndex = { format: "house-of-chances-builtin-package-index", formatVersion: 2, abilityCatalogVersion: ABILITY_CATALOG_VERSION, defaultCharacterId: "sample", playerSkillOrder: [], packages: [], releaseDigest: "0".repeat(64) };
+  const content = await loadContent(source, index);
+  expect(prepareContentRuntime(content).characters[0].tablePortrait).toEqual({ anchorY: .94, offsetX: -.06, images: [{ image: "blob:sample/tap.png", anchorY: .86, offsetX: 0 }] });
+  content.release();
+  for (const offsetX of [-1.01, 1.01, NaN, Infinity]) expect(TablePortraitResourceSchema.safeParse({ anchorY: 1, offsetX }).success).toBe(false);
 });

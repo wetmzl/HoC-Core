@@ -1,20 +1,23 @@
+import { handValueAtLimit } from "../blackjack/hand";
+import { resolveValue, selectedHandCard } from "./value-expressions";
 import { recordCardAcquisitions, recordRank } from "./rank-record";
 import { addAbilityInstance } from "./runtime";
 import type { SeededRng } from "../rng/seeded";
 import { addGunBullets, removeGunBullets, addToPendingLoad, multiplyPendingLoad, setPendingLoad } from "./roulette-adapter";
-import { drawPhysicalCardForLimit, redealInitialHand, createDerivedCardForExactTotal, drawExactResultingTotal, handTotal, replaceLastHandCard, splitLastCardIntoDerived, swapLastHandCardWithDrawPileTop, transferLastPhysicalHandCard } from "./card-zone-adapter";
-import { addCardTag, cardRank, cardSource, cardSuit, createDerivedCard, createDerivedCardId, isDerivedCard, removeCardTag } from "../blackjack/card";
-import { RANKS, SUITS, type Rank, type Suit } from "../blackjack/types";
+import { drawPhysicalCandidate, redealInitialHand, drawExactResultingTotal, handTotal, moveHandCardToDrawPile, replaceLastHandCard, transformHandCard, swapLastHandCardWithDrawPileTop } from "./card-zone-adapter";
+import { addCardTag, cardRank, cardSuit, createCard, createDerivedCard, createDerivedCardId, isDerivedCard, removeCardTag } from "../blackjack/card";
+import { RANKS, SUITS, type Card, type Rank, type Suit } from "../blackjack/types";
 import { getAbilityDefinition, getStatusDefinition, instantiateAbility, type AbilityRegistry } from "./registry";
-import { resolveActor, resolveScalar, type ConditionContext } from "./conditions";
+import { resolveActor, resolveScalar, safeLastHitTransfer, type ConditionContext } from "./conditions";
 import { PLAYER_SKILL_INVENTORY_CAPACITY } from "../skills/constants";
-import type { AbilityDomainEvent, AbilityEffectResult, AbilityRuntimeState, AbilityWorld, DerivedCardRankExpression, DerivedCardSuitExpression, Effect, PendingAiThreshold, PendingComparison, PendingDraw, PendingLoad, PendingTrigger, PendingTurn } from "./types";
+import { recordPlayerSkillAcquisition } from "../skills/acquisition";
+import { selectSkillCards, skillCardAgreesWithInstance } from "./skill-card-selection";
+import type { AbilityDomainEvent, AbilityEffectResult, AbilityRuntimeState, AbilityWorld, DerivedCardRankExpression, DerivedCardSuitExpression, Effect, PendingAiThreshold, PendingComparison, PendingDefeat, PendingDraw, PendingLoad, PendingTrigger, PendingTurn } from "./types";
 
 export interface EffectContext extends ConditionContext {
   readonly ruleId?: string;
   readonly rng: SeededRng;
   readonly runtime: AbilityRuntimeState;
-  readonly publishAdvice?: (owner: "player" | "opponent", world: AbilityWorld) => "hit" | "stand";
   readonly forecastHitBust?: (owner: "player" | "opponent", world: AbilityWorld) => boolean;
   readonly registry?: AbilityRegistry;
 }
@@ -24,7 +27,11 @@ function statusFor(world: AbilityWorld, actor: "player" | "opponent", id: string
 
 function resolveDerivedRank(expression: DerivedCardRankExpression, actor: "player" | "opponent", context: EffectContext): Rank {
   let rank: string | undefined;
-  if (expression.type === "static") rank = expression.rank;
+  if (expression.type === "value") {
+    const value = resolveValue(expression.value, context);
+    if (typeof value !== "string") throw new Error("Card rank value must be text");
+    rank = value;
+  } else if (expression.type === "static") rank = expression.rank;
   else if (expression.type === "scalar") {
     const value = resolveScalar(expression.value, context);
     if (!Number.isInteger(value) || value < 1 || value > 13) throw new Error(`Scalar card rank is invalid: ${value}`);
@@ -38,15 +45,25 @@ function resolveDerivedRank(expression: DerivedCardRankExpression, actor: "playe
   return rank as Rank;
 }
 
-function resolveDerivedSuit(expression: DerivedCardSuitExpression, context: EffectContext): Suit {
-  return expression.type === "static" ? expression.suit : SUITS[context.rng.nextInt(SUITS.length)]!;
+function resolveDerivedSuit(expression: DerivedCardSuitExpression, actor: "player" | "opponent", context: EffectContext): Suit {
+  if (expression.type === "value") {
+    const value = resolveValue(expression.value, context);
+    if (typeof value !== "string" || !SUITS.includes(value as Suit)) throw new Error("Card suit value is invalid");
+    return value as Suit;
+  }
+  if (expression.type === "static") return expression.suit;
+  if (expression.type === "uniform-ability-rng") return SUITS[context.rng.nextInt(SUITS.length)]!;
+  const card = expression.card === "last-card" ? context.world.hands[actor].cards.at(-1) : context.world.hands[actor].cards[expression.card === "first-public-card" ? 0 : 1];
+  if (!card) throw new Error("Card suit source is unavailable");
+  return cardSuit(card);
 }
 
 function resultEvent(context: EffectContext, result: Extract<AbilityDomainEvent, { type: "ABILITY_RESULT" }>['result']): AbilityDomainEvent {
-  return { type: "ABILITY_RESULT", instanceId: context.ability.instanceId, definitionId: context.ability.definitionId, owner: context.ability.owner, result };
+  return { type: "ABILITY_RESULT", ...((context.ability.level ?? 1) > 1 ? { level: context.ability.level } : {}), instanceId: context.ability.instanceId, definitionId: context.ability.definitionId, owner: context.ability.owner, result };
 }
 
-export function applyEffect(effect: Effect, context: EffectContext, pending: { turn?: PendingTurn; aiThreshold?: PendingAiThreshold; draw?: PendingDraw; load?: PendingLoad; bust?: import("./types").PendingBustCheck; trigger?: PendingTrigger; comparison?: PendingComparison } = {}): AbilityEffectResult {
+export function applyEffect(effect: Effect, context: EffectContext, pending: { turn?: PendingTurn; aiThreshold?: PendingAiThreshold; draw?: PendingDraw; load?: PendingLoad; bust?: import("./types").PendingBustCheck; trigger?: PendingTrigger; comparison?: PendingComparison; defeat?: PendingDefeat } = {}): AbilityEffectResult {
+  const gainedAbilities: import("./types").AbilityInstance[] = [];
   let world = context.world;
   let turn = pending.turn;
   let aiThreshold = pending.aiThreshold;
@@ -55,36 +72,135 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
   let bust = pending.bust;
   let trigger = pending.trigger;
   let comparison = pending.comparison;
+  let defeat = pending.defeat;
   let runtime = context.runtime;
   const events: AbilityDomainEvent[] = [];
   // Most effects are actor-relative. The draw-pile rotation primitive is
   // intentionally match-global and has no target selector.
   const actor = "target" in effect ? resolveActor(effect.target, context) : "player";
   if (!actor) throw new Error(`Cannot resolve actor selector: ${(effect as { readonly target?: unknown }).target ?? "unknown"}`);
-  const changed = (effectType: string): void => { events.push({ type: "PENDING_EVENT_MODIFIED", eventId: turn?.id ?? aiThreshold?.id ?? draw?.id ?? load?.id ?? bust?.id ?? trigger?.id ?? context.event.sourceEventId, effectType, sourceInstanceId: context.ability.instanceId }); };
+  const changed = (effectType: string): void => { events.push({ type: "PENDING_EVENT_MODIFIED", eventId: turn?.id ?? aiThreshold?.id ?? draw?.id ?? load?.id ?? bust?.id ?? trigger?.id ?? defeat?.id ?? context.event.sourceEventId, effectType, sourceInstanceId: context.ability.instanceId }); };
   switch (effect.type) {
-    case "add-derived-card-to-limit": {
-      const limit = context.bustLimitFor?.(actor, world) ?? 21;
-      const card = createDerivedCardForExactTotal(world.hands[actor], context.rng, limit, context.ability.definitionId, limit)
-        ?? createDerivedCard(resolveDerivedSuit(effect.fallback.suit, context), resolveDerivedRank(effect.fallback.rank, actor, context),
-          createDerivedCardId(context.rng), context.ability.definitionId);
-      world = withHands(world, actor, { cards: [...world.hands[actor].cards, card] });
-      events.push({ type: "CARD_DEALT", actor, card, private: false });
+    case "assign-status-values": {
+      const definition = getStatusDefinition(effect.statusDefinitionId, context.registry);
+      if (!definition) throw new Error(`Unknown status definition: ${effect.statusDefinitionId}`);
+      const existing = statusFor(world, actor, effect.statusDefinitionId);
+      const values = Object.fromEntries(Object.entries(effect.values).map(([key, expression]) => [key, resolveValue(expression, context)]));
+      const stacks = effect.stacks === undefined ? existing?.stacks ?? 1 : resolveScalar(effect.stacks, context);
+      if (!Number.isSafeInteger(stacks) || stacks < 1) throw new Error("Assigned status stacks must be positive");
+      const status = { statusDefinitionId: effect.statusDefinitionId, owner: actor, sourceInstanceId: existing?.sourceInstanceId ?? context.ability.instanceId,
+        stacks, duration: existing?.duration ?? definition.defaultDuration, parameters: { ...(effect.mode === "replace" ? {} : existing?.parameters), ...values }, createdAtSequence: existing?.createdAtSequence ?? runtime.sequence + 1 };
+      world = { ...world, statuses: [...world.statuses.filter(entry => entry !== existing), status] };
+      runtime = { ...runtime, statuses: world.statuses, sequence: existing ? runtime.sequence : runtime.sequence + 1 };
+      events.push({ type: "STATUS_ADDED", statusDefinitionId: effect.statusDefinitionId, owner: actor, sourceInstanceId: status.sourceInstanceId });
       break;
     }
-    case "draw-physical-card": {
-      const selected = drawPhysicalCardForLimit(world.shoe, world.hands[actor], context.bustLimitFor?.(actor, world) ?? 21);
-      if (!selected) throw new Error("No physical card remains");
-      world = { ...withHands(world, actor, { cards: [...world.hands[actor].cards, selected.card] }), shoe: selected.shoe };
-      events.push({ type: "CARD_DEALT", actor, card: selected.card, private: false });
+    case "transform-hand-card": {
+      const card = selectedHandCard(effect.target, effect.card, context);
+      const hand = world.hands[actor];
+      const result = card && transformHandCard(hand, hand.cards.findIndex(entry => entry.id === card.id), effect.output.count, resolveScalar(effect.output.total, context), effect.output.suits, context.rng, context.ability.definitionId);
+      if (!result) throw new Error("Card transformation has no valid output");
+      world = withHands(world, actor, result.hand);
+      break;
+    }
+    case "acquire-card": {
+      const hand = world.hands[actor];
+      let card: Card | undefined;
+      for (const choice of effect.choices) {
+        if (choice.source === "derived" && "rank" in choice) {
+          const rank = resolveDerivedRank(choice.rank, actor, context);
+          const suit = resolveDerivedSuit(choice.suit, actor, context);
+          card = createDerivedCard(suit, rank, createDerivedCardId(context.rng), context.ability.definitionId);
+        } else {
+          const total = choice.candidate ? resolveScalar(choice.candidate.value, context) : undefined;
+          const limit = choice.evaluationLimit !== undefined ? resolveScalar(choice.evaluationLimit, context) : 21;
+          const matches = (candidate: Card): boolean => total === undefined || (choice.candidate?.type === "resulting-hand-total-at-most"
+            ? handValueAtLimit({ cards: [...hand.cards, candidate] }, limit) <= total : handValueAtLimit({ cards: [...hand.cards, candidate] }, limit) === total);
+          if (choice.source === "draw-pile") {
+            const selected = drawPhysicalCandidate(world.shoe, hand, choice.candidate ? { operator: choice.candidate.type === "resulting-hand-total-at-most" ? "at-most" : "exactly", value: total!, evaluationLimit: limit } : undefined, choice.pick, context.rng);
+            if (!selected) continue;
+            card = selected.card;
+            world = { ...world, shoe: selected.shoe };
+          } else {
+            const ranks = RANKS.filter(rank => matches(createCard("spades", rank)));
+            if (!ranks.length) continue;
+            const suit = SUITS[context.rng.nextInt(SUITS.length)]!;
+            const rank = choice.pick === "uniform-ability-rng" ? ranks[context.rng.nextInt(ranks.length)]! : ranks[0]!;
+            card = createDerivedCard(suit, rank, createDerivedCardId(context.rng), context.ability.definitionId);
+          }
+        }
+        if (card) break;
+      }
+      if (!card) throw new Error("No acquisition choice can supply a card");
+      world = withHands(world, actor, { cards: [...hand.cards, card] });
+      if (effect.reveal) events.push({ type: "CARD_DEALT", actor, card, private: false });
+      if (effect.reportResult && isDerivedCard(card)) events.push(resultEvent(context, { type: "derived-card-added", actor, rank: cardRank(card), suit: cardSuit(card) }));
+      break;
+    }
+    case "remove-skill-cards": {
+      const cards = selectSkillCards(world, actor, effect.filter, context.registry);
+      const ids = new Set(cards.map(card => card.instanceId));
+      for (const card of cards) {
+        const instance = runtime.instances.find(entry => entry.instanceId === card.instanceId);
+        if (!skillCardAgreesWithInstance(card, instance)) throw new Error("Skill card and runtime instance disagree");
+      }
+      const expired = runtime.statuses.filter(status => ids.has(status.sourceInstanceId));
+      const knownIds = runtime.instances.map(instance => instance.instanceId).sort((a, b) => b.length - a.length);
+      runtime = { ...runtime,
+        instances: runtime.instances.filter(instance => !ids.has(instance.instanceId)),
+        statuses: runtime.statuses.filter(status => !ids.has(status.sourceInstanceId)),
+        counters: Object.fromEntries(Object.entries(runtime.counters).filter(([key]) => !ids.has(knownIds.find(id => key.startsWith(`${id}:`)) ?? "")))
+      };
+      world = { ...world, cards: world.cards.filter(card => !ids.has(card.instanceId)), statuses: runtime.statuses };
+      if (cards.length) events.push({ type: "SKILL_CARDS_REMOVED", actor, sourceInstanceId: context.ability.instanceId, cards });
+      events.push(...expired.map(status => ({ type: "STATUS_REMOVED" as const, statusDefinitionId: status.statusDefinitionId, owner: status.owner, reason: "dispelled" as const })));
+      break;
+    }
+    case "transfer-hand-card": {
+      const source = resolveActor(effect.from, context);
+      if (!source || source === actor) throw new Error("Card transfer requires two distinct hands");
+      const hand = world.hands[source];
+      const card = effect.card === "last-hit-card" ? hand.cards.find(entry => entry.id === context.event.lastHitCardIds?.[source])
+        : effect.card === "last-card" ? hand.cards.at(-1) : hand.cards[effect.card === "first-public-card" ? 0 : 1];
+      if (!card || world.hands[actor].cards.some(entry => entry.id === card.id)) throw new Error("Transfer card is unavailable or duplicated");
+      // Standalone callers may omit explicit knowledge for the implicit first
+      // public card. Preserve that fact after it leaves the first hand slot.
+      if (hand.cards[0]?.id === card.id && !world.publicCardIds?.includes(card.id)) events.push({ type: "CARD_REVEALED", target: actor, cardId: card.id });
+      world = { ...world, hands: { ...world.hands, [source]: { cards: hand.cards.filter(entry => entry.id !== card.id) }, [actor]: { cards: [...world.hands[actor].cards, card] } } };
+      break;
+    }
+    case "reveal-hand-cards-matching-public-suits": {
+      const source = resolveActor(effect.suitsFrom, context);
+      if (!source) throw new Error("Public suit source is unavailable");
+      const publicIds = new Set(world.publicCardIds ?? []);
+      for (const hand of Object.values(world.hands)) if (hand.cards[0]) publicIds.add(hand.cards[0].id);
+      const suits = new Set(world.hands[source].cards.filter(card => publicIds.has(card.id)).map(cardSuit));
+      for (const card of world.hands[actor].cards) {
+        if (publicIds.has(card.id) || !suits.has(cardSuit(card))) continue;
+        publicIds.add(card.id);
+        events.push({ type: "CARD_REVEALED", target: actor, cardId: card.id });
+      }
+      world = { ...world, publicCardIds: [...publicIds] };
+      break;
+    }
+
+    case "prevent-pending-defeat": {
+      if (context.event.trigger !== "before-defeat" || !defeat) throw new Error("Defeat prevention requires the before-defeat window");
+      if (defeat.actor !== actor) throw new Error("Pending defeat actor does not match effect target");
+      if (defeat.prevented) throw new Error("Pending defeat is already prevented");
+      defeat = { ...defeat, prevented: true, preventSourceInstanceId: context.ability.instanceId };
+      changed(effect.type);
       break;
     }
     case "force-stand": {
-      if (context.event.trigger === "on-ability-played") {
+      if (bust && bust.actor === actor && (context.event.trigger === "before-bust-check" || context.event.trigger === "before-bust-resolution")) {
+        bust = { ...bust, standAfterReplacement: true };
+      } else if (context.event.trigger === "on-ability-played" || context.event.trigger === "after-stand") {
+        if (context.event.trigger === "after-stand" && world.stood?.[actor]) break;
         if (!world.stood || world.stood[actor]) throw new Error("Immediate force-stand requires an actor who has not stood");
         world = { ...world, stood: { ...world.stood, [actor]: true } };
       } else {
-        if (context.event.trigger !== "after-hit-resolved" || !draw || draw.actor !== actor) throw new Error("force-stand requires a surviving actual Hit or an active ability");
+        if (context.event.trigger !== "after-hit-resolved" || !draw || draw.actor !== actor) throw new Error("force-stand requires a surviving actual Hit, an active ability, or a Stand event");
         draw = { ...draw, standAfterDraw: true };
       }
       changed(effect.type);
@@ -169,10 +285,6 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
       world = { ...world, skillDraws: world.skillDraws + amount };
       break;
     }
-    case "publish-action-advice":
-      if (!context.publishAdvice) throw new Error("No action-advice publisher configured");
-      world = { ...world, advice: context.publishAdvice(actor, world) };
-      break;
     case "reveal-draw-pile-top-suit": {
       const viewer = resolveActor(effect.viewer, context);
       const card = world.shoe.cards[world.shoe.cursor];
@@ -200,6 +312,25 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
       changed(effect.type);
       break;
     }
+    case "discard-hand-card": {
+      const hand = world.hands[actor];
+      const index = effect.card === "last-card" ? hand.cards.length - 1 : effect.card === "first-public-card" ? 0 : 1;
+      const card = hand.cards[index];
+      if (!card) throw new Error("Selected hand card is unavailable");
+      // Physical cards remain consumed in the shoe ledger; derived cards dissipate.
+      world = withHands(world, actor, { cards: hand.cards.filter((_, i) => i !== index) });
+      events.push({ type: "HAND_CARD_DISCARDED", actor, cardId: card.id });
+      break;
+    }
+    case "move-hand-card-to-draw-pile": {
+      const hand = world.hands[actor];
+      const cardIndex = effect.card === "last-card" ? hand.cards.length - 1 : effect.card === "first-public-card" ? 0 : 1;
+      const result = moveHandCardToDrawPile(world.shoe, hand, cardIndex, effect.position);
+      if (!result) throw new Error("Selected physical hand card cannot return to the draw pile");
+      world = withHands({ ...world, shoe: result.shoe }, actor, result.hand);
+      changed(effect.type);
+      break;
+    }
     case "swap-last-hand-card-with-draw-pile-top": {
       const outgoing = world.hands[actor].cards.at(-1);
       const result = swapLastHandCardWithDrawPileTop(world.shoe, world.hands[actor]);
@@ -211,15 +342,13 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
       changed(effect.type);
       break;
     }
-    case "transfer-last-physical-hand-card": {
-      const sourceActor = resolveActor(effect.from, context);
-      if (!sourceActor || sourceActor === actor) throw new Error("Physical card transfer requires two distinct hands");
-      const result = transferLastPhysicalHandCard(world.hands[sourceActor], world.hands[actor]);
-      if (!result) throw new Error("Last physical hand card is unavailable");
-      world = {
-        ...world,
-        hands: { ...world.hands, [sourceActor]: result.source, [actor]: result.target }
-      };
+    case "transfer-last-hit-card-instead-of-draw": {
+      if (context.event.trigger !== "before-card-draw" || !draw || draw.actor !== actor || draw.cancelled) throw new Error("Card transfer requires an uncancelled draw for its target");
+      const transferred = safeLastHitTransfer(effect.from, effect.target, { ...context, event: { ...context.event, pendingDraw: draw } });
+      if (!transferred) throw new Error("Last Hit card cannot be transferred safely");
+      world = transferred;
+      draw = { ...draw, cancelled: true };
+      events.push({ type: "PENDING_EVENT_CANCELLED", eventId: draw.id, sourceInstanceId: context.ability.instanceId });
       break;
     }
     case "reveal-hand-card-suit": {
@@ -232,12 +361,6 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
       }
       break;
     }
-    case "split-last-card-into-derived": {
-      const result = splitLastCardIntoDerived(world.hands[actor], context.rng, context.ability.definitionId);
-      if (!result) throw new Error("Last card cannot be split");
-      world = withHands(world, actor, result.hand);
-      break;
-    }
     case "add-status": {
       const definition = getStatusDefinition(effect.statusDefinitionId, context.registry);
       if (!definition) throw new Error(`Unknown status definition: ${effect.statusDefinitionId}`);
@@ -247,30 +370,6 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
       runtime = { ...runtime, statuses: world.statuses, sequence: runtime.sequence + 1 };
       events.push({ type: "STATUS_ADDED", statusDefinitionId: effect.statusDefinitionId, owner: actor, sourceInstanceId: context.ability.instanceId });
       events.push(resultEvent(context, { type: "status-stacks-updated", actor, statusDefinitionId: effect.statusDefinitionId, stacks: status.stacks, delta: 1 }));
-      break;
-    }
-    case "set-status-suit-to-hand-majority": {
-      const handActor = resolveActor(effect.handTarget, context);
-      if (!handActor) throw new Error("Majority-suit hand target is unavailable");
-      const definition = getStatusDefinition(effect.statusDefinitionId, context.registry);
-      if (!definition) throw new Error(`Unknown status definition: ${effect.statusDefinitionId}`);
-      const cards = world.hands[handActor].cards;
-      if (cards.length === 0) throw new Error("Cannot select a majority suit from an empty hand");
-      const counts = new Map(SUITS.map((suit) => [suit, cards.filter((card) => cardSuit(card) === suit).length]));
-      const suit = SUITS.reduce((best, candidate) => counts.get(candidate)! > counts.get(best)! ? candidate : best);
-      const existing = statusFor(world, actor, effect.statusDefinitionId);
-      const status = {
-        statusDefinitionId: effect.statusDefinitionId,
-        owner: actor,
-        sourceInstanceId: existing?.sourceInstanceId ?? context.ability.instanceId,
-        stacks: 1,
-        duration: definition.defaultDuration,
-        parameters: { suit },
-        createdAtSequence: existing?.createdAtSequence ?? runtime.sequence + 1
-      } as const;
-      world = { ...world, statuses: [...world.statuses.filter((entry) => entry !== existing), status] };
-      runtime = { ...runtime, statuses: world.statuses, sequence: existing ? runtime.sequence : runtime.sequence + 1 };
-      events.push({ type: "STATUS_ADDED", statusDefinitionId: effect.statusDefinitionId, owner: actor, sourceInstanceId: status.sourceInstanceId });
       break;
     }
     case "set-status-stacks": {
@@ -325,75 +424,14 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
       changed(effect.type);
       break;
     }
-    case "remember-last-card": {
-      const cardActor = resolveActor(effect.cardTarget, context);
-      const card = cardActor ? world.hands[cardActor].cards.at(-1) : undefined;
-      if (!card) throw new Error("Cannot remember a card from an empty hand");
-      const definition = getStatusDefinition(effect.statusDefinitionId, context.registry);
-      if (!definition) throw new Error(`Unknown status definition: ${effect.statusDefinitionId}`);
-      const existing = statusFor(world, actor, effect.statusDefinitionId);
-      const status = {
-        statusDefinitionId: effect.statusDefinitionId,
-        owner: actor,
-        sourceInstanceId: existing?.sourceInstanceId ?? context.ability.instanceId,
-        stacks: 1,
-        duration: definition.defaultDuration,
-        parameters: { rank: cardRank(card), suit: cardSuit(card), source: cardSource(card), cardId: card.id },
-        createdAtSequence: existing?.createdAtSequence ?? runtime.sequence + 1
-      } as const;
-      world = { ...world, statuses: [...world.statuses.filter((entry) => entry !== existing), status] };
-      runtime = { ...runtime, statuses: world.statuses, sequence: existing ? runtime.sequence : runtime.sequence + 1 };
-      events.push({ type: "STATUS_ADDED", statusDefinitionId: effect.statusDefinitionId, owner: actor, sourceInstanceId: status.sourceInstanceId });
-      break;
-    }
-    case "replace-bust-hand-card-with-memory-card": {
-      if (!bust) throw new Error("replace-bust-hand-card-with-memory-card outside bust check event");
-      if (bust.actor !== actor) throw new Error("Pending bust actor does not match effect target");
-      const memory = world.statuses.find((entry) => entry.owner === actor && entry.statusDefinitionId === effect.statusDefinitionId && entry.stacks > 0);
-      const rank = memory?.parameters.rank;
-      const suit = memory?.parameters.suit;
-      const hand = world.hands[actor];
-      if (!memory || typeof rank !== "string" || typeof suit !== "string" || !RANKS.includes(rank as Rank) || !SUITS.includes(suit as Suit) || hand.cards.length === 0) throw new Error("Memory card is unavailable");
-      const replacement = createDerivedCard(suit as Suit, rank as Rank, createDerivedCardId(context.rng), context.ability.definitionId);
-      world = withHands(world, actor, { cards: [...hand.cards.slice(0, -1), replacement] });
-      bust = { ...bust, standAfterReplacement: true };
-      changed(effect.type);
-      break;
-    }
-    case "add-derived-card-for-exact-total": {
-      const hand = world.hands[actor];
-      const card = createDerivedCardForExactTotal(hand, context.rng, resolveScalar(effect.total, context), context.ability.definitionId);
-      if (!card) throw new Error("No derived card can produce the requested total");
-      world = withHands(world, actor, { cards: [...hand.cards, card] });
-      break;
-    }
-    case "add-derived-card": {
-      const rank = resolveDerivedRank(effect.rank, actor, context);
-      const suit = resolveDerivedSuit(effect.suit, context);
-      const card = createDerivedCard(suit, rank, createDerivedCardId(context.rng), context.ability.definitionId);
-      world = withHands(world, actor, { cards: [...world.hands[actor].cards, card] });
-      events.push(resultEvent(context, { type: "derived-card-added", actor, rank, suit }));
-      break;
-    }
-    case "copy-last-hand-card-as-derived": {
-      const hand = world.hands[actor];
-      const source = hand.cards.at(-1);
-      if (!source) throw new Error("Card copy source is unavailable");
-      const rank = cardRank(source);
-      const suit = cardSuit(source);
-      const card = createDerivedCard(suit, rank, createDerivedCardId(context.rng), context.ability.definitionId);
-      world = withHands(world, actor, { cards: [...hand.cards, card] });
-      events.push(resultEvent(context, { type: "derived-card-added", actor, rank, suit }));
-      break;
-    }
     case "replace-hand-card-with-derived": {
       const hand = world.hands[actor];
-      const old = hand.cards.at(-1);
+      const old = selectedHandCard(effect.target, effect.card, context);
       if (!old) throw new Error("Cannot replace a card in an empty hand");
       const rank = resolveDerivedRank(effect.rank, actor, context);
-      const suit = resolveDerivedSuit(effect.suit, context);
-      world = withHands(world, actor, { cards: [...hand.cards.slice(0, -1), createDerivedCard(suit, rank, createDerivedCardId(context.rng), context.ability.definitionId)] });
-      events.push(resultEvent(context, { type: "derived-card-replaced", actor, oldRank: cardRank(old), rank, suit }));
+      const suit = resolveDerivedSuit(effect.suit, actor, context);
+      world = withHands(world, actor, { cards: hand.cards.map(card => card.id === old.id ? createDerivedCard(suit, rank, createDerivedCardId(context.rng), context.ability.definitionId) : card) });
+      if (effect.reportResult !== false) events.push(resultEvent(context, { type: "derived-card-replaced", actor, oldRank: cardRank(old), rank, suit }));
       break;
     }
     case "add-hand-card-tag":
@@ -414,17 +452,25 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
       events.push(resultEvent(context, { type: "draw-pile-rotated" }));
       break;
     }
-    case "grant-player-skill-card": {
+    case "grant-skill-card": {
       if (actor !== "player") throw new Error("Only the player can receive a Player Skill card");
       if (world.cards.length >= PLAYER_SKILL_INVENTORY_CAPACITY) throw new Error("Player Skill inventory is full");
-      const selectedId = context.runtime.lastPlayedPlayerSkillDefinitionId ?? context.ability.definitionId;
-      const selected = getAbilityDefinition(selectedId, context.registry);
-      if (!selected || selected.sourceKind !== "player-skill" || selected.activation.type !== "action") throw new Error(`Cannot grant non-active Player Skill definition: ${selectedId}`);
+      const selection = effect.choices.map(choice => choice.type === "self" ? { id: context.ability.definitionId, level: context.ability.level ?? 1 }
+        : choice.type === "definition" ? { id: choice.definitionId, level: choice.level ?? 1 }
+        : context.runtime.lastPlayedPlayerSkillDefinitionId ? { id: context.runtime.lastPlayedPlayerSkillDefinitionId, level: context.runtime.lastPlayedPlayerSkillLevel ?? 1 } : undefined).find(Boolean);
+      if (!selection) throw new Error("Skill definition selection is unavailable");
+      const selectedId = selection.id;
+      const level = selection.level;
+      const selected = getAbilityDefinition(selectedId, context.registry, level);
+      if (!selected || selected.sourceKind !== "player-skill") throw new Error(`Cannot grant a non-player skill definition: ${selectedId}`);
+      if (selected.activation.type !== "action" && !selected.stackable && world.cards.some(card => card.definitionId === selected.id)) throw new Error("A non-stackable passive skill is already held");
+      const skillAcquisitionCounts = recordPlayerSkillAcquisition(selected, world.skillAcquisitionCounts, world.cards.map(card => card.definitionId));
       const sequence = context.runtime.sequence + 1;
       const instanceId = `ability-player-card-${sequence}`;
-      const instance = instantiateAbility({ definitionId: selected.id, enabled: true, parameters: {} }, "player", instanceId, sequence, context.registry, "player-skill");
+      const instance = instantiateAbility({ definitionId: selected.id, level, enabled: true, parameters: {} }, "player", instanceId, sequence, context.registry, "player-skill");
       runtime = addAbilityInstance(runtime, instance, context.registry);
-      world = { ...world, cards: [...world.cards, { kind: "player-skill", definitionId: selected.id, owner: "player", instanceId }] };
+      if (effect.initialize !== false) gainedAbilities.push(instance);
+      world = { ...world, skillAcquisitionCounts, cards: [...world.cards, { kind: "player-skill", definitionId: selected.id, level, owner: "player", instanceId }] };
       events.push(resultEvent(context, { type: "skill-card-granted", definitionId: selected.id }));
       events.push({ type: "SKILL_GAINED", skillId: selected.id });
       break;
@@ -475,8 +521,9 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
     }
     case "add-to-pending-comparison-score": {
       if (!comparison) throw new Error("add-to-pending-comparison-score outside comparison resolution");
-      const score = resolveScalar(effect.amount, context);
-      comparison = { ...comparison, scores: { ...comparison.scores, [actor]: comparison.scores[actor] + score } };
+      const score = comparison.scores[actor] + resolveScalar(effect.amount, context);
+      if (!Number.isFinite(score)) throw new Error("Comparison score is not finite");
+      comparison = { ...comparison, scores: { ...comparison.scores, [actor]: score } };
       changed(effect.type);
       break;
     }
@@ -490,15 +537,25 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
       break;
     }
   }
-  return { world, pendingTurn: turn, pendingAiThreshold: aiThreshold, pendingDraw: draw, pendingLoad: load, pendingBust: bust, pendingTrigger: trigger, pendingComparison: comparison, runtime, events };
+  const newlyPublicIds = events.flatMap(event => event.type === "CARD_REVEALED" ? [event.cardId] : event.type === "CARD_DEALT" && !event.private ? [event.card.id] : []);
+  if (newlyPublicIds.length) world = { ...world, publicCardIds: [...new Set([...(world.publicCardIds ?? []), ...newlyPublicIds])] };
+  return { ...(gainedAbilities.length ? { gainedAbilities } : {}), world, pendingTurn: turn, pendingAiThreshold: aiThreshold, pendingDraw: draw, pendingLoad: load, pendingBust: bust, pendingTrigger: trigger, pendingComparison: comparison, pendingDefeat: defeat, runtime, events };
 }
 
-export function applyEffects(effects: readonly Effect[], context: EffectContext, pending: { turn?: PendingTurn; aiThreshold?: PendingAiThreshold; draw?: PendingDraw; load?: PendingLoad; bust?: import("./types").PendingBustCheck; trigger?: PendingTrigger; comparison?: PendingComparison } = {}): AbilityEffectResult {
-  let result: AbilityEffectResult = { world: context.world, pendingTurn: pending.turn, pendingAiThreshold: pending.aiThreshold, pendingDraw: pending.draw, pendingLoad: pending.load, pendingBust: pending.bust, pendingTrigger: pending.trigger, pendingComparison: pending.comparison, runtime: context.runtime, events: [] };
+export function applyEffects(effects: readonly Effect[], context: EffectContext, pending: { turn?: PendingTurn; aiThreshold?: PendingAiThreshold; draw?: PendingDraw; load?: PendingLoad; bust?: import("./types").PendingBustCheck; trigger?: PendingTrigger; comparison?: PendingComparison; defeat?: PendingDefeat } = {}): AbilityEffectResult {
+  const effectResults: Record<string, number> = Object.create(null);
+  let result: AbilityEffectResult = { world: context.world, pendingTurn: pending.turn, pendingAiThreshold: pending.aiThreshold, pendingDraw: pending.draw, pendingLoad: pending.load, pendingBust: pending.bust, pendingTrigger: pending.trigger, pendingComparison: pending.comparison, pendingDefeat: pending.defeat, runtime: context.runtime, events: [] };
   for (const effect of effects) {
-    const next = applyEffect(effect, { ...context, world: result.world, runtime: result.runtime }, { turn: result.pendingTurn, aiThreshold: result.pendingAiThreshold, draw: result.pendingDraw, load: result.pendingLoad, bust: result.pendingBust, trigger: result.pendingTrigger, comparison: result.pendingComparison });
+    const next = applyEffect(effect, { ...context, effectResults, event: { ...context.event, pendingComparison: result.pendingComparison }, world: result.world, runtime: result.runtime }, { turn: result.pendingTurn, aiThreshold: result.pendingAiThreshold, draw: result.pendingDraw, load: result.pendingLoad, bust: result.pendingBust, trigger: result.pendingTrigger, comparison: result.pendingComparison, defeat: result.pendingDefeat });
+    if (effect.type === "remove-skill-cards" && effect.resultKey) {
+      if (Object.hasOwn(effectResults, effect.resultKey)) throw new Error(`Duplicate effect result: ${effect.resultKey}`);
+      effectResults[effect.resultKey] = result.world.cards.length - next.world.cards.length;
+    }
+    const gainedAbilities = [...(result.gainedAbilities ?? []), ...(next.gainedAbilities ?? [])];
     const acquiredCards = [...(result.acquiredCards ?? []), ...(["player", "opponent"] as const).flatMap((actor) => next.world.hands[actor].cards.filter((card) => !result.world.hands[actor].cards.some((old) => old.id === card.id)).map((card) => ({ actor, card })))];
-    result = { acquiredCards, world: next.world, pendingTurn: next.pendingTurn, pendingAiThreshold: next.pendingAiThreshold, pendingDraw: next.pendingDraw, pendingLoad: next.pendingLoad, pendingBust: next.pendingBust, pendingTrigger: next.pendingTrigger, pendingComparison: next.pendingComparison, runtime: next.runtime, events: [...result.events, ...next.events] };
+    result = { ...(gainedAbilities.length ? { gainedAbilities } : {}), acquiredCards, world: next.world, pendingTurn: next.pendingTurn, pendingAiThreshold: next.pendingAiThreshold, pendingDraw: next.pendingDraw, pendingLoad: next.pendingLoad, pendingBust: next.pendingBust, pendingTrigger: next.pendingTrigger, pendingComparison: next.pendingComparison, pendingDefeat: next.pendingDefeat, runtime: next.runtime, events: [...result.events, ...next.events] };
   }
+  const removedSources = new Set(context.runtime.instances.filter(instance => !result.runtime.instances.some(entry => entry.instanceId === instance.instanceId)).map(instance => instance.instanceId));
+  if (result.world.statuses.some(status => removedSources.has(status.sourceInstanceId))) throw new Error("A removed ability cannot create new sourced statuses");
   return result;
 }

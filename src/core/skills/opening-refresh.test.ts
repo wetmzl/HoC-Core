@@ -122,7 +122,7 @@ describe("per-offer refresh budget", () => {
   });
   it("roundtrips candidates, history, RNG and spent budget without refilling on reload", () => {
     const state = gameReducer(open(), refresh);
-    const restored = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch;
+    const restored = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch!;
     expect(restored).toEqual(state);
     const corrupt = { ...state, playerSkills: { ...state.playerSkills, drawOffer: { ...state.playerSkills.drawOffer!, refreshesRemaining: 2 } } };
     expect(() => createRuntimeSave(corrupt)).toThrow();

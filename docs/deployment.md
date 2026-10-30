@@ -29,7 +29,7 @@ npm run build:packages -- --images lossless
 
 `build:packages` 生成 `dist/packages/*.hocpkg`、`dist/packages/HoC-official.zip` 与图片构建记录。Web 的记录为 `dist/image-build.json`。`--quality` 取 1–100 的整数，仅影响有损模式；无损不是质量 100 的有损 WebP。也可设置 `HOC_IMAGE_MODE=lossy|lossless|png`、`HOC_IMAGE_QUALITY=92`，命令行优先。Android Web 构建支持相同参数。
 
-角色封面保留 PNG，以兼容 PNG 角色卡导出；固定图片存档封面、网页/PWA/Android 图标继续使用要求的 PNG/ICO/SVG 格式。其他包图片的路径、MIME、大小和摘要随编码同步更新。不同模式保持包身份和版本，内容 revision 随图片变化；已安装内容通过资源管理器显式导入替换，网页升级不重置玩家进度。
+角色封面与其他包内 PNG 一同按所选模式编码，默认有损 WebP；PNG 角色卡导出时才将封面转换为 PNG 载体，包内媒体保持原编码。固定图片存档封面、网页/PWA/Android 图标继续使用要求的 PNG/ICO/SVG 格式。其他包图片的路径、MIME、大小和摘要随编码同步更新。不同模式保持包身份和版本，内容 revision 随图片变化；已安装内容通过资源管理器显式导入替换，网页升级不重置玩家进度。
 
 Core 提供 `hoc-core/image-build` 构建接口（`scripts/image-build.mjs`），供依赖公开内容契约的工具调用 `imageOptions`、`buildPackage` 或 `buildPackageTree`。调用者提供内容目录、索引条目与编码配置；接口不依赖其他内容仓库。只需本仓库依赖，编码器由锁定的 sharp 版本提供，不要求另装系统 cwebp。
 
@@ -52,6 +52,7 @@ npm run build:android:web  # 仅构建 Android Web 资源
 npm run android:sync      # 同步 Capacitor 工程
 npm run android:build     # 默认生成 Release APK
 npm run android:build:debug # 仅显式调试、冒烟测试使用
+npm run android:build:bossdev # 独立包名的 Boss 开发试玩版，可与正式版共存
 npm run android:open      # 用 Android Studio 打开工程
 ```
 
@@ -60,3 +61,5 @@ Release APK 位于 `android/app/build/outputs/apk/release/app-release-unsigned.a
 同步生成的 `android/app/src/main/assets/public/` 不能直接编辑。Android Web 构建不生成 PWA Service Worker。APK 编译不等于真机运行验收，存储恢复、前后台切换和触觉反馈须在设备上验证。
 
 修改内嵌包后运行 `npm run packages:sync`，构建时通过 `packages:check` 校验完整性。已有非空用户内容仓库不会随应用升级自动覆盖为新内嵌包，包更新与存档变化须遵循现有安装和迁移流程。
+
+Boss 开发 variant 使用 `io.github.wetmzl.blackjack.bossdev` 与名称“命运牌桌·Boss开发”，输出 `android/app/build/outputs/apk/bossdev/app-bossdev.apk`，由本机 debug key 签名。其文件提供器、存档和内容仓库与正式版隔离，允许 WebView 调试；不得作为 Release 交付。正式版应用 ID 与 Release 配置不变。

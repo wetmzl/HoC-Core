@@ -1,15 +1,18 @@
-import { skillRulesMarkup } from "../presentation/skill-copy";
 import { gameAudio } from "../audio/game-audio";
-import { CHARACTER_CATALOG, DEFAULT_CHARACTER_ID, defeatedCharacterIdsByFirstDefeat, getCharacterMetadata, isCharacterUnlocked, loadCharacter } from "../content/characters";
-import { getAbilityDefinition } from "../core/abilities/registry";
+import { openSkinPicker } from "../presentation/skin-picker";
+import { isCharacterSkinUnlocked } from "../persistence/skin-unlocks";
+import { CHARACTER_CATALOG, DEFAULT_CHARACTER_ID, defeatedCharacterIdsByFirstDefeat, getCharacterMetadata, isCharacterUnlocked } from "../content/characters";
 import { alertGameDialog } from "../game-dialog";
 import type { LobbyLayer } from "../lobby-screen-module";
 import { mountPluginSettingsForm } from "../presentation/plugin-settings-form";
 import { mountSaveRecovery } from "../presentation/save-recovery";
-import { DEFEATED_GUEST_BATCH_SIZE, escapeHtml, uiError, unlockConditionLabel } from "../presentation/view-helpers";
+import { DEFEATED_GUEST_BATCH_SIZE, uiError } from "../presentation/view-helpers";
 import { lobbyResourceUrls, resourceLoader } from "../resources/resource-loader";
 import { skillArchetypeArtUrls } from "../resources/skill-archetype-art";
 export interface LobbyScreenDependencies {
+    syncCharacterSkins?: () => Promise<void>;
+    loadSkinPreviews?: (key: string, signal: AbortSignal) => Promise<import("../content/packages/skin-previews").SkinPreviews>;
+    selectCharacterSkin?: (id: string, skinId: string, signal: AbortSignal) => Promise<void>;
     readonly mainMenuActions: readonly import("../presentation/main-menu-actions").MainMenuAction[];
     readonly pluginCredits: readonly import("../content/packages/plugin-credits").PluginCreditsSection[];
     clearActiveMatch: () => void;
@@ -31,6 +34,7 @@ export interface LobbyScreenDependencies {
     disposeDeckEditor: (() => void) | undefined;
     requestGameRuntimeExit: () => Promise<void>;
     updateSettings: (event: Event) => Promise<void>;
+    writePluginSettings: (packageId: string, values: Record<string, import("../content/packages/plugin-declarations").PluginSettingValue>) => Promise<void>;
     pluginSettingsSession: import("../content/packages/plugin-settings").PluginSettingsSession | undefined;
     repository: import("../persistence/save-service").PersistenceService;
     exportSave: () => Promise<void>;
@@ -39,13 +43,14 @@ export interface LobbyScreenDependencies {
     exportFailedImport: () => Promise<void>;
     confirmResetCurrentData: () => Promise<boolean>;
     resetCurrentData: () => Promise<void>;
-    startMatch: (characterId?: string) => Promise<void>;
+    openProfile: (id: string) => Promise<void>;
+    invalidateProfile: () => void;
 }
 export class LobbyScreen {
     private disposed = false;
-    private profileRequest = 0;
     dispose = (): void => {
         this.disposed = true;
+        this.deps.invalidateProfile();
         this.defeatedGuestObserver?.disconnect();
         this.defeatedGuestObserver = null;
         this.lobbyModulePromise = undefined;
@@ -138,10 +143,27 @@ export class LobbyScreen {
         }, { rootMargin: "0px 0px 160px" });
         this.defeatedGuestObserver.observe(control);
     };
+    redrawCharacters = (): void => {
+        if (this.disposed || !this.lobbyModule) return;
+        for (const card of this.deps.root.querySelectorAll<HTMLElement>(".character-card[data-character-id]")) {
+            const metadata = getCharacterMetadata(card.dataset.characterId!);
+            if (!metadata) continue;
+            const actionId = card.querySelector<HTMLButtonElement>("[data-ui-action]")?.dataset.uiAction;
+            const action = actionId ? this.deps.mainMenuActions.find(action => action.id === actionId) : undefined;
+            const scroll = card.querySelector<HTMLElement>(".character-copy > p:not(.eyebrow)")?.scrollTop ?? 0;
+            const template = document.createElement("template");
+            template.innerHTML = this.lobbyModule.characterCardMarkup(metadata, card.classList.contains("is-defeated"), action);
+            card.innerHTML = template.content.firstElementChild!.innerHTML;
+            const description = card.querySelector<HTMLElement>(".character-copy > p:not(.eyebrow)");
+            if (description) description.scrollTop = scroll;
+            this.wireInviteButtons(card);
+        }
+    };
     renderLobby = async (layer: LobbyLayer = "menu"): Promise<void> => {
         if (this.disposed)
             return;
-        this.profileRequest++;
+        this.deps.invalidateProfile();
+        await this.deps.syncCharacterSkins?.();
         await this.deps.navigateScreen(async () => {
             this.lobbyModulePromise ??= import("../lobby-screen-module").catch(error => {
                 this.lobbyModulePromise = undefined;
@@ -190,15 +212,23 @@ export class LobbyScreen {
         this.deps.root.querySelector<HTMLButtonElement>("[data-enter-duel]")?.addEventListener("click", () => { this.guestSelectionIds = []; void this.renderLobby("characters"); });
         this.deps.root.querySelector<HTMLButtonElement>("[data-lobby-home]")?.addEventListener("click", () => { void this.renderLobby("menu"); });
         this.deps.root.querySelector<HTMLButtonElement>("[data-refresh-guests]")?.addEventListener("click", () => { this.guestSelectionIds = this.selectGuestIds(); void this.renderLobby("characters"); });
-        const actionsById = new Map(menuActions.map(action => [action.id, action]));
-        this.deps.root.querySelectorAll<HTMLButtonElement>("[data-ui-action]").forEach(button => button.addEventListener("click", () => {
-            const action = actionsById.get(button.dataset.uiAction ?? "");
+        this.deps.root.addEventListener("click", event => {
+            const skinButton = (event.target as Element).closest<HTMLButtonElement>("[data-change-skin]");
+            if (skinButton && this.deps.loadSkinPreviews && this.deps.selectCharacterSkin) {
+                const character = getCharacterMetadata(skinButton.dataset.changeSkin!);
+                if (character) openSkinPicker({ root: this.deps.root, character, signal, load: this.deps.loadSkinPreviews, select: this.deps.selectCharacterSkin,
+                    isUnlocked: id => !!character.appearance && isCharacterSkinUnlocked(this.deps.save, character.appearance, id) });
+                return;
+            }
+            const button = (event.target as Element).closest<HTMLButtonElement>("[data-ui-action]");
+            if (!button) return;
+            const action = this.deps.mainMenuActions.find(action => action.id === button.dataset.uiAction);
             if (!action || signal.aborted || button.disabled) return;
             button.disabled = true;
             void Promise.resolve().then(() => { if (!signal.aborted) return action.activate(); }).catch(error => {
                 if (!signal.aborted) void alertGameDialog("打开失败", uiError(error, "该功能暂时无法打开，请重试。"));
             }).finally(() => { if (!signal.aborted) button.disabled = false; });
-        }, { signal }));
+        }, { signal });
         this.deps.root.querySelectorAll<HTMLButtonElement>("[data-close]").forEach((button) => button.addEventListener("click", () => button.closest("dialog")?.close()));
         let badgeHint: HTMLElement | null = null;
         let badgeHintTimer: ReturnType<typeof setTimeout> | undefined;
@@ -212,6 +242,8 @@ export class LobbyScreen {
             if (!(event.target instanceof HTMLImageElement)) return;
             const badge = event.target.closest<HTMLElement>(".character-badge");
             if (badge) { hideBadgeHint(); badge.hidden = true; }
+            const factionIcon = event.target.closest<HTMLElement>(".boss-faction-icon");
+            if (factionIcon) factionIcon.hidden = true;
         }, { signal, capture: true });
         // Delegate so cards appended by the defeated-guest loader work too.
         this.deps.root.addEventListener("click", event => {
@@ -235,15 +267,15 @@ export class LobbyScreen {
             });
         });
         this.deps.root.querySelectorAll<HTMLInputElement>("[data-setting]").forEach((input) => input.addEventListener("change", this.deps.updateSettings));
+        this.deps.root.querySelector<HTMLInputElement>('[data-setting="musicVolume"]')?.addEventListener("input", event => {
+            const input = event.target as HTMLInputElement;
+            gameAudio.setMusicVolume(input.valueAsNumber);
+            const readout = this.deps.root.querySelector<HTMLElement>("[data-music-volume-value]");
+            if (readout) readout.textContent = `${Math.round(input.valueAsNumber * 100)}%`;
+        });
         const settingsForm = this.deps.root.querySelector<HTMLElement>("[data-plugin-settings-form]");
         if (settingsForm && this.deps.pluginSettingsSession)
-            mountPluginSettingsForm(settingsForm, this.deps.pluginSettingsSession, async (packageId, values) => {
-                const data = this.deps.pluginSettingsSession!.updated(this.deps.save.settings.pluginSettings ?? {}, packageId, values);
-                const next = { ...this.deps.save, settings: { ...this.deps.save.settings, pluginSettings: data }, updatedAt: new Date().toISOString() };
-                await this.deps.repository.saveLongTerm(next);
-                this.deps.save = next;
-                this.deps.pluginSettingsSession!.sync(data);
-            });
+            mountPluginSettingsForm(settingsForm, this.deps.pluginSettingsSession, this.deps.writePluginSettings);
         this.deps.root.querySelector<HTMLButtonElement>("[data-export]")?.addEventListener("click", () => void this.deps.exportSave());
         const recovery = this.deps.root.querySelector<HTMLElement>("[data-save-recovery]");
         if (recovery) mountSaveRecovery(recovery, this.deps.save);
@@ -257,37 +289,5 @@ export class LobbyScreen {
             }).catch(this.deps.renderError);
         });
     };
-    openProfile = async (id: string): Promise<void> => {
-        const request = ++this.profileRequest;
-        const metadata = getCharacterMetadata(id);
-        if (!metadata)
-            return;
-        try {
-            const character = await loadCharacter(metadata.id);
-            if (this.disposed || request !== this.profileRequest) return;
-            this.selectedCharacterId = character.id;
-            const content = this.deps.root.querySelector<HTMLDivElement>("#profile-content");
-            if (content) {
-                const abilities = character.aiSkills
-                    .filter((binding) => binding.enabled)
-                    .map((binding) => getAbilityDefinition(binding.definitionId))
-                    .filter((definition): definition is NonNullable<ReturnType<typeof getAbilityDefinition>> => Boolean(definition));
-                const abilityMarkup = abilities.length === 0 ? "" : `<section class="profile-abilities" aria-label="角色技能"><h3>技能</h3>${abilities.map((ability) => `<details class="profile-ability"><summary><strong>${escapeHtml(ability.name)}</strong><span>：${escapeHtml(ability.description)}</span></summary><p>${escapeHtml(ability.profileLore ?? ability.description)}</p></details>${skillRulesMarkup(ability.description, ability.usage)}`).join("")}</section>`;
-                const defeated = defeatedCharacterIdsByFirstDefeat(this.deps.save.defeats).includes(character.id);
-                const unlocked = isCharacterUnlocked(character, this.deps.save.defeats);
-                const actionMarkup = defeated
-                    ? `<p class="status-line">她曾在这里落败，仍可再次邀请。</p><button class="primary-button profile-start" data-profile-start="${escapeHtml(character.id)}">开始对局 <span>→</span></button>`
-                    : unlocked
-                        ? `<button class="primary-button profile-start" data-profile-start="${escapeHtml(character.id)}">开始对局 <span>→</span></button>`
-                        : `<p class="status-line">尚未解锁：${escapeHtml(unlockConditionLabel(character.unlock))}</p>`;
-                content.innerHTML = `<img src="${escapeHtml(character.previewImage)}" alt="${escapeHtml(character.name)}" loading="lazy" decoding="async" /><p class="eyebrow">角色档案 // ${escapeHtml(character.tier)}级</p><h2>${escapeHtml(character.name)}</h2>${abilityMarkup}<p class="profile-description">${escapeHtml(character.profile.description)}</p>${actionMarkup}`;
-            }
-            content?.querySelector<HTMLButtonElement>("[data-profile-start]")?.addEventListener("click", () => { document.querySelector<HTMLDialogElement>("#profile")?.close(); void this.deps.startMatch(character.id); });
-            document.querySelector<HTMLDialogElement>("#profile")?.showModal();
-        }
-        catch (error) {
-            if (this.disposed || request !== this.profileRequest) return;
-            this.deps.renderError(error);
-        }
-    };
+    openProfile = (id: string): Promise<void> => this.deps.openProfile(id);
 }

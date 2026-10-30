@@ -1,3 +1,7 @@
+import { installEncounterFlows, validateEncounterFlow, validateEncounterProgram, type EncounterFlowResource } from "../encounter-flows/catalog";
+import { compileLegacyFlow, instantiateProgramTemplate } from "../../core/flow/program-templates";
+import { installChallenges, validateChallenges } from "../challenges/catalog";
+import type { ChallengeDefinition } from "../../core/challenge/schema";
 import { registerCharacterImage, clearCharacterImages } from "../../presentation/character-interaction";
 import { ABILITY_CATALOG_VERSION, createStandaloneAbilityRegistry, installAbilityRegistry, supportsAbilitySourceKind, validateAbilityBinding, type AbilityRegistry } from "../../core/abilities/registry";
 import type { AbilityDefinition, PlayerSkillAbilityDefinition, StatusDefinition } from "../../core/abilities/types";
@@ -12,6 +16,8 @@ import { EmbeddedContentSource, type ContentSource } from "./content-source";
 import { loadHocpkgResources } from "./loader";
 import { createHocpkgResourceHandlers, mergeResourceHandlers, type HocpkgResourceHandler, type CharacterMatchResource, type ContentDiagnostic, type ExtensionResource, type PlayerSkillResource, type FactionResource } from "./resources";
 import type { BuiltinPackageIndex } from "./schema";
+import type { CharacterPresentation, CharacterSkinPreferences } from "./character-presentation";
+import { resolveEncounterOwnership } from "./encounter-ownership";
 
 export interface LoadedContent {
   readonly index: BuiltinPackageIndex;
@@ -23,9 +29,14 @@ export interface LoadedContent {
 export interface LoadContentOptions {
   readonly dialogueRegistry?: DialoguePrimitiveRegistry;
   readonly handlers?: readonly HocpkgResourceHandler[];
+  readonly characterSkins?: CharacterSkinPreferences;
+  readonly characterSkinUnlocks?: import("../../persistence/skin-unlocks").CharacterSkinUnlocks;
 }
 
 export interface PreparedContentRuntime {
+  readonly characterImages?: readonly { url: string; packageId: string; path: string }[];
+  readonly encounterFlows: readonly EncounterFlowResource[];
+  readonly challenges: readonly ChallengeDefinition[];
   readonly abilityRegistry: AbilityRegistry;
   readonly definitions: readonly AbilityDefinition[];
   readonly statuses: readonly StatusDefinition[];
@@ -50,10 +61,12 @@ export async function loadContent(
   });
   const packages = await Promise.all(accesses.map(async (access) => {
     const resolved = new Map<string, { readonly url: string; release?(): void }>();
+    let released = false;
     const inFlightResolutions = new Map<string, Promise<{ readonly url: string; release?(): void }>>();
     const manifestFilesByPath = new Set(access.manifest.files.map((file) => file.path));
 
     const resolvePath = async (path: string): Promise<string> => {
+      if (released) throw new Error("内容资源已经释放");
       if (!manifestFilesByPath.has(path)) {
         throw new Error(`媒体文件未在 Manifest 中声明：${access.packageId}#${path}`);
       }
@@ -62,10 +75,10 @@ export async function loadContent(
       let inFlight = inFlightResolutions.get(path);
       if (!inFlight) {
         inFlight = access.resolveAsset(path).then((asset) => {
+          if (released) { asset.release?.(); throw new Error("内容资源已经释放"); }
           resolved.set(path, asset);
-          inFlightResolutions.delete(path);
           return asset;
-        });
+        }).finally(() => { inFlightResolutions.delete(path); });
         inFlightResolutions.set(path, inFlight);
       }
       const asset = await inFlight;
@@ -73,6 +86,7 @@ export async function loadContent(
     };
 
     const syncResolvePath = (path: string): string => {
+      if (released) throw new Error("内容资源已经释放");
       const asset = resolved.get(path);
       if (!asset) {
         throw new Error(`媒体文件未解析或未在 Manifest 中声明：${access.packageId}#${path}`);
@@ -84,13 +98,15 @@ export async function loadContent(
       const resources = await loadHocpkgResources(access.manifest, {
         handlers: activeHandlers,
         readJson: (entry) => access.readJson(entry),
-        resolvePath
+        resolvePath,
+        presentation: { skinId: options.characterSkins?.[`${access.packageId}#${access.manifest.resources.find(resource => resource.type === "game.character-match")?.id}`] },
+        skinUnlocks: options.characterSkinUnlocks?.[`${access.packageId}#${access.manifest.resources.find(resource => resource.type === "game.character-match")?.id}`] ?? {}
       });
       return {
         manifest: access.manifest,
         resources,
         resolvePath: syncResolvePath,
-        release: () => { for (const asset of resolved.values()) asset.release?.(); }
+        release: () => { if (released) return; released = true; for (const asset of resolved.values()) asset.release?.(); }
       } satisfies LoadedHocpkgPackage;
     } catch (error) {
       for (const asset of resolved.values()) asset.release?.();
@@ -159,6 +175,7 @@ export function prepareContentRuntime(content: LoadedContent): PreparedContentRu
   const definitions: AbilityDefinition[] = [...playerSkills, ...content.registry.aiSkills, ...content.registry.talents];
   const abilityRegistry = createStandaloneAbilityRegistry(definitions, content.registry.statuses, content.index.abilityCatalogVersion);
 
+  const characterImages: { url: string; packageId: string; path: string }[] = [];
   const characters: CharacterDefinition[] = [];
   const catalog: CharacterMetadata[] = [];
   for (const loaded of content.packages) {
@@ -168,15 +185,21 @@ export function prepareContentRuntime(content: LoadedContent): PreparedContentRu
     const aiSkills = match.aiSkills.map((binding) => {
       const definition = loaded.resources.find((result) => result.descriptor.id === binding.resourceId)?.value as AbilityDefinition | undefined;
       if (!definition || !supportsAbilitySourceKind(definition, "ai-skill")) throw new Error(`角色 AI Skill 无效：${match.metadata.id}#${binding.resourceId}`);
-      return validateAbilityBinding({ definitionId: definition.id, enabled: binding.enabled, parameters: binding.parameters }, abilityRegistry);
+      return validateAbilityBinding({ definitionId: definition.id, enabled: binding.enabled, level: binding.level, parameters: binding.parameters }, abilityRegistry);
     });
     const packageId = `${loaded.manifest.identity.authorId}/${loaded.manifest.identity.packageName}`;
     for (const file of loaded.manifest.files) if (file.mediaType.startsWith("image/")) {
-      try { registerCharacterImage(loaded.resolvePath(file.path), { packageId, path: file.path }); } catch { /* unavailable optional image */ }
+      try { characterImages.push({ url: loaded.resolvePath(file.path), packageId, path: file.path }); } catch { /* unavailable optional image */ }
     }
-    const rawData = resolveMedia(match.definition, loaded) as Record<string, unknown>;
+    const rawData = match.presentationResourceId ? {
+      ...match.definition,
+      assets: Object.fromEntries(Object.entries(match.definition.assets as Record<string, string>).map(([key, path]) => [key, loaded.resolvePath(path)])),
+      profile: { ...match.definition.profile as object, ...((match.definition.profile as { backgrounds?: { image: string }[] }).backgrounds ? { backgrounds: (match.definition.profile as { backgrounds: { image: string }[] }).backgrounds.map(entry => ({ ...entry, image: loaded.resolvePath(entry.image) })) } : {}) },
+      ...(match.definition.tablePortrait ? { tablePortrait: { ...match.definition.tablePortrait as object, ...((match.definition.tablePortrait as { images?: { image: string }[] }).images ? { images: (match.definition.tablePortrait as { images: { image: string }[] }).images.map(entry => ({ ...entry, image: loaded.resolvePath(entry.image) })) } : {}) } } : {})
+    } : resolveMedia(match.definition, loaded) as Record<string, unknown>;
     const rawDialogue = loaded.resources.find(r => r.descriptor.id === match.dialogueResourceId)?.value as CharacterDialogue;
-    const dialogue = { ...rawDialogue, rules: rawDialogue.rules.map(rule => {
+    const poolPortraits = rawDialogue.poolPortraits ? Object.fromEntries(Object.entries(rawDialogue.poolPortraits).map(([id, portrait]) => [id, { ...portrait, image: loaded.resolvePath(portrait.image) }])) : undefined;
+    const dialogue = { ...rawDialogue, ...(poolPortraits ? { poolPortraits } : {}), rules: rawDialogue.rules.map(rule => {
       if (!rule.portrait) return rule;
       try { return { ...rule, portrait: { ...rule.portrait, image: loaded.resolvePath(rule.portrait.image) } }; }
       catch { return { ...rule, portrait: { ...rule.portrait, image: "about:invalid#dialogue-portrait" } }; }
@@ -205,13 +228,24 @@ export function prepareContentRuntime(content: LoadedContent): PreparedContentRu
     appendMusic(match.metadata.matchMusic, loaded, packageId);
     if (faction) appendMusic(factionValue?.matchMusic, faction, faction.packageId, faction.descriptor);
     const { matchMusic: _matchMusic, ...characterMetadata } = match.metadata;
+    const presentation = loaded.resources.find(result => result.descriptor.id === match.presentationResourceId)?.value as CharacterPresentation | undefined;
+    const presentationKey = `${packageId}#${matchResult.descriptor.id}`;
+    const context = loaded.resources.find(result => result.descriptor.id === matchResult.descriptor.id)?.presentation;
+    const appearance = presentation ? { key: presentationKey, skinId: context?.skinId ?? presentation.skins[0].id, skins: presentation.skins } : undefined;
     const metadata: CharacterMetadata = {
       ...characterMetadata,
       previewImage: loaded.resolvePath(match.metadata.previewImage),
+      ...(appearance ? { appearance } : {}),
       badge
     };
     catalog.push(metadata);
+    const runtime = match.metadata.runtime;
+    const linkedFlow = runtime?.type === "flow" ? loaded.resources.find(resource => resource.descriptor.id === runtime.resourceId)?.value as EncounterFlowResource | undefined : undefined;
+    if (runtime?.type === "flow" && !linkedFlow) throw new Error("角色引用的包内流程未激活");
+    const program = runtime?.type === "template" ? instantiateProgramTemplate(runtime.template)
+      : linkedFlow ? linkedFlow.program ?? compileLegacyFlow(linkedFlow.definition) : undefined;
     characters.push(Object.freeze({ ...metadata, ...data,
+      ...(program ? { program } : {}),
       ...(matchMusicSources.length ? { matchMusicSources: Object.freeze([...new Set(matchMusicSources)]) } : {})
     }));
   }
@@ -221,7 +255,33 @@ export function prepareContentRuntime(content: LoadedContent): PreparedContentRu
   if (!defaultCharacterId) throw new Error("启用的内容包中没有可作为默认对手的角色。");
   const effectiveCatalog = catalog.map((character) => character.id === defaultCharacterId ? { ...character, unlock: undefined } : character);
   const effectiveCharacters = characters.map((character) => character.id === defaultCharacterId ? { ...character, unlock: undefined } : character);
+  const encounters = resolveEncounterOwnership(content.packages, content.registry);
+  const challenges = encounters.challenges.filter(definition => {
+    try { validateChallenges([definition], effectiveCharacters, abilityRegistry); return true; }
+    catch (error) {
+      const owner = content.packages.find(loaded => loaded.resources.some(resource => resource.value === definition));
+      const resource = owner?.resources.find(resource => resource.value === definition);
+      diagnostics.push({ packageId: owner ? `${owner.manifest.identity.authorId}/${owner.manifest.identity.packageName}` : "unknown",
+        resourceId: resource?.descriptor.id ?? definition.id, type: "game.boss-challenge", state: "blocked", reason: "unavailable-challenge-dependency",
+        error: error instanceof Error ? error.message : String(error) });
+      return false;
+    }
+  });
+  const encounterFlows = encounters.encounterFlows.filter(entry => {
+    try { validateEncounterFlow(entry, effectiveCharacters, abilityRegistry); return true; }
+    catch (error) {
+      const owner = content.packages.find(loaded => loaded.resources.some(resource => resource.value === entry));
+      const resource = owner?.resources.find(resource => resource.value === entry);
+      diagnostics.push({ packageId: owner ? `${owner.manifest.identity.authorId}/${owner.manifest.identity.packageName}` : "unknown", resourceId: resource?.descriptor.id ?? entry.id,
+        type: "game.encounter-flow", state: "blocked", reason: "unavailable-encounter-dependency", error: error instanceof Error ? error.message : String(error) });
+      return false;
+    }
+  });
+  for (const character of effectiveCharacters) if (character.program) validateEncounterProgram(character.program, effectiveCharacters, abilityRegistry);
   return Object.freeze({
+    characterImages: Object.freeze(characterImages),
+    encounterFlows: Object.freeze(encounterFlows),
+    challenges: Object.freeze(challenges),
     abilityRegistry,
     definitions: Object.freeze(definitions),
     statuses: Object.freeze([...content.registry.statuses]),
@@ -234,12 +294,18 @@ export function prepareContentRuntime(content: LoadedContent): PreparedContentRu
 }
 
 export function activateContentRuntime(prepared: PreparedContentRuntime): void {
+  clearCharacterImages();
+  for (const { url, packageId, path } of prepared.characterImages ?? []) registerCharacterImage(url, { packageId, path });
   installAbilityRegistry(prepared.definitions, prepared.statuses, prepared.abilityRegistry.catalogVersion);
   installCharacterCatalog(prepared.catalog, prepared.defaultCharacterId);
   installCharacterDefinitions(prepared.characters);
+  installChallenges(prepared.challenges);
+  installEncounterFlows(prepared.encounterFlows);
 }
 
 export function deactivateContentRuntime(): void {
+  installChallenges([]);
+  installEncounterFlows([]);
   clearCharacterImages();
   installAbilityRegistry([], [], ABILITY_CATALOG_VERSION);
   clearCharacterCatalog();

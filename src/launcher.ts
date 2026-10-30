@@ -6,7 +6,8 @@ import { compareHocpkgVersions } from "./content/packages/package-state";
 import type { ImportSession } from "./content/transfer/hocpkg";
 import { chooseGameDialog, confirmGameDialog } from "./game-dialog";
 import { type PlaylistDocument, type SavedPlaylist } from "./content/playlists/store";
-import { playlistJson } from "./content/playlists/transfer";
+import { PlaylistArchiveError, playlistJson } from "./content/playlists/transfer";
+import { version, releaseName } from "../package.json";
 
 const PACKAGE_COVER_FALLBACK = "/assets/package-cover-fallback.png";
 const PLAYLIST_ICONS = {
@@ -90,6 +91,7 @@ export class LauncherView {
   private importOpen = false;
   private textExportId: string | null = null;
   private playlistMessage = "";
+  private playlistImportMessage = "";
   private disposePluginDrag?: () => void;
 
   constructor(private readonly root: HTMLDivElement, private readonly controller: ApplicationController) {}
@@ -117,7 +119,7 @@ export class LauncherView {
     this.importOpen = false;
     this.textExportId = null;
     this.playlistMessage = "";
-    this.root.innerHTML = `<main class="launcher-shell"><span class="mark">✦</span><p data-launcher-status>正在打开内容仓库……</p><progress max="1" value="0" data-launcher-progress aria-label="内容处理进度"></progress></main>`;
+    this.root.innerHTML = `<main class="launcher-shell"><p data-launcher-status>正在打开内容仓库……</p><progress max="1" value="0" data-launcher-progress aria-label="内容处理进度"></progress></main>`;
     await this.refresh();
   }
 
@@ -219,9 +221,9 @@ export class LauncherView {
     const managerRows = this.playlists.map((entry) => `<div class="playlist-manager-row" data-manage-playlist="${entry.id}"><input type="text" data-playlist-rename-input="${entry.id}" aria-label="播放集名称：${escapeHtml(entry.document.name)}" maxlength="80" value="${escapeHtml(entry.document.name)}"><div class="playlist-manager-actions"><button type="button" data-copy-playlist="${entry.id}" aria-label="复制${escapeHtml(entry.document.name)}" title="复制">${PLAYLIST_ICONS.copy}</button><button type="button" data-export-playlist="${entry.id}" aria-label="导出${escapeHtml(entry.document.name)}" title="导出">${PLAYLIST_ICONS.export}</button><button type="button" class="playlist-delete" data-delete-playlist="${entry.id}" aria-label="删除${escapeHtml(entry.document.name)}" title="删除">${PLAYLIST_ICONS.delete}</button></div><p class="playlist-row-error" role="status"></p></div>`).join("");
     const textDocument = this.playlists.find((entry) => entry.id === this.textExportId)?.document;
     const playlistTools = this.controller.contentSource === "repository" ? `<section class="playlist-tools"><div class="playlist-toolbar"><div class="playlist-name-field"><button type="button" class="playlist-name-arrow" data-toggle-playlist-menu aria-label="展开播放集列表" aria-expanded="${this.playlistMenuOpen}"><span aria-hidden="true">${this.playlistMenuOpen ? "▾" : "▸"}</span></button><span class="playlist-current-name">${escapeHtml(this.playlists.find((item) => item.id === this.selectedPlaylistId)?.document.name ?? "默认播放集")}</span></div><button type="button" class="playlist-icon" data-open-playlist-manager aria-label="管理播放集" title="管理">⚙</button><button type="button" class="playlist-icon" data-open-playlist-import aria-label="导入播放集" title="导入">${PLAYLIST_ICONS.import}</button></div><div class="playlist-menu" ${this.playlistMenuOpen ? "" : "hidden"}>${playlistItems || `<p>还没有保存的播放集。</p>`}</div><p class="playlist-status" role="status">${escapeHtml(this.playlistMessage)}</p></section>` : "";
-    const playlistDialogs = this.controller.contentSource === "repository" ? `<dialog class="modal playlist-manager-dialog" data-playlist-manager aria-label="管理播放集"><button type="button" class="modal-close" data-close-playlist-manager aria-label="关闭管理">×</button><h2>管理播放集</h2><div class="playlist-manager-list">${managerRows || `<p>还没有保存的播放集。</p>`}</div></dialog><dialog class="modal playlist-import-dialog" data-playlist-import aria-label="导入播放集"><button type="button" class="modal-close" data-close-playlist-import aria-label="关闭导入">×</button><h2>导入播放集</h2><label class="secondary-button playlist-file-label">选择 JSON、hocpkg 或 PNG<input type="file" data-playlist-file accept=".json,.hocpkg,.png,application/json,application/zip,image/png" hidden></label><label class="playlist-paste-label">粘贴播放集 JSON<textarea data-playlist-paste rows="7" spellcheck="false"></textarea></label><button type="button" class="primary-button" data-import-playlist-text>导入文本</button><p data-playlist-import-status role="status"></p></dialog><dialog class="modal playlist-text-dialog" data-playlist-text-dialog aria-label="播放集纯文本"><button type="button" class="modal-close" data-close-playlist-text aria-label="关闭纯文本">×</button><h2>纯文本播放集</h2><textarea readonly rows="10" data-playlist-export-text>${textDocument ? escapeHtml(playlistJson(textDocument)) : ""}</textarea><div class="playlist-text-actions"><button type="button" class="secondary-button" data-copy-playlist-text>复制 JSON</button><button type="button" class="primary-button" data-download-playlist-text>下载 JSON</button></div></dialog>` : "";
+    const playlistDialogs = this.controller.contentSource === "repository" ? `<dialog class="modal playlist-manager-dialog" data-playlist-manager aria-label="管理播放集"><button type="button" class="modal-close" data-close-playlist-manager aria-label="关闭管理">×</button><h2>管理播放集</h2><div class="playlist-manager-list">${managerRows || `<p>还没有保存的播放集。</p>`}</div></dialog><dialog class="modal playlist-import-dialog" data-playlist-import aria-label="导入播放集"><button type="button" class="modal-close" data-close-playlist-import aria-label="关闭导入">×</button><h2>导入播放集</h2><label class="secondary-button playlist-file-label">选择 JSON、hocpkg、PNG 或 ZIP<input type="file" data-playlist-file accept=".json,.hocpkg,.png,.zip,application/json,application/zip,image/png" hidden></label><label class="playlist-paste-label">粘贴播放集 JSON<textarea data-playlist-paste rows="7" spellcheck="false"></textarea></label><button type="button" class="primary-button" data-import-playlist-text>导入文本</button><p data-playlist-import-status role="status">${escapeHtml(this.playlistImportMessage)}</p></dialog><dialog class="modal playlist-text-dialog" data-playlist-text-dialog aria-label="播放集纯文本"><button type="button" class="modal-close" data-close-playlist-text aria-label="关闭纯文本">×</button><h2>纯文本播放集</h2><textarea readonly rows="10" data-playlist-export-text>${textDocument ? escapeHtml(playlistJson(textDocument)) : ""}</textarea><div class="playlist-text-actions"><button type="button" class="secondary-button" data-copy-playlist-text>复制 JSON</button><button type="button" class="primary-button" data-download-playlist-text>下载 JSON</button></div></dialog>` : "";
 
-    this.root.innerHTML = `<main class="launcher-shell"><section class="launcher-hero"><p class="eyebrow">House of Chances</p><span class="launcher-mark">✦</span><h1>内容管理器</h1><p class="launcher-description">知者不言，言者不知。<br>玩腻了？HoC是一个开放的社区项目，随意导入角色包或插件以定义你自己的HoC游戏体验！</p></section><section class="launcher-actions"><button type="button" class="primary-button launcher-start" data-start-game ${!startable || this.busy ? "disabled" : ""}>开始游戏</button><button type="button" class="secondary-button" data-open-packages ${this.busy ? "disabled" : ""}>资源管理</button>${warnings}<p class="launcher-status ${error ? "is-error" : ""}" data-launcher-status role="status">${escapeHtml(message)}</p><progress max="1" value="0" data-launcher-progress aria-label="内容处理进度" hidden></progress></section><dialog class="package-drawer" data-package-drawer aria-labelledby="package-drawer-title"><header><div><p class="eyebrow">Content Vault</p><h2 id="package-drawer-title">资源管理</h2></div><button type="button" class="modal-close" data-close-packages aria-label="关闭资源管理">×</button></header>${playlistTools}${this.controller.contentSource === "repository" ? `<div class="package-import-tools"><div class="package-transfer-actions"><label class="secondary-button">导入资源/资源包<input type="file" data-import-file accept=".hocpkg,.zip,.png,application/zip,image/png" hidden ${this.busy ? "disabled" : ""}></label><button type="button" class="secondary-button" disabled>社区工坊</button></div><p class="package-import-result" role="status">${escapeHtml(this.transferMessage)}</p></div>` : ""}<section class="package-list">${packageCards || `<p class="empty-package-list">内容仓库暂时不可用。</p>`}</section><button type="button" class="secondary-button package-retry" data-retry-packages>重新检查</button></dialog>${playlistDialogs}${this.renderImportDialog()}</main>`;
+    this.root.innerHTML = `<main class="launcher-shell"><section class="launcher-hero"><p class="eyebrow">House of Chances</p><h1>内容管理器</h1><p class="launcher-description">知者不言，言者不知。<br>玩腻了？HoC是一个开放的社区项目，随意导入角色包或插件以定义你自己的HoC游戏体验！</p><p class="launcher-release" data-core-release aria-label="Core 版本与版本批注"><span>Core v${escapeHtml(version)}</span><strong>${escapeHtml(releaseName)}</strong></p></section><section class="launcher-actions"><button type="button" class="primary-button launcher-start" data-start-game ${!startable || this.busy ? "disabled" : ""}>开始游戏</button><button type="button" class="secondary-button" data-open-packages ${this.busy ? "disabled" : ""}>资源管理</button>${warnings}<p class="launcher-status ${error ? "is-error" : ""}" data-launcher-status role="status">${escapeHtml(message)}</p><progress max="1" value="0" data-launcher-progress aria-label="内容处理进度" hidden></progress></section><dialog class="package-drawer" data-package-drawer aria-labelledby="package-drawer-title"><header><div><p class="eyebrow">Content Vault</p><h2 id="package-drawer-title">资源管理</h2></div><button type="button" class="modal-close" data-close-packages aria-label="关闭资源管理">×</button></header>${playlistTools}${this.controller.contentSource === "repository" ? `<div class="package-import-tools"><div class="package-transfer-actions"><label class="secondary-button">导入资源/资源包<input type="file" data-import-file accept=".hocpkg,.zip,.png,application/zip,image/png" hidden ${this.busy ? "disabled" : ""}></label><button type="button" class="secondary-button" disabled>社区工坊</button></div><p class="package-import-result" role="status">${escapeHtml(this.transferMessage)}</p></div>` : ""}<section class="package-list">${packageCards || `<p class="empty-package-list">内容仓库暂时不可用。</p>`}</section><button type="button" class="secondary-button package-retry" data-retry-packages>重新检查</button></dialog>${playlistDialogs}${this.renderImportDialog()}</main>`;
     this.wire();
     if (this.packageManagerOpen) this.openPackageManager();
     if (this.managerOpen) this.root.querySelector<HTMLDialogElement>("[data-playlist-manager]")?.showModal();
@@ -317,6 +319,11 @@ export class LauncherView {
     this.root.querySelector<HTMLButtonElement>("[data-close-playlist-import]")?.addEventListener("click", () => this.closePlaylistDialog("import"));
     this.root.querySelector<HTMLButtonElement>("[data-close-playlist-text]")?.addEventListener("click", () => this.closePlaylistDialog("text"));
     this.root.querySelector<HTMLButtonElement>("[data-import-playlist-text]")?.addEventListener("click", () => void this.importPlaylistText());
+    this.root.querySelector<HTMLInputElement>("[data-playlist-file]")?.addEventListener("click", (event) => {
+      if (!this.controller.hasImportPicker) return;
+      event.preventDefault();
+      void this.importPlaylistFile();
+    });
     this.root.querySelector<HTMLInputElement>("[data-playlist-file]")?.addEventListener("change", (event) => void this.importPlaylistFile(event.currentTarget as HTMLInputElement));
     this.root.querySelectorAll<HTMLInputElement>("[data-playlist-rename-input]").forEach((input) => {
       input.addEventListener("change", () => void this.renamePlaylistInline(input));
@@ -381,6 +388,7 @@ export class LauncherView {
 
   private beginImportOperation(label: string): void {
     this.busy = true;
+    this.transferMessage = "";
     this.importStep = "progress";
     this.importCommitting = false;
     this.importAbort = new AbortController();
@@ -417,15 +425,17 @@ export class LauncherView {
 
   private async stageImport(input: HTMLInputElement): Promise<void> {
     const file = input.files?.[0];
+    input.value = "";
     if (file) await this.stageImportFile(file);
   }
 
   private async stageImportFile(input?: File | ContentImportFile): Promise<void> {
     if (this.busy) return;
     this.beginImportOperation("正在读取导入文件……");
+    let file: File | ContentImportFile | null = null;
     try {
       const options = { signal: this.importAbort!.signal, onProgress: this.updateImportProgress };
-      const file = input ?? await this.controller.pickPackageFile(options);
+      file = input ?? await this.controller.pickPackageFile(options);
       if (!file) { this.importStep = "select"; return; }
       const session = await this.controller.stagePackageFile(file, options);
       this.activeImportId = session.id;
@@ -463,7 +473,10 @@ export class LauncherView {
         this.releaseImportPreviews();
       }
       this.transferMessage = this.importAbort?.signal.aborted ? "导入已取消。" : error instanceof Error ? error.message : String(error); this.importStep = "select"; await this.refresh(); }
-    finally { this.endImportOperation(); }
+    finally {
+      if (file) await this.controller.releaseImportFile(file).catch(() => undefined);
+      this.endImportOperation();
+    }
   }
 
   private advanceImport(): void {
@@ -591,9 +604,46 @@ export class LauncherView {
     await this.importPlaylist(() => this.controller.importPlaylistText(value));
   }
 
-  private async importPlaylistFile(input: HTMLInputElement): Promise<void> {
-    const file = input.files?.[0];
-    if (file) await this.importPlaylist(() => this.controller.importPlaylistFile(file));
+  private async importPlaylistFile(input?: HTMLInputElement): Promise<void> {
+    if (this.busy) return;
+    const selected = input?.files?.[0];
+    if (input) input.value = "";
+    this.playlistImportMessage = "";
+    this.beginImportOperation("正在读取导入文件……");
+    let file: File | ContentImportFile | null = null;
+    let importBundle = false;
+    try {
+      const options = { signal: this.importAbort!.signal, onProgress: this.updateImportProgress };
+      file = selected ?? await this.controller.pickPackageFile(options);
+      if (!file) return;
+      try {
+        const result = await this.controller.importPlaylistFile(file, { ...options, onCommit: () => {
+          this.importCommitting = true;
+          this.importProgress.label = "正在保存播放集……";
+          this.render();
+        } });
+        this.selectedPlaylistId = await this.controller.currentPlaylistId();
+        this.importOpen = false;
+        this.playlistMessage = this.playlistOutcome(result.missing, result.versionMismatch);
+        await this.refresh();
+      } catch (error) {
+        options.signal.throwIfAborted();
+        if (!(error instanceof PlaylistArchiveError)) throw error;
+        const choice = await chooseGameDialog("导入整合包", "检测到您导入的内容不是播放集，但可能是一个整合包。是否要导入整合包", [
+          { value: "yes", label: "是", style: "primary" },
+          { value: "no", label: "否" }
+        ]);
+        options.signal.throwIfAborted();
+        if (choice === "yes") { this.importOpen = false; importBundle = true; }
+      }
+    } catch (error) {
+      this.playlistImportMessage = this.importAbort?.signal.aborted ? "导入已取消。" : error instanceof Error ? error.message : String(error);
+    } finally {
+      if (!importBundle && file) await this.controller.releaseImportFile(file).catch(() => undefined);
+      this.endImportOperation();
+    }
+    // The same picker-owned input remains alive until the archive importer has finished.
+    if (importBundle && file) await this.stageImportFile(file);
   }
 
   private async importPlaylist(load: () => Promise<{ document: PlaylistDocument; missing: readonly string[]; versionMismatch: readonly string[] }>): Promise<void> {
@@ -606,12 +656,8 @@ export class LauncherView {
       this.playlistMessage = this.playlistOutcome(result.missing, result.versionMismatch);
       await this.refresh();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const status = this.root.querySelector<HTMLElement>("[data-playlist-import-status]");
-      if (status) status.textContent = message;
-      return;
-    } finally { this.busy = false; }
-    this.render();
+      this.playlistImportMessage = error instanceof Error ? error.message : String(error);
+    } finally { this.busy = false; this.render(); }
   }
 
   private async renamePlaylistInline(input: HTMLInputElement): Promise<void> {

@@ -5,7 +5,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "gemini",
-    "version": "1.1.12"
+    "version": "1.1.19"
   },
   "metadata": {
     "title": "Gemini 角色包",
@@ -23,32 +23,36 @@
           "maintainer"
         ]
       }
-    ]
+    ],
+    "coverImage": "cover.png"
   },
   "resources": [
     {
       "id": "match",
       "type": "game.character-match",
-      "apiVersion": 7,
+      "apiVersion": 13,
       "entry": "resources/character-match.json",
       "requires": [
         "ai:gemini-world-knowledge",
-        "dialogue"
+        "dialogue",
+        "appearance"
       ]
     },
     {
       "id": "ai:gemini-world-knowledge",
       "type": "game.ai-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/ai-skills/gemini-world-knowledge.json",
       "requires": []
     },
     {
       "id": "dialogue",
       "type": "game.character-dialogue",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/dialogue.json",
-      "requires": []
+      "requires": [
+        "appearance"
+      ]
     },
     {
       "id": "status:gemini-vast-world-advantage",
@@ -60,15 +64,28 @@
     {
       "id": "reward:gemini-vast-world",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/gemini-vast-world.json",
       "requires": [
         "match",
         "status:gemini-vast-world-advantage"
       ]
+    },
+    {
+      "id": "appearance",
+      "type": "presentation.character",
+      "apiVersion": 2,
+      "entry": "resources/appearance.json",
+      "requires": []
     }
   ],
   "files": [
+    {
+      "path": "ART-CREDITS.md",
+      "bytes": 798,
+      "sha256": "fe4c9e3afbec8915833a36f429a42ba9b24ea9095c2b28ccf6731f4ea7e16035",
+      "mediaType": "text/markdown"
+    },
     {
       "path": "conflicted.png",
       "bytes": 1304222,
@@ -77,8 +94,8 @@
     },
     {
       "path": "cover.png",
-      "bytes": 548267,
-      "sha256": "31b7ef9f645c8d1bf521a7c8a109e5ae942298d6cf3427bf6a975893a9288cc8",
+      "bytes": 3265988,
+      "sha256": "277fd9cdfe8ff6d8f5ad1f6479eb5cc2a1094dabcb78ccbc93efe493c1b939eb",
       "mediaType": "image/png"
     },
     {
@@ -100,15 +117,21 @@
       "mediaType": "application/json"
     },
     {
+      "path": "resources/appearance.json",
+      "bytes": 4753,
+      "sha256": "e9addecdffd2f051e90fe666f33f225f03085d68da160ec9b73b625bbcf52886",
+      "mediaType": "application/json"
+    },
+    {
       "path": "resources/character-match.json",
-      "bytes": 2799,
-      "sha256": "ac9e17b26a8e7186d78daa6182c54c65501e20987643e9990d9fb711f641ad0b",
+      "bytes": 4878,
+      "sha256": "00e30e9ae18ce82b0e793b904b609527dfca988e169f560555ab91a8584a571d",
       "mediaType": "application/json"
     },
     {
       "path": "resources/dialogue.json",
-      "bytes": 27497,
-      "sha256": "a659c2c5a331f3d60c54f4d82100294d29db07ec1c893a7db090150200d78511",
+      "bytes": 30025,
+      "sha256": "87fa60f4b6f614a281feac9e6e5d8346f9a9c9bc5fbb7a131080ca45af931d49",
       "mediaType": "application/json"
     },
     {
@@ -122,6 +145,48 @@
       "bytes": 713,
       "sha256": "57f1a955aca0a25a87abf0a6a02849283fea965644ed41af7286ed89176e23ab",
       "mediaType": "application/json"
+    },
+    {
+      "path": "skins/star-orbit-magician/conflicted.png",
+      "bytes": 2486959,
+      "sha256": "4035e417bd24ec247a44e5f6cdc92125b75a47c69bb72ef39b70e65027cbba3c",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/star-orbit-magician/cover.png",
+      "bytes": 3365106,
+      "sha256": "f2ecf4fe24199c052072e14a45ccf305f67b36cb21ebdd3ef9cb23eeca81ea4c",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/star-orbit-magician/mocking.png",
+      "bytes": 2509178,
+      "sha256": "4d93a9ae5d8fad63cf3e3feee96260eeaf036684f92a86dc4f624cba89fd1a6b",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/star-orbit-magician/relaxed.png",
+      "bytes": 2471512,
+      "sha256": "f6d0630962153d015bfd4248223a2ef06de40889f3420b2c8b5533a8f62ecfc9",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/star-orbit-magician/tap.png",
+      "bytes": 2334619,
+      "sha256": "ca33de73b19b20a868e1191ab25cbb45ac5f6e5330441ef8e291a97adbd606a6",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/star-orbit-magician/threatened.png",
+      "bytes": 2468347,
+      "sha256": "8c7d4aa274ef14ec97bf88789ed0c6a539f250fcc8cf2d29f44db7a47bb67062",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/star-orbit-magician/unconscious-reclined.png",
+      "bytes": 2472368,
+      "sha256": "0802d8e4e8d59cf9f5aca4534222d9f54c54a15aea03316ad134a86c6bd9bd19",
+      "mediaType": "image/png"
     },
     {
       "path": "tap.png",

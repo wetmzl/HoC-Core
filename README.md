@@ -20,13 +20,27 @@ npm run test:pwa
 
 构建输出为 `dist/`；基本 Web 与 Android 部署见 [部署说明](docs/deployment.md)。
 
+## 匿名玩法统计
+
+正式 Web/PWA 与 Android 构建通过 `.env.production`、`.env.capacitor` 默认启用匿名玩法统计，新安装默认开启。用户在设置中保存的关闭选择继续生效。开发和测试模式默认不配置接收地址。
+
+发行方可在构建时覆盖 `VITE_HOC_TELEMETRY_ENDPOINT`，指向兼容协议 v1 的 HTTPS 接收地址，并设置 `VITE_HOC_TELEMETRY_ENVIRONMENT`（`production`、`test` 或 `development`）和 `VITE_HOC_BUILD_ID`。将接收地址显式设为空字符串时不启动遥测。
+
+配置后，游戏发送启动信息与每场完整对战摘要，包含客户端类别、版本、对手及内容包版本、结果、回合、枪械和技能计数。没有账号、硬件指纹、玩家昵称或完整存档。安装身份和离线队列独立保存在本机，不随游戏存档分享；用户可在设置中关闭匿名玩法统计并清除待发送记录。
+
+对战摘要由统一流程组织器生成，覆盖普通对战与不写入本地战绩的流程节点。网络错误异步重试，不阻塞游戏；接收服务须按事件身份去重。统计是尽力交付的客户端数据，不用于权威成绩或奖励判定。
+
 ## 许可证与署名
 
 本项目原创程序代码使用 **GNU General Public License v3.0（GPL-3.0-only）**，完整条款见 [LICENSE](LICENSE)。依赖库及保留第三方许可声明的文件继续遵循各自许可证。
 
+角色包 `claude/backgrounds/` 内的两张场景背景是下述 CC0 资源的原样副本；角色原画继续沿用原作者和许可证。
+
 内嵌角色包（`public/characters/chatgpt/`、`claude/`、`deepseek/`、`gemini/`、`llama/`）中的图片使用 **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International（CC BY-NC-SA 4.0，署名—非商业性使用—相同方式共享）**，原作者为 **ZipZipPipe**。网页与应用图标（`public/favicon.ico`、`public/favicon.svg`、`public/icons/`），以及 `android/app/src/main/res/` 下的 `ic_launcher*.png` 和 `splash.png`，基于 DeepSeek 角色美术经 AI 改绘为 Q 版铁盆造型，再缩放、补边及裁切，同样使用该许可证。完整条款见 [角色美术许可证](public/licenses/CC-BY-NC-SA-4.0.txt)。使用或改编这些图片时须保留作者署名和许可信息，标明修改，并遵守非商业性使用及相同方式共享条件。
 
 默认存档分享封面 `public/assets/save-share-cover.png` 参考上述五位角色美术，经 AI 改绘为五位 Q 版角色合照、调整背景与缩放，沿用 **CC BY-NC-SA 4.0**，保留 ZipZipPipe 的角色美术署名。
+
+五位内嵌角色的 `cover.png` 为基于原角色美术重新绘制动作、合成固定模糊机柜背景的1254×1254封面，角色改绘保留 ZipZipPipe 的署名与 CC BY-NC-SA 4.0 许可。封面与焦点由角色皮肤的表现资源声明，供大厅、个人档案与挑战预览使用；逐包改绘说明见各自 `ART-CREDITS.md`。
 
 官方插件封面 `public/characters/character-tap/cover.png` 与 `public/characters/debug-engine/cover.png` 参考 DeepSeek 角色美术，经 AI 改绘为黑底 Q 版插画并缩放，沿用 **CC BY-NC-SA 4.0**，原作者为 **ZipZipPipe**；插件程序代码仍为 GPL-3.0-only，逐包说明见各自的 `ART-CREDITS.md`。
 
@@ -56,3 +70,7 @@ npm run test:pwa
 内嵌独立插件 `hoc-core/character-tap` 默认启用，通过通用角色交互接口提供拍一拍事件、计数和可选区域原语；停用不影响角色加载。区域 Schema、指南和中性示例随包提供于 `public/characters/character-tap/authoring/`。
 
 内嵌 `hoc-core/official-factions` 独立内容包提供“智能核心”阵营及共享徽标。角色包使用 `game.character-match` API 7 的 `metadata.faction` 声明 `authorId/packageName#resourceId`，由 `presentation.faction` API 1 资源提供名称和包内徽标。阵营包未安装、停用或删除时角色仍可正常对局和读档；旧本地 `metadata.badge` 继续兼容。
+
+## 内容契约升级
+
+当前能力目录为 `abilities-v50`，`game.player-skill`、`game.ai-skill` 和 `game.talent` 使用 API 4。旧复合操作和旧技能资源 API 已停止支持；内容作者须改用状态赋值、牌张变换、候选获牌、技能来源选择与类型值比较。`acquire-card` 可显式设置 `reportResult: true` 报告衍生牌结果。旧未完成牌局需要重新开始，长期进度继续按既有恢复规则读取。

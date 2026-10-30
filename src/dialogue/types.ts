@@ -36,6 +36,7 @@ export interface DialogueEventDeclaration {
 }
 export type DialogueAnchor = "dialogue-event" | "round-start" | "last-action" | "last-player-action" | "last-opponent-action" | "round-result" | "round-acknowledged" | "trigger-result";
 export interface DialoguePortrait {
+  readonly anchorY?: number;
   readonly image: string;
   readonly alt?: string;
   readonly scale?: number;
@@ -54,6 +55,7 @@ export interface CharacterDialogue {
   readonly pools: Readonly<Record<string, readonly string[]>>;
   readonly rules: readonly DialogueRule[];
   readonly fallbackPoolId: string;
+  readonly poolPortraits?: Readonly<Record<string, DialoguePortrait>>;
   /** Opaque, package-qualified data from authored pool objects; ignored by the engine. */
   readonly poolExtensions?: Readonly<Record<string, DialoguePoolExtensions>>;
 }

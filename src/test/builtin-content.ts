@@ -4,7 +4,7 @@ import { ABILITY_CATALOG_VERSION, ABILITY_DEFINITIONS, STATUS_DEFINITIONS, insta
 import ownerLoadPenalty from "./fixtures/ability-mechanisms/ai-skills/owner-load-penalty.json" with { type: "json" };
 import copperSeal from "./fixtures/ability-mechanisms/ai-skills/copper-seal.json" with { type: "json" };
 import handChangeObserver from "./fixtures/ability-mechanisms/ai-skills/hand-change-observer.json" with { type: "json" };
-import actionAdviceMechanic from "./fixtures/ability-mechanisms/ai-skills/action-advice-mechanic.json" with { type: "json" };
+import handComparisonMechanic from "./fixtures/ability-mechanisms/ai-skills/hand-comparison-mechanic.json" with { type: "json" };
 import rivalBustLoad from "./fixtures/ability-mechanisms/ai-skills/rival-bust-load.json" with { type: "json" };
 import turnSkipMechanic from "./fixtures/ability-mechanisms/ai-skills/turn-skip-mechanic.json" with { type: "json" };
 import copperSealStatus from "./fixtures/ability-mechanisms/statuses/copper-seal-sealed.json" with { type: "json" };
@@ -24,7 +24,7 @@ export async function publicFileFetch(input: RequestInfo | URL): Promise<Respons
 export async function installBuiltinContentForTests(): Promise<void> {
   await bootstrapContent({ fetch: publicFileFetch as typeof fetch });
   installAbilityRegistry(
-    [...ABILITY_DEFINITIONS, ownerLoadPenalty, copperSeal, handChangeObserver, actionAdviceMechanic, rivalBustLoad, turnSkipMechanic],
+    [...ABILITY_DEFINITIONS, ownerLoadPenalty, copperSeal, handChangeObserver, handComparisonMechanic, rivalBustLoad, turnSkipMechanic],
     [...STATUS_DEFINITIONS, copperSealStatus],
     ABILITY_CATALOG_VERSION
   );

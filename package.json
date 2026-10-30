@@ -1,8 +1,8 @@
 {
   "name": "hoc-core",
   "private": true,
-  "version": "0.1.1-beta.1",
-  "releaseName": "\u7f24\u7eb7\u591a\u5f69\u7684\u5927\u5343\u4e16\u754c",
+  "version": "0.2.0-beta1",
+  "releaseName": "\u5353\u8d8a\u6311\u6218\u8005",
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -19,6 +19,7 @@
     "android:sync": "npm run build:android:web && npm run android:prepare && cap sync android",
     "android:open": "cap open android",
     "android:build": "npm run android:sync && node scripts/android.mjs build",
+    "android:build:bossdev": "npm run android:sync && node scripts/android.mjs build --boss-dev",
     "android:build:debug": "npm run android:sync && node scripts/android.mjs build --debug",
     "android:prepare": "node scripts/ensure-android.mjs",
     "build:packages": "npm run packages:check && node scripts/build-packages.mjs",

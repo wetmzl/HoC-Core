@@ -37,13 +37,14 @@ h1 em { color: var(--pink); font-style: normal; }
 h2 { font-size: 1.5rem; }
 
 /* The launcher owns content before any game runtime or global registry exists. */
-.launcher-shell { position: relative; display: flex; isolation: isolate; overflow: hidden; flex-direction: column; background: radial-gradient(circle at 50% 14%, #334357 0, #151b24 43%, #090c11 100%); }
-.launcher-shell::before { content: ""; position: absolute; z-index: -1; inset: 0; background: linear-gradient(135deg, #65d6e309, transparent 42%), repeating-linear-gradient(135deg, transparent 0 18px, #ffffff03 18px 19px); pointer-events: none; }
-.launcher-hero { margin-top: clamp(54px, 12svh, 112px); text-align: center; }
+.launcher-shell { position: relative; display: flex; isolation: isolate; overflow: hidden; flex-direction: column; background: #161412 var(--launcher-background-image, url('/assets/backgrounds/launcher-ai-hall.png')) var(--launcher-background-position, center) / cover no-repeat; }
+.launcher-shell::before { content: ""; position: absolute; z-index: -1; inset: 0; background: linear-gradient(180deg, #08070952 0%, #08070935 40%, #0807091a 55%, #080709b8 83%, #080709ed 100%); pointer-events: none; }
+.launcher-hero { margin-top: clamp(54px, 12svh, 112px); text-align: center; text-shadow: 0 2px 8px #000, 0 0 24px #0009; }
 .launcher-hero .eyebrow { margin-bottom: 22px; color: #d2b37c; }
-.launcher-mark { display: block; margin-bottom: 20px; color: var(--cyan); font-size: 1.5rem; text-shadow: 0 0 24px #65d6e388; }
 .launcher-hero h1 { margin-bottom: 20px; color: var(--ink); font-size: clamp(2.8rem, 15vw, 4.5rem); font-weight: 500; letter-spacing: .08em; }
-.launcher-hero .launcher-description { max-width: 330px; margin: 0 auto; color: var(--muted); font-size: .8rem; line-height: 1.7; }
+.launcher-hero .launcher-description { max-width: 330px; margin: 0 auto; color: #e6ddd3; font-size: .8rem; line-height: 1.7; }
+.launcher-release { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 6px 12px; margin: 16px auto 0; color: #e2bd88; font-size: .7rem; line-height: 1.6; }
+.launcher-release strong { font-weight: 500; letter-spacing: .04em; }
 .launcher-actions { display: grid; gap: 10px; margin-top: auto; padding: 36px 0 max(8px, env(safe-area-inset-bottom)); }
 .launcher-start { min-height: 62px; font-size: .94rem; letter-spacing: .16em; }
 .launcher-status { min-height: 34px; margin: 4px 4px 0; color: var(--muted); font-size: .68rem; line-height: 1.55; text-align: center; }

@@ -1,5 +1,8 @@
 import { z } from "zod";
+import { CharacterSkinPreferencesSchema } from "../content/packages/character-presentation";
 import { createDefaultSave } from "./boot";
+import { CharacterSkinUnlocksSchema } from "./skin-unlocks";
+import { CharacterDefeatProgressSchema } from "./character-defeats";
 import { PluginSettingsDataSchema } from "../content/packages/plugin-declarations";
 import { CharacterDefeatRecordSchema, GameSettingsSchema, LONG_TERM_SAVE_FORMAT, LongTermSaveSchema, MatchHistoryRecordSchema, PlayerProfileSchema, SaveValidationError, TutorialProgressSchema, validateLongTermSave, type LongTermSave } from "./schema";
 
@@ -44,10 +47,28 @@ export function recoverLongTermSave(input: unknown): LongTermSave {
       return parsed.success ? [[id, parsed.data[id]]] : [];
     }));
   }
+  if (rawSettings.characterSkins !== undefined) settings.characterSkins = Object.fromEntries(Object.entries(record(rawSettings.characterSkins)).flatMap(([key, value]) => {
+    const parsed = CharacterSkinPreferencesSchema.safeParse({ [key]: value });
+    return parsed.success ? [[key, parsed.data[key]]] : [];
+  }));
   const progress = record(raw.tutorialProgress);
   const completedIds = [...new Set(items(z.string().min(1).max(128), progress.completedIds))];
   const defeats = items(CharacterDefeatRecordSchema.strip(), raw.defeats).filter((entry, index, all) => all.findIndex(other => other.opponentId === entry.opponentId) === index);
   const base = fields(LongTermSaveSchema, raw, defaults);
+  if (raw.matchResultReceipts !== undefined) base.matchResultReceipts = [...new Set(items(z.string().min(1), raw.matchResultReceipts))];
+  if (raw.characterDefeatProgress !== undefined) {
+    const stored = record(raw.characterDefeatProgress);
+    base.characterDefeatProgress = {
+      counts: Object.fromEntries(Object.entries(record(stored.counts)).filter(([id, count]) => CharacterDefeatProgressSchema.shape.counts.safeParse({ [id]: count }).success)),
+      matchIds: [...new Set(items(z.string().min(1), stored.matchIds))]
+    };
+  }
+  if (raw.characterSkinUnlocks !== undefined) base.characterSkinUnlocks = Object.fromEntries(Object.entries(record(raw.characterSkinUnlocks)).flatMap(([key, value]) => {
+    // Preserve valid entries even when another skin in the same absent package is damaged.
+    const skins = Object.fromEntries(Object.entries(record(value)).filter(([id, unlocked]) => CharacterSkinUnlocksSchema.safeParse({ [key]: { [id]: unlocked } }).success));
+    const parsed = CharacterSkinUnlocksSchema.safeParse({ [key]: skins });
+    return parsed.success ? [[key, skins]] : [];
+  }));
   return validateLongTermSave({
     ...base, schemaVersion: defaults.schemaVersion, profile, settings,
     tutorialProgress: TutorialProgressSchema.parse({ completedIds }),

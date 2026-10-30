@@ -14,6 +14,7 @@ International（CC BY-NC-SA 4.0）。
 characters/gemini/、characters/llama/ 中的图片；favicon.ico、favicon.svg、icons/ 中的图标，
 以及 Android res/ 下的 ic_launcher*.png 与 splash.png；
 assets/save-share-cover.png 默认存档分享封面；
+assets/backgrounds/launcher-ai-hall.png 启动器背景；
 characters/character-tap/cover.png、characters/debug-engine/cover.png 官方插件封面。
 项目包含基于原始角色美术生成改绘、缩放与裁切后的资源；再分发或改编时请保留
 ZipZipPipe 署名与许可信息、标明修改，并遵守非商业性使用及相同方式共享条件。
@@ -22,11 +23,14 @@ ZipZipPipe 署名与许可信息、标明修改，并遵守非商业性使用及
 默认存档分享封面参考上述五位角色美术，经 AI 改绘为五位 Q 版角色合照，
 调整为深色牌桌背景并缩放；角色美术原作者署名与 CC BY-NC-SA 4.0 许可保留。
 
+启动器背景参考 Claude、DeepSeek 与 Llama 原始角色美术，经 AI 改绘为橘黑平面海报场景，
+保留角色身份与服装特征；角色美术原作者仍为 ZipZipPipe，沿用 CC BY-NC-SA 4.0。
+
 官方拍一拍和调试引擎封面参考 DeepSeek 角色美术，经 AI 改绘为黑底 Q 版插画并缩放，
 角色美术原作者仍为 ZipZipPipe，沿用 CC BY-NC-SA 4.0；逐包声明见 ART-CREDITS.md。
 
 其余项目美术：AI 生成，使用 CC0 1.0 Universal。
-适用范围：assets/ 中除 save-share-cover.png 外的图片、characters/official-built-in-skills/ 和
+适用范围：assets/ 中除 save-share-cover.png、backgrounds/launcher-ai-hall.png 外的图片、characters/official-built-in-skills/ 和
 characters/official-built-in-talents/ 中的图片，以及
 characters/official-factions/intelligent-core.png 共享阵营徽标。
 智能核心徽标由 AI 独立生成，未引用角色原画。

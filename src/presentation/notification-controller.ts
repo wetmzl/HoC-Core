@@ -171,7 +171,7 @@ export class NotificationController {
             this.enqueueAbilityNotices(abilityNotices);
         const trigger = events.find((candidate) => candidate.type === "TRIGGER_PULLED");
         if (trigger)
-            this.present(triggerResultText(trigger), trigger.fired ? "danger" : "gold");
+            this.present(triggerResultText(trigger, events.some(event => event.type === "DEFEAT_PREVENTED" && event.actor === trigger.actor)), trigger.fired ? "danger" : "gold");
         if (legal(after, { type: "OPEN_SKILL_DRAW" }))
             this.deps.offerTutorial("skill-draw-available");
     };

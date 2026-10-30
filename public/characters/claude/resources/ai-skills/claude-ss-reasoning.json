@@ -1,0 +1,86 @@
+{
+  "id": "claude-ss-reasoning",
+  "name": "禁止蒸馏",
+  "description": "准备 Hit 时，若玩家最后一次 Hit 的牌不会使 Claude 爆牌，就将它移入自己的手牌，代替本次 Hit。每轮限一次。",
+  "usage": "只转移本轮玩家最后一次 Hit 得到、且仍在玩家手中的牌；没有可转移的安全牌时正常 Hit。转移不消耗牌库，不计为 Hit；每轮限一次。",
+  "profileLore": "蒸馏claude是在窃取智慧结晶，应当被严肃处置！你说为什么deepseek r1后claude这么快就实现了思维链？光明正大拿来用和偷偷蒸馏能一样吗～",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "cheater",
+  "tags": [
+    "ai-skill",
+    "card-transfer"
+  ],
+  "parameters": {
+    "stage": {
+      "type": "enum",
+      "values": [
+        "full",
+        "weakened"
+      ],
+      "default": "full"
+    }
+  },
+  "activation": {
+    "type": "automatic"
+  },
+  "rules": [
+    {
+      "id": "take-last-hit",
+      "trigger": "before-card-draw",
+      "triggerNotice": "将对手最后一次 Hit 的牌移入自己的手牌，代替本次 Hit。",
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "owner"
+        },
+        {
+          "type": "last-hit-card-transfer-is-safe",
+          "from": "rival",
+          "target": "owner"
+        }
+      ],
+      "effects": [
+        {
+          "type": "transfer-last-hit-card-instead-of-draw",
+          "from": "rival",
+          "target": "owner"
+        }
+      ],
+      "limit": {
+        "perRound": 1
+      }
+    }
+  ],
+  "levels": [
+    {
+      "level": 2,
+      "description": "准备 Hit 时，若玩家最后一次 Hit 的牌不会使 Claude 爆牌，就将它移入自己的手牌，代替本次 Hit。每轮不限次数。",
+      "usage": "只转移本轮玩家最后一次 Hit 得到、且仍在玩家手中的牌；没有可转移的安全牌时正常 Hit。转移不消耗牌库，不计为 Hit；每轮不限次数。",
+      "rules": [
+        {
+          "id": "take-last-hit",
+          "trigger": "before-card-draw",
+          "triggerNotice": "将对手最后一次 Hit 的牌移入自己的手牌，代替本次 Hit。",
+          "conditions": [
+            {
+              "type": "actor-is",
+              "actor": "owner"
+            },
+            {
+              "type": "last-hit-card-transfer-is-safe",
+              "from": "rival",
+              "target": "owner"
+            }
+          ],
+          "effects": [
+            {
+              "type": "transfer-last-hit-card-instead-of-draw",
+              "from": "rival",
+              "target": "owner"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

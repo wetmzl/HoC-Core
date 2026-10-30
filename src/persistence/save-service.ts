@@ -1,4 +1,4 @@
-import { CURRENT_GAME_VERSION, SaveValidationError, validateLongTermSave, validateRuntimeSave, type LongTermSave, type RuntimeSave } from "./schema";
+import { CURRENT_GAME_VERSION, CURRENT_RUNTIME_SCHEMA_VERSION, RUNTIME_SAVE_FORMAT, SaveValidationError, validateLongTermSave, validateRuntimeSave, type LongTermSave, type RuntimeSave } from "./schema";
 import { recoverLongTermSave } from "./recover-save";
 import type { SaveRepository } from "./repository";
 import { emptyRawSaveSnapshot, type RawSaveSnapshot, type SaveStorageDriver } from "./storage-driver";
@@ -8,11 +8,6 @@ export class PersistenceService implements SaveRepository {
   private queue: Promise<void> = Promise.resolve();
 
   constructor(private readonly driver: SaveStorageDriver) {}
-
-  private async snapshot(): Promise<RawSaveSnapshot> {
-    await this.queue.catch(() => undefined);
-    return await this.driver.readSnapshot() ?? emptyRawSaveSnapshot();
-  }
 
   private transact<T>(transform: (snapshot: RawSaveSnapshot) => { next?: RawSaveSnapshot; value: T }): Promise<T> {
     const operation = this.queue.catch(() => undefined).then(async () => {
@@ -54,8 +49,13 @@ export class PersistenceService implements SaveRepository {
   }
 
   async loadRuntime(): Promise<RuntimeSave | null> {
-    const input = (await this.snapshot()).runtime;
-    return input === null ? null : validateRuntimeSave(input);
+    return this.transact(current => {
+      const runtime = current.runtime as { format?: unknown; schemaVersion?: unknown } | null;
+      // Runtime snapshots are disposable; durable progress is deliberately untouched.
+      if (runtime?.format === RUNTIME_SAVE_FORMAT && typeof runtime.schemaVersion === "number" && runtime.schemaVersion < CURRENT_RUNTIME_SCHEMA_VERSION)
+        return { next: { ...current, runtime: null }, value: null };
+      return { value: current.runtime === null ? null : validateRuntimeSave(current.runtime) };
+    });
   }
 
   async saveRuntime(save: RuntimeSave): Promise<void> {
@@ -67,9 +67,10 @@ export class PersistenceService implements SaveRepository {
     await this.update((current) => ({ ...current, runtime: null }));
   }
 
-  async commitMatchResult(save: LongTermSave): Promise<void> {
+  async commitMatchResult(save: LongTermSave, runtime: RuntimeSave | null = null): Promise<void> {
     const valid = validateLongTermSave({ ...save, gameVersion: CURRENT_GAME_VERSION });
-    await this.update(() => ({ longTerm: valid, runtime: null }));
+    const nextRuntime = runtime === null ? null : validateRuntimeSave({ ...runtime, gameVersion: CURRENT_GAME_VERSION });
+    await this.update(() => ({ longTerm: valid, runtime: nextRuntime }));
   }
 
   async closeGameRuntime(save: LongTermSave): Promise<void> {

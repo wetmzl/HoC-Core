@@ -64,7 +64,17 @@ async function encode(bytes, options) {
   if (cached) {
     await mkdir(dirname(cached), { recursive: true });
     const temporary = `${cached}.${randomUUID()}.tmp`;
-    try { await writeFile(temporary, result); await rename(temporary, cached); }
+    try {
+      await writeFile(temporary, result);
+      try { await rename(temporary, cached); }
+      catch (error) {
+        // Windows can reject replacing a cache entry just written by an identical
+        // parallel encode. Accept only that exact result; preserve other errors.
+        if (!['EEXIST', 'EPERM'].includes(error.code)) throw error;
+        const existing = await readFile(cached).catch(() => { throw error; });
+        if (!existing.equals(result)) throw error;
+      }
+    }
     finally { await rm(temporary, { force: true }); }
   }
   return result;
@@ -80,14 +90,8 @@ export async function buildPackage(charactersRoot, entry, options) {
     if (bytes.length !== file.bytes || sha(bytes) !== file.sha256) throw new Error(`Source integrity mismatch: ${entry.packageId}#${file.path}`);
     return [file.path, bytes];
   }));
-  const keepPng = new Set();
-  // PNG character cards embed their package in the cover's PNG chunks.
-  for (const resource of source.resources.filter(resource => resource.type === 'game.character-match')) {
-    const body = JSON.parse(sourceFiles[resource.entry]);
-    if (body.definition?.assets?.cover) keepPng.add(body.definition.assets.cover);
-  }
   const images = source.files.filter(file => file.mediaType === 'image/png');
-  const paths = new Map(images.filter(file => options.mode !== 'png' && !keepPng.has(file.path)).map(file => [file.path, file.path.replace(/\.png$/i, '.webp')]));
+  const paths = new Map(images.filter(() => options.mode !== 'png').map(file => [file.path, file.path.replace(/\.png$/i, '.webp')]));
   const audio = new Map(await parallel(source.files.filter(file => file.mediaType.startsWith('audio/')), async file => {
     const built = await buildAudio(sourceFiles[file.path], file.path, { cacheDir: options.audioCacheDir });
     if (!built.record.retainedOpus) paths.set(file.path, built.record.output);
@@ -103,7 +107,7 @@ export async function buildPackage(charactersRoot, entry, options) {
     else if (paths.has(file.path)) bytes = await encode(bytes, options);
     else if (paths.size && file.mediaType === 'application/json') bytes = jsonBytes(rewriteJson(JSON.parse(bytes), references));
     else if (paths.size && ['text/javascript', 'text/css'].includes(file.mediaType)) bytes = Buffer.from(rewriteImageText(bytes.toString(), references));
-    if (file.mediaType === 'image/png') imageReport.push({ source: file.path, output: target, sourceSha256: file.sha256, sha256: sha(bytes), sourceBytes: file.bytes, bytes: bytes.length, retainedPng: keepPng.has(file.path) });
+    if (file.mediaType === 'image/png') imageReport.push({ source: file.path, output: target, sourceSha256: file.sha256, sha256: sha(bytes), sourceBytes: file.bytes, bytes: bytes.length, retainedPng: options.mode === 'png' });
     return [target, bytes];
   }));
   if (Object.keys(files).length !== source.files.length) throw new Error(`Media output path collision: ${entry.packageId}`);

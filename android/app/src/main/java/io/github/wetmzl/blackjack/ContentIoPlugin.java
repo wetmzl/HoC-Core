@@ -55,12 +55,46 @@ public class ContentIoPlugin extends Plugin {
                 call.resolve(result);
             } catch (Exception error) {
                 android.util.Log.w("ContentIo", call.getMethodName() + " elapsedMs=" + (android.os.SystemClock.elapsedRealtime() - started) + " error=" + error.getClass().getSimpleName());
-                call.reject(error.getMessage() == null ? "文件操作失败。" : error.getMessage(), error);
+                call.reject(operationError(error), error);
             } finally { jobs.remove(id); progressTimes.remove(id); }
         });
     }
     static void check(AtomicBoolean cancelled) throws IOException {
         if (cancelled.get()) throw new IOException("操作已取消。");
+    }
+    static String operationError(Exception error) {
+        String message = error.getMessage();
+        if (message != null && (message.contains("ENOSPC") || message.toLowerCase(Locale.ROOT).contains("no space left"))) return "存储空间不足，请释放空间后重试。";
+        if (error instanceof ZipException || error instanceof EOFException) return "文件内容不完整或压缩包已损坏，请重新选择完整文件。";
+        if (error instanceof FileNotFoundException) return "无法打开所选文件，请重新选择。";
+        return message == null ? "文件操作失败。" : message;
+    }
+    static byte[] readRange(InputStream input, int offset, int length, AtomicBoolean cancelled) throws IOException {
+        if (offset < 0 || offset > MAX_INPUT || length < 0 || length > 2 * 1024 * 1024) throw new IOException("导入读取范围超过限额。");
+        while (offset > 0) {
+            check(cancelled);
+            long skipped = input.skip(offset);
+            if (skipped == 0) { if (input.read() < 0) return new byte[0]; skipped = 1; }
+            offset -= (int)skipped;
+        }
+        ByteArrayOutputStream output = new ByteArrayOutputStream(length);
+        byte[] buffer = new byte[Math.min(BUFFER_BYTES, length)];
+        while (output.size() < length) {
+            check(cancelled);
+            int count = input.read(buffer, 0, Math.min(buffer.length, length - output.size()));
+            if (count < 0) break;
+            output.write(buffer, 0, count);
+        }
+        check(cancelled);
+        return output.toByteArray();
+    }
+    @PluginMethod public void readRange(PluginCall call) {
+        submit(call, cancelled -> {
+            try (InputStream input = source(call.getObject("source"))) {
+                byte[] bytes = readRange(input, call.getInt("offset", -1), call.getInt("length", -1), cancelled);
+                return new JSObject().put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)).put("bytes", bytes.length);
+            }
+        });
     }
     private File stored(String path) throws IOException {
         if (path == null || path.length() > 1024) throw new IOException("非法内容路径。");

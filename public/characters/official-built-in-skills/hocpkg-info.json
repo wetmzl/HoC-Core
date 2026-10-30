@@ -5,7 +5,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "official-built-in-skills",
-    "version": "1.0.6"
+    "version": "1.0.9"
   },
   "metadata": {
     "title": "官方内嵌技能包",
@@ -57,7 +57,7 @@
     {
       "id": "skill:a-single-coin",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/a-single-coin.json",
       "requires": [
         "status:player-point-advantage"
@@ -66,35 +66,35 @@
     {
       "id": "skill:before-the-shuffle",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/before-the-shuffle.json",
       "requires": []
     },
     {
       "id": "skill:compound-interest",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/compound-interest.json",
       "requires": []
     },
     {
       "id": "skill:counterclockwise-clock",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/counterclockwise-clock.json",
       "requires": []
     },
     {
       "id": "skill:critical-judgment",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/critical-judgment.json",
       "requires": []
     },
     {
       "id": "skill:heart-hunter",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/heart-hunter.json",
       "requires": [
         "status:heart-hunter-armed"
@@ -103,14 +103,14 @@
     {
       "id": "skill:hunter-instinct",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/hunter-instinct.json",
       "requires": []
     },
     {
       "id": "skill:live-ammunition-bet",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/live-ammunition-bet.json",
       "requires": [
         "status:live-ammunition-bet-bonus"
@@ -119,14 +119,14 @@
     {
       "id": "skill:mimic-eggplant",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/mimic-eggplant.json",
       "requires": []
     },
     {
       "id": "skill:prepaid-premium",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/prepaid-premium.json",
       "requires": [
         "status:prepaid-premium-covered"
@@ -135,14 +135,14 @@
     {
       "id": "skill:scent-of-a-woman",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/scent-of-a-woman.json",
       "requires": []
     },
     {
       "id": "skill:sissas-table",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/sissas-table.json",
       "requires": [
         "status:player-point-advantage"
@@ -151,21 +151,21 @@
     {
       "id": "skill:situation-assessment",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/situation-assessment.json",
       "requires": []
     },
     {
       "id": "skill:sleight-of-hand",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/sleight-of-hand.json",
       "requires": []
     },
     {
       "id": "skill:switcheroo",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/switcheroo.json",
       "requires": []
     }
@@ -191,8 +191,8 @@
     },
     {
       "path": "resources/player-skills/compound-interest.json",
-      "bytes": 1421,
-      "sha256": "02a97a3baa5ec085513140189314577a059c932f5743587c4eac4e17205b03c1",
+      "bytes": 1599,
+      "sha256": "d2b187b955a5066dc925882ff0972e2c88d6a9811aad8b732f3188a49315782b",
       "mediaType": "application/json"
     },
     {
@@ -227,14 +227,14 @@
     },
     {
       "path": "resources/player-skills/mimic-eggplant.json",
-      "bytes": 1310,
-      "sha256": "a01fd48ad942cfbda74e68ffa81e3213b15faea883eb8f45e7ffa89a4f06fa5c",
+      "bytes": 1441,
+      "sha256": "ccd04937f3aa3463aa302c12d8a3e98c08223ae170b1be088c21999885a5bbe0",
       "mediaType": "application/json"
     },
     {
       "path": "resources/player-skills/prepaid-premium.json",
-      "bytes": 1696,
-      "sha256": "2553d20792a88e017160292b7cd1d605e49187d11f61236e4e9f7cc18ff9d51e",
+      "bytes": 1751,
+      "sha256": "70079a523ccc6ebdbdb9aab67fc6e15731bcaf4ca985614e0ee7d90f7f915279",
       "mediaType": "application/json"
     },
     {
@@ -245,8 +245,8 @@
     },
     {
       "path": "resources/player-skills/sissas-table.json",
-      "bytes": 3487,
-      "sha256": "e10379beb1664cabf7cb353245c71997000b5b70b4d0d57322ab288e9ed52ae7",
+      "bytes": 3867,
+      "sha256": "08764d24ce03e17fbb7894d6bc8ac94884194b757c0d38544f5d468007d73809",
       "mediaType": "application/json"
     },
     {
@@ -257,8 +257,8 @@
     },
     {
       "path": "resources/player-skills/sleight-of-hand.json",
-      "bytes": 1653,
-      "sha256": "50d136638d3dac755deb92d4a3292d22a8b4d109abc9973abf29563c67456d87",
+      "bytes": 1672,
+      "sha256": "e36eea124b54731ce7bcb842059812ff1c434e25d34dd04d6d9f85421eefdf1e",
       "mediaType": "application/json"
     },
     {

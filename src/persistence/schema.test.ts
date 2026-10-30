@@ -45,10 +45,10 @@ describe("runtime save duplicate state consistency", () => {
       const snapshot = createRuntimeSave(state, "2026-10-22T00:00:00.000Z");
       const parsed = validateRuntimeSave(JSON.parse(JSON.stringify(snapshot)));
       expect(parsed).toEqual(snapshot);
-      expect(parsed.activeMatch.player).not.toBe(parsed.activeMatch.round.player);
+      expect(parsed.activeMatch!.player).not.toBe(parsed.activeMatch!.round.player);
       const action = getLegalActions(state).find(action => action.type !== "PLAY_ABILITY" && action.type !== "OPEN_SKILL_DRAW" && action.type !== "ESCAPE_MATCH");
       if (!action) break;
-      state = gameReducer(parsed.activeMatch, action);
+      state = gameReducer(parsed.activeMatch!, action);
     }
   });
 
@@ -59,6 +59,6 @@ describe("runtime save duplicate state consistency", () => {
     const roundPlayer = { ...player, hand: { cards: player.hand.cards.map(card => ({ ...card, tags: ["second", "first"] })) } };
     const compatible = { ...legacy, player, round: { ...state.round, player: roundPlayer } };
     expect(MatchStateSchema.parse(compatible)).toEqual(compatible);
-    expect(validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(compatible)))).activeMatch).toEqual(compatible);
+    expect(validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(compatible)))).activeMatch!).toEqual(compatible);
   });
 });

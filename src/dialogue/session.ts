@@ -16,6 +16,8 @@ export class DialogueSession {
   private notifying = false;
   private readonly seen = new Set<string>();
   private presentedKey: string | undefined;
+  private selectedEventType: string | undefined;
+  private thinking = false;
   constructor(readonly engine: DialogueEngine, private state: MatchState, readonly store: PresentationStore = presentationStore(), private readonly imageAvailable: (url: string) => Promise<boolean> = async () => true, private readonly changed: () => void = () => {}, private readonly selected: (selection: DialogueSelection, restored: boolean, signal: AbortSignal) => void = () => {}) {
     this.releases.push(engine.registry.subscribeInvalidation(() => { this.token++; engine.invalidateCapabilities(); }));
   }
@@ -74,9 +76,21 @@ export class DialogueSession {
     this.present(restored);
   }
   transition(state: MatchState) {
-    const events = extractDialogueEvents(this.state, state); this.state = state;
+    const events = extractDialogueEvents(this.state, state);
+    if (!events.length && state !== this.state) this.thinking = false;
+    this.state = state;
     if (events.length) void this.deliverEvents(events);
   }
+  /** A temporary pose, without resampling dialogue or replaying its effects. */
+  beginThinking(): boolean {
+    if (this.lifetime.signal.aborted || this.state.round.phase !== "turns" || this.state.round.currentActor !== "opponent") return false;
+    // Skill, interaction and result portraits retain priority. Use the event that
+    // actually selected the rule, including rules shared by several event types.
+    if (this.peek().portrait && !["core.action", "core.round-start"].includes(this.selectedEventType ?? "")) return false;
+    if (!this.thinking) { this.thinking = true; this.changed(); }
+    return true;
+  }
+  get isThinking(): boolean { return this.thinking && !this.lifetime.signal.aborted; }
   interact(interaction: CharacterInteraction) {
     if (this.lifetime.signal.aborted || this.state.scene !== "match" || this.state.view !== "table") return;
     const input = frozenSnapshot(interaction); for (const listener of this.interactions) try { listener(input); } catch (error) { console.warn("角色交互失败", error); }
@@ -102,8 +116,10 @@ export class DialogueSession {
         candidate = this.engine.rejectPortrait(candidate.ruleId);
       }
       if (this.lifetime.signal.aborted || token !== this.token) return;
+      if (candidate !== this.engine.peek(state)) this.selectedEventType = event.type;
       this.engine.commit(candidate);
     }
+    this.thinking = false;
     this.present(restored);
     this.changed();
   }

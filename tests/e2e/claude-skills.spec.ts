@@ -15,7 +15,7 @@ async function mountFixture(page: import("@playwright/test").Page, blockStand = 
     const { createPersistenceService } = await load("/src/persistence/factory.ts");
     const { mountGameRuntime } = await load("/src/match-screen.ts");
     const character = await loadCharacter("claude");
-    const base = createMatch("claude-ui", { opponentId: "claude", opponentAiSkills: blockStand ? [] : character.aiSkills, aiProfile: { P: 0, A: 0, B: 0, C: 0 } });
+    const base = createMatch("claude-ui", { opponentId: "claude", opponentAiSkills: blockStand ? [] : ["claude-moment", "claude-safety-constitution"].map(definitionId => ({ definitionId, enabled: true, parameters: {} })), aiProfile: { P: 0, A: 0, B: 0, C: 0 } });
     const ranks = ["10", "10", "10", "10", "2", "2", ...Array(40).fill("2")];
     const cards = ranks.map((rank, index) => createCard("spades", rank, `claude-ui-${index}`));
     const player = { ...base.player, hand: { cards: cards.slice(0, 2) }, stood: false, busted: false, bustLimit: undefined };

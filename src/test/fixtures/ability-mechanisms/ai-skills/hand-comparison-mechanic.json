@@ -1,0 +1,54 @@
+{
+  "id": "hand-comparison-mechanic",
+  "name": "行动分析",
+  "description": "测试用主动角色机制：在自己的行动阶段公开双方手牌点数比较。",
+  "primaryDomain": "intelligence-officer",
+  "sourceKind": "ai-skill",
+  "parameters": {
+    "minimumHandSize": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 10
+    }
+  },
+  "activation": {
+    "type": "action",
+    "windows": [
+      "owner-turn",
+      "owner-roulette-reaction"
+    ],
+    "consume": "none",
+    "availability": [
+      {
+        "type": "hand-card-count",
+        "target": "owner",
+        "operator": "gte",
+        "value": {
+          "type": "parameter",
+          "key": "minimumHandSize"
+        }
+      }
+    ]
+  },
+  "rules": [
+    {
+      "id": "publish-hand-comparison",
+      "trigger": "on-ability-played",
+      "effects": [
+        {
+          "type": "publish-hand-total-comparison",
+          "target": "owner"
+        }
+      ],
+      "limit": {
+        "perEvent": 1,
+        "perTurn": 1
+      }
+    }
+  ],
+  "tags": [
+    "information",
+    "ai-skill",
+    "test-fixture"
+  ]
+}

@@ -1,4 +1,5 @@
-import { skillMetadata, skillRulesMarkup } from "./skill-copy";
+import { skillMetadata } from "./skill-copy";
+import { skillSheetMarkup } from "./skill-sheet";
 import "./skill-card.css";
 import "./deck-editor.css";
 import { moveDeckSkill, skillDeckRequirement, type DeckZone } from "../core/skills/deck";
@@ -87,7 +88,7 @@ export function mountDeckEditor(host: HTMLElement, options: DeckEditorOptions): 
     const zone: DeckZone = deck.carried.includes(skill.id) ? "carried" : "reserve";
     const visibleIds = deck[zone].filter((id) => visible(id, zone));
     const index = visibleIds.indexOf(skill.id);
-    host.querySelector("[data-deck-detail-body]")!.innerHTML = `<p class="eyebrow">${zone === "carried" ? "携带卡组" : "备选技能"} · ${escape(skillMetadata(skill))} · ${SKILL_TAG_METADATA[skill.primaryDomain].label}</p><h2 id="deck-detail-title">${escape(skill.name)}</h2><p>${escape(skill.description)}</p>${skillRulesMarkup(skill.description, skill.usage)}<details class="deck-lore"><summary>技能故事</summary><p>${escape(skill.profileLore)}</p></details><div class="deck-detail-actions"><button type="button" class="primary-button" data-deck-transfer data-own-haptic>${zone === "carried" ? "移出卡组" : "加入卡组"}</button><div><button type="button" class="secondary-button" data-deck-step="-1" data-own-haptic ${index <= 0 ? "disabled" : ""}>前移</button><button type="button" class="secondary-button" data-deck-step="1" data-own-haptic ${index < 0 || index >= visibleIds.length - 1 ? "disabled" : ""}>后移</button></div></div>`;
+    host.querySelector("[data-deck-detail-body]")!.innerHTML = `<p class="eyebrow">${zone === "carried" ? "携带卡组" : "备选技能"} · ${escape(skillMetadata(skill))} · ${SKILL_TAG_METADATA[skill.primaryDomain].label}</p>${skillSheetMarkup(skill, { titleId: "deck-detail-title" })}<div class="deck-detail-actions"><button type="button" class="primary-button" data-deck-transfer data-own-haptic>${zone === "carried" ? "移出卡组" : "加入卡组"}</button><div><button type="button" class="secondary-button" data-deck-step="-1" data-own-haptic ${index <= 0 ? "disabled" : ""}>前移</button><button type="button" class="secondary-button" data-deck-step="1" data-own-haptic ${index < 0 || index >= visibleIds.length - 1 ? "disabled" : ""}>后移</button></div></div>`;
   }
   const unsubscribe = queue.subscribe((_deck, state) => {
     if (disposed) return;

@@ -22,8 +22,8 @@ export function roundResultText(state: MatchState, penaltyCancelled = false): st
   return `${winner}胜利·${load}`;
 }
 
-export function triggerResultText(event: Extract<GameEvent, { type: "TRIGGER_PULLED" }>): string {
-  if (event.result === "fired") return "砰！";
+export function triggerResultText(event: Extract<GameEvent, { type: "TRIGGER_PULLED" }>, defeatPrevented = false): string {
+  if (event.result === "fired") return defeatPrevented ? `砰！${actorLabel(event.actor)}抵御了致命一击，对局继续。` : "砰！";
   if (event.result === "misfire") return "咔哒……哑火！";
   return "咔哒……空膛";
 }

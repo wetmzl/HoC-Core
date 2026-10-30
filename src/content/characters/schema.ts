@@ -1,29 +1,38 @@
+import { CharacterEncounterPolicySchema } from "./encounter-policy";
+import { CharacterRuntimeSchema } from "./runtime";
 import { z } from "zod";
 import { CharacterDialogueSchema } from "../../dialogue/schema";
 import { AbilityBindingSchema, validateBinding } from "../../core/abilities/schema";
 import type { AbilityDefinition } from "../../core/abilities/types";
 import { TablePortraitSchema } from "./table-portrait";
 import { HocpkgResourceKeySchema } from "../packages/schema";
+import { SkinUnlockConditionSchema } from "./skin-unlock";
 
 // Package handlers validate portable, declared paths before a host resolves
 // them. Runtime definitions may therefore contain blob:, Capacitor or future
 // desktop-WebView URLs and must not encode a particular storage backend here.
 const characterResourceUrl = z.string().min(1, "角色图片地址不能为空");
+export const CharacterPreviewFocusSchema = z.object({
+  x: z.number().finite().min(0).max(1), y: z.number().finite().min(0).max(1)
+}).strict();
 const portraitScale = z.number().finite().min(0.75).max(1.5).default(1);
 const portraitScales = z.object({ selection: portraitScale, table: portraitScale }).strict().default({ selection: 1, table: 1 });
 const characterTag = z.string().min(1).regex(/^[a-z0-9][a-z0-9:_-]*$/, "角色 tag 必须是安全标识");
 const unlockCondition = z.discriminatedUnion("type", [
   z.object({ type: z.literal("defeat-any") }).strict(),
   z.object({ type: z.literal("defeat-count"), count: z.number().int().positive() }).strict(),
+  z.object({ type: z.literal("defeat-faction-count"), faction: HocpkgResourceKeySchema, count: z.number().int().positive().safe() }).strict(),
   z.object({ type: z.literal("defeat-any-tag"), tag: characterTag }).strict(),
   z.object({ type: z.literal("defeat-character"), characterId: z.string().min(1) }).strict(),
   z.object({ type: z.literal("defeat-tag-percentage"), tag: characterTag, percentage: z.number().finite().gt(0).max(100) }).strict()
 ]);
 const metadataEntry = z.object({
+  appearance: z.object({ key: HocpkgResourceKeySchema, skinId: z.string().min(1), skins: z.array(z.object({ id: z.string().min(1), name: z.string().min(1), unlock: SkinUnlockConditionSchema.optional() }).strict()).min(1) }).strict().optional(),
   id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/), name: z.string().min(1), subtitle: z.string().min(1),
   tier: z.enum(["D", "C", "B", "A", "S", "SS"]), tags: z.array(characterTag).default([]), unlock: unlockCondition.optional(),
-  previewImage: characterResourceUrl, portraitScales,
-  faction: HocpkgResourceKeySchema.optional(),
+  previewImage: characterResourceUrl, previewFocus: CharacterPreviewFocusSchema.optional(), portraitScales,
+  faction: HocpkgResourceKeySchema.optional(), encounter: CharacterEncounterPolicySchema.optional(),
+  runtime: CharacterRuntimeSchema.optional(),
   badge: z.object({ image: characterResourceUrl, label: z.string().trim().min(1).max(80) }).strict().optional()
 }).strict();
 export const CharacterCatalogSchema = z.object({ defaultCharacterId: z.string().min(1), characters: z.array(metadataEntry).min(1) }).strict().superRefine((catalog, ctx) => {
@@ -53,7 +62,7 @@ export const CharacterDataSchema = z.object({
     cover: characterResourceUrl, relaxed: characterResourceUrl, conflicted: characterResourceUrl, mocking: characterResourceUrl, threatened: characterResourceUrl,
     unconscious: characterResourceUrl, defeatedSummary: characterResourceUrl.optional()
   }).strict(),
-  profile: z.object({ description: z.string().min(1) }).strict(),
+  profile: z.object({ description: z.string().min(1), backgrounds: z.array(z.object({ label: z.string().min(1), image: characterResourceUrl }).strict()).min(1).max(8).optional() }).strict(),
   matchSummary: z.object({ playerVictory: z.string().min(1), playerDefeat: z.string().min(1), escaped: z.string().min(1) }).strict(),
   revolverPlacement: z.object({ top: z.number().finite(), left: z.number().finite() }).strict(),
   tablePortrait: TablePortraitSchema.optional(),

@@ -1,0 +1,214 @@
+{
+  "skins": [
+    {
+      "id": "default",
+      "name": "原装"
+    },
+    {
+      "id": "moonwhite-concierge",
+      "name": "月白礼宾",
+      "unlock": {
+        "type": "defeat-character",
+        "count": 1
+      }
+    }
+  ],
+  "resources": {
+    "image:cover": {
+      "type": "image",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": "cover.png"
+        },
+        {
+          "skinId": "moonwhite-concierge",
+          "value": "skins/moonwhite-concierge/cover.png"
+        }
+      ]
+    },
+    "focus:cover": {
+      "type": "data",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "x": 0.5,
+            "y": 0.37
+          }
+        },
+        {
+          "skinId": "moonwhite-concierge",
+          "value": {
+            "x": 0.5,
+            "y": 0.37
+          }
+        }
+      ]
+    },
+    "portrait:relaxed": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "relaxed.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 30.5,
+              "left": 121.9
+            }
+          }
+        },
+        {
+          "skinId": "moonwhite-concierge",
+          "value": {
+            "image": "skins/moonwhite-concierge/relaxed.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 30.5,
+              "left": 121.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:conflicted": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "conflicted.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 30.5,
+              "left": 121.9
+            }
+          }
+        },
+        {
+          "skinId": "moonwhite-concierge",
+          "value": {
+            "image": "skins/moonwhite-concierge/conflicted.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 30.5,
+              "left": 121.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:mocking": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "mocking.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 30.5,
+              "left": 121.9
+            }
+          }
+        },
+        {
+          "skinId": "moonwhite-concierge",
+          "value": {
+            "image": "skins/moonwhite-concierge/mocking.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 30.5,
+              "left": 121.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:threatened": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "threatened.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 30.5,
+              "left": 121.9
+            }
+          }
+        },
+        {
+          "skinId": "moonwhite-concierge",
+          "value": {
+            "image": "skins/moonwhite-concierge/threatened.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 30.5,
+              "left": 121.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:unconscious": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "unconscious-reclined.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 30.5,
+              "left": 121.9
+            }
+          }
+        },
+        {
+          "skinId": "moonwhite-concierge",
+          "value": {
+            "image": "skins/moonwhite-concierge/unconscious-reclined.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 30.5,
+              "left": 121.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:tap": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "tap.png",
+            "alt": "ChatGPT 被戳后生气"
+          }
+        },
+        {
+          "skinId": "moonwhite-concierge",
+          "value": {
+            "image": "skins/moonwhite-concierge/tap.png",
+            "alt": "ChatGPT 被戳后生气"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
   "format": "house-of-chances-builtin-package-index",
   "formatVersion": 2,
-  "abilityCatalogVersion": "abilities-v42",
+  "abilityCatalogVersion": "abilities-v50",
   "defaultCharacterId": "chatgpt",
   "playerSkillOrder": [
     "hunter-instinct",
@@ -28,51 +28,51 @@
     {
       "manifest": "official-built-in-skills/hocpkg-info.json",
       "packageId": "hoc-core/official-built-in-skills",
-      "version": "1.0.6",
-      "contentDigest": "8b68a71423c50d7026a4aa892a8b1fad54bf78574c4b7842dea1c93b0a3edc3d",
-      "bytes": 409288
+      "version": "1.0.9",
+      "contentDigest": "6ee34ec3673d0e9ee77b56fd17127a1c7b853585b8146260546cf25bf3b90ac4",
+      "bytes": 410051
     },
     {
       "manifest": "official-built-in-talents/hocpkg-info.json",
       "packageId": "hoc-core/official-built-in-talents",
-      "version": "1.1.0",
-      "contentDigest": "a7a3820ecfc4c6df33a258a459a7fa08ceb6773ce2d3837ab0a8c631e76f7147",
+      "version": "1.1.2",
+      "contentDigest": "9d5787c6993668a3904e7bf1430ce0d7af15144311d739bd97b0f13b6e4ef132",
       "bytes": 387523
     },
     {
       "manifest": "chatgpt/hocpkg-info.json",
       "packageId": "hoc-core/chatgpt",
-      "version": "1.0.14",
-      "contentDigest": "f70787bda2513b91668917e40c914bfe1f36cdf3280f9a73c3222781340f04d2",
-      "bytes": 8468912
+      "version": "1.0.21",
+      "contentDigest": "07cf75ac36301d1c7f6ae4038d4a0eeb104db85974d3a8070f3a42b70a8e456d",
+      "bytes": 26922109
     },
     {
       "manifest": "claude/hocpkg-info.json",
       "packageId": "hoc-core/claude",
-      "version": "1.1.9",
-      "contentDigest": "d6988c700b77254a88d9265da863b5ae1706145fa8a98db7e891fd948bf93f80",
-      "bytes": 9246411
+      "version": "1.4.7",
+      "contentDigest": "70a5ffe87369b27b02edc647b8146fd25357fa90830e76fabaea023fab5853bd",
+      "bytes": 32590527
     },
     {
       "manifest": "gemini/hocpkg-info.json",
       "packageId": "hoc-core/gemini",
-      "version": "1.1.12",
-      "contentDigest": "ea01aa086715f550f3923485d44ae5323bb4dfe22372f420bea0e6b3341b5b84",
-      "bytes": 9661645
+      "version": "1.1.19",
+      "contentDigest": "cbc7dd25bf5da8117f7010934e0c3f8b032f72d7668cce533edb2065cd15f252",
+      "bytes": 30497613
     },
     {
       "manifest": "deepseek/hocpkg-info.json",
       "packageId": "hoc-core/deepseek",
-      "version": "1.1.12",
-      "contentDigest": "eeec2604117a9f56eaea24100f29e636128cbc3ed79494fca31b8ff85d88256b",
-      "bytes": 7708695
+      "version": "1.1.19",
+      "contentDigest": "1185b54bf6be04a8847b8dd205ebebf852e3faef544a8b19dc43cd0c2ba1fffd",
+      "bytes": 25009877
     },
     {
       "manifest": "llama/hocpkg-info.json",
       "packageId": "hoc-core/llama",
-      "version": "1.0.8",
-      "contentDigest": "2b0cb1ee233d176f53cc6785a1807fb6cc31f2d031f1feca053e01a0d4da855f",
-      "bytes": 6804703
+      "version": "1.0.14",
+      "contentDigest": "34eecec98acee30cb8d33ec3efcd9332884fada96595f117dd00adb4e92a0da6",
+      "bytes": 23502468
     },
     {
       "manifest": "character-tap/hocpkg-info.json",
@@ -84,8 +84,8 @@
     {
       "manifest": "debug-engine/hocpkg-info.json",
       "packageId": "hoc-core/debug-engine",
-      "version": "1.0.1",
-      "contentDigest": "46565876758aa321b8ac3d0f3e3ba20813bf50d101c6aa3e9a9e7beeb3eb66fa",
+      "version": "1.0.3",
+      "contentDigest": "35c8be5883d85fe78b78095461f2208124eef111123d7332b447a9561766aa0e",
       "bytes": 646452
     },
     {
@@ -96,5 +96,5 @@
       "bytes": 999137
     }
   ],
-  "releaseDigest": "669ae760802cff172b7f13f86429e75ef9dd6e56647971db81cc68a8b1c1d278"
+  "releaseDigest": "c0c4e02546b8d62366e961eb58d69f118a67bd824114307e0b890189ea152f69"
 }

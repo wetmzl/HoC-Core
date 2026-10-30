@@ -6,7 +6,7 @@ import type { SeededRng } from "../rng/seeded";
 export const AI_NOISE_MIN = -0.3;
 export const AI_NOISE_MAX = 0.3;
 
-/** Baseline Hit/Stand advice used by the player's action-advice ability. */
+/** Deterministic baseline Hit/Stand policy. */
 export function decideOptimalAction(observation: MatchObservation): AiAction {
   const side = observation.viewer === "player" ? observation.player : observation.opponent;
   const knownCards = side.cards.filter((card): card is Card => card !== null);

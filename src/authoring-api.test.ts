@@ -5,10 +5,12 @@ import { readFileSync } from "node:fs";
 import { CharacterDialogueResourceSchema, createDialogueDraft, validateDialogueResource, type DialogueRule } from "./authoring-api";
 import { DialogueEngine } from "./dialogue/engine";
 import { createMatch } from "./core/match/reducer";
+import { resolvePresentation, type CharacterPresentation } from "./content/packages/character-presentation";
 
 it("provides the existing ordered rules with empty authoring pools and an opening fallback", () => {
   const draft = createCharacterDraft("neutral", "中性角色");
-  const existing = JSON.parse(readFileSync("public/characters/chatgpt/resources/dialogue.json", "utf8"));
+  const appearance = JSON.parse(readFileSync("public/characters/chatgpt/resources/appearance.json", "utf8")) as CharacterPresentation;
+  const existing = resolvePresentation(JSON.parse(readFileSync("public/characters/chatgpt/resources/dialogue.json", "utf8")), appearance) as ReturnType<typeof createDialogueDraft>;
   expect(draft.match.dialogueResourceId).toBe("dialogue");
   expect(Object.keys(draft.dialogue.pools)).toEqual(Object.keys(existing.pools).filter(id => !["CHARACTER_TAP", "CHARACTER_TAP_DEFEATED", "CHARACTER_TAP_ROULETTE"].includes(id)));
   expect(Object.values(draft.dialogue.pools).every(pool => pool.length === 0)).toBe(true);
@@ -58,6 +60,7 @@ it("accepts custom pools and selects a custom rule inserted before the authoring
 
 async function fixture(apiVersion: number) {
   const draft = createCharacterDraft("neutral", "中性角色");
+  Reflect.deleteProperty(draft.match.metadata, "encounter");
   for (const pool of Object.values(draft.dialogue.pools)) (pool as string[]).push("测试对白");
   const files: Record<string, Uint8Array> = {
     "character.json": new TextEncoder().encode(JSON.stringify(draft.match)),

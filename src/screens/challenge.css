@@ -1,0 +1,80 @@
+.challenge-shell { --challenge-accent: #e5c694; width: min(100%, 560px); min-height: 100vh; margin: 0 auto; padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom)); box-sizing: border-box; background: #121b27; color: #edf0f3; }
+.challenge-shell button { font: inherit; cursor: pointer; min-height: 44px; border-radius: 8px; }
+.challenge-shell h1 { margin: 6px 0 0; font-size: 28px; line-height: 1.3; letter-spacing: -.02em; }
+.challenge-caption { color: #cbb28e; font-size: 10px; letter-spacing: .12em; }
+.challenge-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+.challenge-progress { color: #9daaba; font-size: 11px; }
+.challenge-progress strong { color: #e5c694; margin-left: 5px; font-weight: 500; }
+.challenge-risk { display: flex; align-items: center; gap: 12px; border-block: 1px solid #ffffff15; padding: 13px 0; font-size: 12px; }
+.challenge-risk strong { color: #f1d6ad; margin-left: 5px; }
+.challenge-risk small { font-size: 10px; margin-left: auto; color: #929eac; }
+.challenge-chambers { display: flex; gap: 4px; }
+.challenge-chambers i { width: 5px; height: 12px; border: 1px solid #7e8a9b; border-radius: 2px; }
+.challenge-chambers .loaded { background: #dcb584; border-color: #dcb584; }
+/* The portrait opens a dossier; its overlaid skill rectangle opens comparison. */
+.challenge-selection { display: flex; flex-direction: column; width: min(100%, 600px); min-height: 100dvh; background-size: cover; background-position: center; background-attachment: fixed; }
+.challenge-selection > .challenge-grid { flex-shrink: 0; }
+.challenge-selection-heading { margin-bottom: 18px; }
+.challenge-selection-heading h1 { font-size: 24px; margin: 0; }
+.challenge-selection-heading > p { margin: 10px 0 0; color: #ddc8a8; font-size: 12px; line-height: 1.8; }
+.challenge-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.challenge-guard-card { position: relative; min-width: 0; aspect-ratio: 4 / 5; overflow: hidden; border: 1px solid #a9b8ca66; border-radius: 10px; background: #1b2635; isolation: isolate; }
+.challenge-guard-card::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, #080f1a00 18%, #080f1a10 35%, #080f1a62 53%, #080f1acf 74%, #080f1afa 100%); }
+.challenge-guard { display: block; position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; color: #fff; text-align: left; isolation: isolate; }
+.challenge-guard:focus-visible { outline: 2px solid #e8c895; outline-offset: -3px; }
+.challenge-guard-portrait { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.challenge-guard-copy { position: absolute; z-index: 2; inset: auto 8px 8px; min-width: 0; pointer-events: none; }
+.challenge-guard-goal { margin: 0 0 6px; color: #c2c9d2; font-size: 11px; line-height: 1.6; text-shadow: 0 1px 5px #020711; }
+.challenge-guard-goal strong { color: #edf0f3; font-weight: 600; }
+.challenge-guard-card.is-defeated .challenge-guard-copy { opacity: .55; }
+.challenge-guard-state { position: absolute; top: 10px; right: 9px; padding: 4px 7px; border-radius: 4px; background: #101827cf; color: #e5cfaa; font-size: 10px; }
+.challenge-guard.is-defeated { filter: grayscale(1); opacity: .48; }
+.challenge-guard.is-defeated .challenge-guard-state { color: #eef0f2; }
+.challenge-direct { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 14px 16px; margin-top: 20px; background: #292b30; border: 1px solid #c5a57a; color: #f0d5ae; text-align: left; font-weight: 650 !important; font-size: 14px !important; }
+.challenge-direct small { display: block; margin-top: 5px; color: #bfae95; font-weight: 400; font-size: 10px; }
+.challenge-footnote { color: #97a4b6; font-size: 10px; line-height: 1.7; margin: 12px 0; }
+.challenge-boss { border-top: 1px solid #ffffff14; padding-top: 14px; margin-top: 18px; }
+.challenge-boss summary { color: #b1bccb; font-size: 11px; cursor: pointer; }
+.challenge-boss ul { padding: 0; list-style: none; margin: 10px 0 0; }
+.challenge-boss li { display: flex; justify-content: space-between; padding: 8px 0; font-size: 12px; }
+.challenge-boss li small { color: #bda780; font-size: 10px; }
+.challenge-boss .suppressed { opacity: .45; text-decoration: line-through; }
+.challenge-exit, .challenge-back { color: #9aa7b8; border: 0; background: transparent; }
+.challenge-exit { display: block; margin: 12px auto 0; font-size: 11px !important; }
+.challenge-back { padding: 0 8px 0 0; font-size: 12px !important; }
+.challenge-shell [data-encounter-status] { color: #ffb59c; font-size: 12px; }
+.challenge-shell [data-encounter-status]:empty { display: none; }
+@media(max-width: 340px) { .challenge-shell { padding-inline: 16px; } .challenge-risk { gap: 8px; } .challenge-chambers { gap: 3px; } }
+
+.table-withdraw { min-height: 40px; padding: 8px 12px; color: #e2c89f; border: 1px solid #d2b38366; border-radius: 8px; background: #1b2839; font-size: 12px; }
+
+.challenge-shell .challenge-guard-skill { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 8px 10px; border: .5px solid #d3b58177; border-radius: 7px; background: linear-gradient(110deg, #253348e8, #101d2be8); color: #eed8b3; box-shadow: inset 0 1px #ffe4b014; backdrop-filter: blur(6px); pointer-events: auto; text-align: left; }
+.challenge-guard-skill > span:first-child { min-width: 0; font-size: 12px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.challenge-guard-skill .challenge-skill-info { display: grid; place-items: center; flex: 0 0 18px; width: 18px; height: 18px; border: .5px solid #cdb17b88; border-radius: 50%; color: #d8c198; font-family: Georgia, serif; font-size: 11px; line-height: 1; }
+.challenge-guard-skill:hover, .challenge-guard-skill:focus-visible { border-color: #f0d49a; background: #2b3a50; outline: none; }
+.challenge-choice-actions { display: grid; flex-shrink: 0; gap: 10px; margin-top: auto; padding-top: 16px; }
+.challenge-selection .challenge-choice-action { position: relative; width: 100%; height: 72px; min-height: 72px; margin: 0; padding: 0 20px; border-radius: 9px; font-size: 15px; font-weight: 600; overflow: hidden; }
+.challenge-boss-action { isolation: isolate; border-color: #e0bb73; background: linear-gradient(105deg, #33281e, #5a3d25 70%, #976735); box-shadow: inset 0 1px #ffe4a333, 0 0 18px #ca8f291c; }
+.challenge-boss-action::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(115deg, transparent 35%, #f8d49530 65%, transparent 78%); }
+.challenge-boss-action-copy { z-index: 1; color: #ffe5b3; text-shadow: 0 1px 8px #000; white-space: nowrap; }
+.challenge-boss-progress { margin-left: 5px; font-size: 11px; font-weight: 400; color: #e9cda0; }
+.challenge-boss-action-arrow { margin-left: auto; z-index: 1; color: #ffe5b3; text-shadow: 0 1px 6px #000; }
+.challenge-terminate { display: flex; align-items: center; justify-content: center; border: 1px solid #c45e65; background: linear-gradient(110deg, #59252d, #742e37); color: #ffd6d7; box-shadow: inset 0 1px #ffb8bb20; }
+.challenge-skill-dialog { box-sizing: border-box; width: min(calc(100% - 32px), 420px); max-height: calc(100% - 48px); overflow-y: auto; padding: 22px; border: 1px solid #b59b72; border-radius: 12px; background: #152131; color: #e6eaf0; box-shadow: 0 20px 80px #0009; }
+.challenge-skill-dialog::backdrop { background: #030811b8; }
+.challenge-skill-dialog h2 { font-size: 17px; margin: 0 42px 20px 0; }
+.challenge-shell .challenge-compare-close { position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: #c2cbd6; font-size: 24px; }
+.challenge-skill-comparison + .challenge-skill-comparison { margin-top: 24px; border-top: 1px solid #ffffff24; padding-top: 16px; }
+.challenge-skill-dialog .challenge-compare-name { color: #edcf9c; margin: 0 42px 18px 0; }
+.challenge-skill-comparison .skill-sheet { margin: 0; }
+.challenge-skill-after .skill-sheet { border-color: #58746f; }
+.challenge-skill-arrow { width: min(100%, 240px); margin: 6px auto; color: #cfb179; }
+.challenge-skill-arrow svg { display: block; width: 100%; height: 70px; overflow: visible; }
+.challenge-arrow-spine { filter: drop-shadow(0 0 4px #e7b76099); }
+.challenge-arrow-ornament { animation: challenge-arrow-breathe 3s ease-in-out infinite; }
+.challenge-arrow-flow { stroke-dasharray: 16 84; stroke-dashoffset: 100; filter: drop-shadow(0 0 4px #ffe1a6); animation: challenge-arrow-travel 2.2s linear infinite; }
+.challenge-arrow-spark { animation: challenge-arrow-breathe 2.2s ease-in-out infinite; }
+@keyframes challenge-arrow-travel { to { stroke-dashoffset: -100; } }
+@keyframes challenge-arrow-breathe { 0%, 100% { opacity: .38; } 50% { opacity: 1; } }
+[data-reduced-motion="true"] .challenge-skill-arrow * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .challenge-skill-arrow * { animation: none !important; } }

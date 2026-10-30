@@ -47,9 +47,9 @@ describe("durable skill decks", () => {
     const other = gameReducer({ ...reversed, playerSkills: { ...reversed.playerSkills, drawCount: 1 }, round: { ...reversed.round, phase: "turns", currentActor: "player" } }, { type: "OPEN_SKILL_DRAW" });
     expect(other.playerSkills.drawOffer).toEqual(drawn.playerSkills.drawOffer);
     const legacy = createMatch("deck-legacy", { opponentId: "llama", selectedSkillTags: ["gunslinger"] });
-    expect(validateRuntimeSave(createRuntimeSave(legacy)).activeMatch.playerSkills.selectedSkillTags).toEqual(["gunslinger"]);
+    expect(validateRuntimeSave(createRuntimeSave(legacy)).activeMatch!.playerSkills.selectedSkillTags).toEqual(["gunslinger"]);
     expect(legacy.playerSkills.deckDefinitionIds).toBeUndefined();
-    expect(validateRuntimeSave(createRuntimeSave(base)).activeMatch.playerSkills.deckDefinitionIds).toEqual(ids.slice(0, 8));
+    expect(validateRuntimeSave(createRuntimeSave(base)).activeMatch!.playerSkills.deckDefinitionIds).toEqual(ids.slice(0, 8));
   });
   it("rejects locked, unknown and duplicate new-match deck entries", () => {
     expect(() => createMatch("bad", { skillDeckIds: ["missing"] })).toThrow(/Skill deck/);

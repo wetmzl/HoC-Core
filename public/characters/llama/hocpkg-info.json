@@ -5,7 +5,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "llama",
-    "version": "1.0.8"
+    "version": "1.0.14"
   },
   "metadata": {
     "title": "Llama 角色包",
@@ -23,27 +23,44 @@
           "maintainer"
         ]
       }
-    ]
+    ],
+    "coverImage": "cover.png"
   },
   "resources": [
     {
       "id": "match",
       "type": "game.character-match",
-      "apiVersion": 7,
+      "apiVersion": 13,
       "entry": "resources/character-match.json",
       "requires": [
-        "dialogue"
+        "dialogue",
+        "appearance"
       ]
     },
     {
       "id": "dialogue",
       "type": "game.character-dialogue",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/dialogue.json",
+      "requires": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "appearance",
+      "type": "presentation.character",
+      "apiVersion": 2,
+      "entry": "resources/appearance.json",
       "requires": []
     }
   ],
   "files": [
+    {
+      "path": "ART-CREDITS.md",
+      "bytes": 792,
+      "sha256": "1acda51667df2f25a0366d025bf68e30c362cfe15a2131fe2ec9be5d9c06e15d",
+      "mediaType": "text/markdown"
+    },
     {
       "path": "conflicted.png",
       "bytes": 866419,
@@ -52,8 +69,8 @@
     },
     {
       "path": "cover.png",
-      "bytes": 610225,
-      "sha256": "517349349a8c1862fd0b0058aed2d9d90ee3922030681abb57b05ef32c1aff94",
+      "bytes": 2545013,
+      "sha256": "e97f1407ffdd5dbaab2307693b6e1db7593ea401f1c14fbfa9bde4cbd512ad14",
       "mediaType": "image/png"
     },
     {
@@ -69,16 +86,64 @@
       "mediaType": "image/png"
     },
     {
+      "path": "resources/appearance.json",
+      "bytes": 4671,
+      "sha256": "fa7c54746f6994d63f90dbe9acc549970461270de4def748eea9610c8f175e7a",
+      "mediaType": "application/json"
+    },
+    {
       "path": "resources/character-match.json",
-      "bytes": 2830,
-      "sha256": "878aa37d333e7faebd92b19ec064e4dec47cdfb6279708b7960ec40543969033",
+      "bytes": 4891,
+      "sha256": "52b1fc3875d2fb21b232ae3dd1e42e3bac305a22d961e91c28793cff1d423a7d",
       "mediaType": "application/json"
     },
     {
       "path": "resources/dialogue.json",
-      "bytes": 26985,
-      "sha256": "9d25cfe468a3920d3dd794f38f918d89ef77a258e1c5e516ef415ca8d66e45c2",
+      "bytes": 29515,
+      "sha256": "d7002a53e17e4f2e435323143ee8424e476ab9a02d67a530149ad5688d7f1055",
       "mediaType": "application/json"
+    },
+    {
+      "path": "skins/cloud-traveler/conflicted.png",
+      "bytes": 1973552,
+      "sha256": "62f49104cd5832f5a619cbf6a602c54498f91049c27aa1b0d04d9447a9b59435",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/cloud-traveler/cover.png",
+      "bytes": 2899395,
+      "sha256": "2af1df870177fc18fbfa369b8275fd6e825abeecd8bbddd7ea9059b878341dcd",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/cloud-traveler/mocking.png",
+      "bytes": 1985606,
+      "sha256": "49a9c612009e190b73cb4d0bc3cd70afc7c63f0865308ceac075eef7dce4cdae",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/cloud-traveler/relaxed.png",
+      "bytes": 2007830,
+      "sha256": "0d9e9c8918fa2188da6e7c47f5ad0a2912093560485da2d03519042a0de45f16",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/cloud-traveler/tap.png",
+      "bytes": 1900256,
+      "sha256": "64d359439c47e6d9a8524a687ff1927fe03d8fde59a151311af801c55538fd0d",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/cloud-traveler/threatened.png",
+      "bytes": 1929680,
+      "sha256": "daac71fe229ada8e51867bd869a331375e17db87f0ef7767c942437eb37248f6",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/cloud-traveler/unconscious-reclined.png",
+      "bytes": 2056604,
+      "sha256": "424b9df0a7250695b9fb7353fceec9b3dfd130d1978ac70fc18505314ae922a4",
+      "mediaType": "image/png"
     },
     {
       "path": "tap.png",

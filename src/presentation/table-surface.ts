@@ -1,14 +1,14 @@
 import { imageContentBox } from "./character-interaction";
 import { tablePortraitPlacement, type TablePortrait } from "../content/characters/table-portrait";
 
-export interface TablePortraitPlacement { readonly anchorY: number }
+export interface TablePortraitPlacement { readonly anchorY: number; readonly offsetX?: number }
 
 /** Measure the original image without transient transforms such as dialogue shake. */
 export function tablePortraitGeometry(image: { width: number; height: number; naturalWidth: number; naturalHeight: number; fit: string; position: string; scale: number }, placement: TablePortraitPlacement) {
   const box = imageContentBox({ left: 0, top: 0, width: image.width, height: image.height }, image.naturalWidth, image.naturalHeight, image.fit, image.position);
   if (!box) return;
   const offsetY = (image.height - box.top - placement.anchorY * box.height) * image.scale;
-  return { offsetY };
+  return { offsetY, offsetX: (placement.offsetX ?? 0) * box.width * image.scale };
 }
 
 /** Keep the scene's tabletop fixed while the current portrait enters it at its body line. */
@@ -30,6 +30,7 @@ export function mountTableSurface(root: HTMLElement, presentation?: TablePortrai
     const geometry = tablePortraitGeometry({ width: portrait.clientWidth, height: portrait.clientHeight, naturalWidth: portrait.naturalWidth, naturalHeight: portrait.naturalHeight,
       fit: style.objectFit, position: style.objectPosition, scale: parseFloat(style.getPropertyValue("--character-art-scale")) || 1 }, placement);
     strip.style.setProperty("--table-art-anchor-offset", `${geometry?.offsetY ?? 0}px`);
+    strip.style.setProperty("--table-art-offset-x", `${geometry?.offsetX ?? 0}px`);
     const bounds = bottom.getBoundingClientRect();
     const frame = shell.getBoundingClientRect();
     bottom.style.setProperty("--table-surface-left", `${frame.left - bounds.left}px`);
@@ -45,5 +46,6 @@ export function mountTableSurface(root: HTMLElement, presentation?: TablePortrai
     observer.disconnect();
     portrait.removeEventListener("load", align);
     strip.style.removeProperty("--table-art-anchor-offset");
+    strip.style.removeProperty("--table-art-offset-x");
   } };
 }

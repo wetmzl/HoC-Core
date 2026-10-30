@@ -63,6 +63,7 @@ export class CapacitorContentFileSystem implements ContentFileSystem {
   copyMany = nativeIo.copyMany;
   openArchive = nativeIo.openArchive;
   pickFile = nativeIo.pickFile;
+  readRange = nativeIo.readRange;
   assetSource(url: string) { return url.startsWith("/") ? { kind: "asset" as const, path: url } : undefined; }
 
   async read(path: string): Promise<Uint8Array | null> {

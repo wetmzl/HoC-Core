@@ -21,11 +21,11 @@ it("restores an optional package placeholder and removes it before resuming, whi
   const state = createMatch("intrinsic-disabled", { opponentId: "chatgpt", skillDeckIds: [], intrinsicAbilities: [binding] });
   const saved = createRuntimeSave(state);
   installAbilityRegistry(registry.definitions.filter(definition => definition.id !== binding.definitionId), registry.statuses, registry.catalogVersion);
-  const restored = validateRuntimeSave(saved).activeMatch;
+  const restored = validateRuntimeSave(saved).activeMatch!;
   const reconciled = reconcileMatchAbilities(restored, []);
   expect(reconciled.abilities.instances).toHaveLength(0);
   expect(reconciled.roulette).toEqual(state.roulette);
-  expect(validateRuntimeSave(createRuntimeSave(reconciled)).activeMatch.abilities.instances).toHaveLength(0);
+  expect(validateRuntimeSave(createRuntimeSave(reconciled)).activeMatch!.abilities.instances).toHaveLength(0);
   const normal = { ...saved, activeMatch: { ...state, abilities: { ...state.abilities, instances: state.abilities.instances.map(instance => ({ ...instance, intrinsic: false })) } } };
   expect(() => validateRuntimeSave(normal)).toThrow();
 });

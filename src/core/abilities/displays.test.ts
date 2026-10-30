@@ -4,7 +4,7 @@ import { SeededRng } from "../rng/seeded";
 import { addAbilityInstance, advanceRoundAbilityTtls, createAbilityRuntime, garbageCollectAbilityInstances } from "./runtime";
 import { ABILITY_REGISTRY, createStandaloneAbilityRegistry, instantiateAbility, installAbilityRegistry } from "./registry";
 import { displayCardMarkers, resolveDisplays } from "./displays";
-import { AbilityDefinitionSchema } from "./schema";
+import { AbilityDefinitionSchema, AbilityDisplaySchema } from "./schema";
 import { applyEffects } from "./effects";
 import { playAbility } from "./engine";
 import type { AbilityWorld } from "./types";
@@ -37,6 +37,40 @@ function fixture() {
   return { registry, instance, runtime: { ...runtime, statuses: world.statuses } };
 }
 describe("independent declarative displays", () => {
+  it("projects an ordered text list from stable facts without exposing hidden suits or changing state", () => {
+    const display = { ...definition.displays[0], content: [
+      { type: "text", text: "Targets:" },
+      { type: "text-list", items: [
+        { text: "<Spades>", active: { type: "public-hand-card-suit-count", target: "owner", suit: "spades" } },
+        { text: "Hearts", active: { type: "public-hand-card-suit-count", target: "owner", suit: "hearts" } },
+        { text: "<Spades>", active: 1 }
+      ], emptyText: "None" }
+    ] };
+    const registry = createStandaloneAbilityRegistry([{ ...definition, displays: [display] }], [status]);
+    const instance = instantiateAbility({ definitionId: definition.id, enabled: true, parameters: {} }, "player", "source", 1, registry);
+    const runtime = addAbilityInstance(createAbilityRuntime(new SeededRng("text-list").snapshot()), instance, registry);
+    const hidden = { ...world, hands: { ...world.hands, player: { cards: [createCard("spades", "Q", "public"), createCard("hearts", "2", "private")] } } };
+    const before = JSON.stringify({ runtime, world: hidden });
+    const resolved = resolveDisplays(runtime, hidden, registry);
+    expect(displayText(resolved[0])).toBe("Targets:<Spades>");
+    expect(displayChipsMarkup(resolved, "player")).toContain("&lt;Spades&gt;");
+    expect(displayText(resolveDisplays(runtime, { ...hidden, publicCardIds: ["private"] }, registry)[0])).toBe("Targets:<Spades>、Hearts");
+    expect(JSON.stringify({ runtime, world: hidden })).toBe(before);
+    const inactive = AbilityDisplaySchema.parse({ ...display, content: [{ type: "text-list", items: [{ text: "Hidden", active: 0 }], emptyText: "None" }] });
+    const emptyRegistry = createStandaloneAbilityRegistry([{ ...definition, displays: [inactive] }], [status]);
+    expect(displayText(resolveDisplays(runtime, hidden, emptyRegistry)[0])).toBe("None");
+    expect(AbilityDisplaySchema.safeParse({ ...inactive, content: [{ type: "text-list", items: [{ text: "Transient", active: { type: "hand-total", target: "event-actor" } }] }] }).success).toBe(false);
+    expect(AbilityDisplaySchema.safeParse({ ...inactive, content: [{ type: "text-list", items: [] }] }).success).toBe(false);
+  });
+  it.each([1, 2])("uses the source skill's concise description at level %i", (level) => {
+    const upgradedDescription = "Upgraded concise effect";
+    const registry = createStandaloneAbilityRegistry([{ ...definition, levels: [{ level: 2, description: upgradedDescription }] }], [status]);
+    const instance = instantiateAbility({ definitionId: definition.id, level, enabled: true, parameters: {} }, "player", "source", 1, registry);
+    const runtime = addAbilityInstance(createAbilityRuntime(new SeededRng("display-description").snapshot()), instance, registry);
+    const displays = resolveDisplays(runtime, world, registry);
+    expect(displays.map(display => display.description)).toEqual(Array(2).fill(level === 1 ? definition.description : upgradedDescription));
+    expect(displays.map(displayText)).toEqual(["记忆：Q♠", "加成：0"]);
+  });
   it("registers multiple targets once, retaining first parameters without changing RNG", () => {
     const { registry, runtime } = fixture();
     const duplicate = instantiateAbility({ definitionId: definition.id, enabled: true, parameters: { bonus: 9 } }, "player", "duplicate", 2, registry);
@@ -62,7 +96,7 @@ describe("independent declarative displays", () => {
   });
   it("registers effect-granted cards", () => {
     const { registry, instance, runtime } = fixture();
-    const result = applyEffects([{ type: "grant-player-skill-card", target: "owner", source: "last-successful-player-skill", fallback: "self" }], {
+    const result = applyEffects([{ type: "grant-skill-card", target: "owner", initialize: false, choices: [{ type: "last-successful-player-skill" }, { type: "self" }] }], {
       world: { ...world, statuses: [] }, ability: instance, runtime: { ...runtime, instances: [], statuses: [], displays: [] }, registry, rng: new SeededRng("grant"), event: { trigger: "on-ability-played", sourceEventId: "grant" }
     }); expect(result.runtime.displays).toHaveLength(2);
   });
@@ -86,8 +120,8 @@ describe("independent declarative displays", () => {
     installAbilityRegistry([...original.definitions, definition], [...original.statuses, status], original.catalogVersion);
     const { runtime } = fixture(); const match = createMatch("save-display", { opponentId: "chatgpt", skillDeckIds: [] });
     const save = createRuntimeSave({ ...match, abilities: { ...runtime, instances: [], statuses: [] } }, "2026-10-02T00:00:00Z");
-    expect(RuntimeSaveSchema.parse(JSON.parse(JSON.stringify(save))).activeMatch.abilities.displays).toEqual(runtime.displays);
-    const duplicate = { ...save, activeMatch: { ...save.activeMatch, abilities: { ...save.activeMatch.abilities, displays: [...runtime.displays, runtime.displays[0]] } } };
+    expect(RuntimeSaveSchema.parse(JSON.parse(JSON.stringify(save))).activeMatch!.abilities.displays).toEqual(runtime.displays);
+    const duplicate = { ...save, activeMatch: { ...save.activeMatch!, abilities: { ...save.activeMatch!.abilities, displays: [...runtime.displays, runtime.displays[0]] } } };
     expect(RuntimeSaveSchema.safeParse(duplicate).success).toBe(false);
     expect(gameReducer({ ...match, abilities: runtime }, { type: "ESCAPE_MATCH" }).abilities.displays).toHaveLength(0);
     expect(createMatch("new-display", { opponentId: "chatgpt", skillDeckIds: [] }).abilities.displays).toHaveLength(0);

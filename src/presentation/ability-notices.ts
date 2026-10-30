@@ -1,3 +1,4 @@
+import { resolveValue } from "../core/abilities/value-expressions";
 import { getAbilityDefinition, getStatusDefinition, STATUS_DEFINITIONS } from "../core/abilities/registry";
 import { getActiveBustLimit, type PendingTriggerPreview } from "../core/match/reducer";
 import type { MatchState, GameEvent } from "../core/match/types";
@@ -53,26 +54,21 @@ function effectResultNotice(
     const trigger = [...events].reverse().find((candidate): candidate is Extract<GameEvent, { type: "TRIGGER_PULLED" }> => candidate.type === "TRIGGER_PULLED" && candidate.actor === event.owner);
     if (trigger) return `本轮哑火概率为${Math.round(trigger.misfireChance * 100)}%`;
   }
-  if (effect.type === "publish-action-advice" && after?.playerSkills.advice) {
-    return `建议${after.playerSkills.advice === "hit" ? " Hit 要牌" : " Stand 停牌"}`;
-  }
   if (effect.type === "reveal-hand-card-suit") {
-    const target = event.owner === "player" ? "opponent" : "player";
-    const revealed = events.filter((candidate): candidate is Extract<GameEvent, { type: "CARD_SUIT_REVEALED" }> => candidate.type === "CARD_SUIT_REVEALED" && candidate.viewer === event.owner && candidate.target === target);
+    const target = effect.target === "owner" ? event.owner : effect.target === "rival" ? event.owner === "player" ? "opponent" : "player" : undefined;
+    const viewer = effect.viewer === "owner" ? event.owner : effect.viewer === "rival" ? event.owner === "player" ? "opponent" : "player" : undefined;
+    const revealed = events.filter((candidate): candidate is Extract<GameEvent, { type: "CARD_SUIT_REVEALED" }> => candidate.type === "CARD_SUIT_REVEALED" && candidate.viewer === viewer && candidate.target === target);
     if (revealed.length > 0) {
       const labels = [...new Map(revealed.map((candidate) => [candidate.cardId, suitLabel(candidate.suit)])).values()];
+      const ownerLabel = target === event.owner ? "自己" : "对手";
       return effect.card === "all-current-cards"
-        ? `对手当前所有手牌花色为${labels.join("、")}`
-        : `对手暗牌花色为${labels[0]}`;
+        ? `${ownerLabel}当前所有手牌花色为${labels.join("、")}`
+        : `${ownerLabel}暗牌花色为${labels[0]}`;
     }
   }
   if (effect.type === "reveal-draw-pile-top-suit") {
     const revealed = [...events].reverse().find((candidate): candidate is Extract<GameEvent, { type: "DRAW_PILE_CARD_SUIT_REVEALED" }> => candidate.type === "DRAW_PILE_CARD_SUIT_REVEALED" && candidate.viewer === event.owner);
     if (revealed) return `牌堆顶下一张牌的花色是${suitLabel(revealed.suit)}`;
-  }
-  if (effect.type === "set-status-suit-to-hand-majority" && after) {
-    const suit = after.abilities.statuses.find((status) => status.sourceInstanceId === event.instanceId && status.statusDefinitionId === effect.statusDefinitionId)?.parameters.suit;
-    if (suit === "hearts" || suit === "diamonds" || suit === "clubs" || suit === "spades") return `指定花色为${suitLabel(suit)}`;
   }
   if (effect.type === "cancel-pending-trigger") return "本次免于扣扳机";
   if (effect.type === "add-to-pending-bust-limit" && after) {
@@ -98,7 +94,24 @@ function ruleNotice(
   events: readonly GameEvent[],
   after?: MatchState
 ): string {
-  if (events.some((candidate) => candidate.type === "PENDING_EVENT_CANCELLED" && candidate.sourceInstanceId === event.instanceId)) return "本次免于扣扳机";
+  if (rule?.notice && after) {
+    try {
+      const instance = after.abilities.instances.find(candidate => candidate.instanceId === event.instanceId)
+        ?? { instanceId: event.instanceId, definitionId: event.definitionId, owner: event.owner, kind: definition.sourceKind, createdAtSequence: 0, parameters: {}, level: event.level };
+      const value = resolveValue(rule.notice.value, {
+        ability: instance, event: { trigger: rule.trigger, sourceEventId: event.instanceId, eventActor: event.owner },
+        world: { hands: { player: after.player.hand, opponent: after.opponent.hand }, guns: after.roulette, shoe: after.shoe, cards: after.playerSkills.cards, skillDraws: after.playerSkills.drawCount, statuses: after.abilities.statuses }
+      });
+      const text = rule.notice.format === "suit-name" && ["hearts", "diamonds", "clubs", "spades"].includes(String(value)) ? suitLabel(value as "hearts" | "diamonds" | "clubs" | "spades") : String(value);
+      return `${rule.notice.prefix ?? ""}${text}${rule.notice.suffix ?? ""}`;
+    } catch { /* An expired observation falls back to the authored notice. */ }
+  }
+  if (rule?.trigger === "before-trigger-pull" && events.some((candidate) => candidate.type === "PENDING_EVENT_CANCELLED" && candidate.sourceInstanceId === event.instanceId)) return "本次免于扣扳机";
+  const prevented = rule?.effects.some(effect => effect.type === "prevent-pending-defeat")
+    ? events.find(candidate => candidate.type === "DEFEAT_PREVENTED" && candidate.sourceInstanceId === event.instanceId) : undefined;
+  if (prevented?.type === "DEFEAT_PREVENTED") return `${prevented.actor === event.owner ? "抵御" : "帮助对手抵御"}了致命一击，对局继续。`;
+  const removedCards = events.filter((candidate): candidate is Extract<GameEvent, { type: "SKILL_CARDS_REMOVED" }> => candidate.type === "SKILL_CARDS_REMOVED" && candidate.sourceInstanceId === event.instanceId);
+  if (rule?.effects.some(effect => effect.type === "remove-skill-cards") && removedCards.length) return `移除${removedCards.reduce((count, entry) => count + entry.cards.length, 0)}张技能牌。`;
   const results = events.filter((candidate): candidate is Extract<GameEvent, { type: "ABILITY_RESULT" }> => candidate.type === "ABILITY_RESULT" && candidate.instanceId === event.instanceId).map((candidate) => candidate.result);
   const forecast = results.find((candidate): candidate is Extract<typeof candidate, { type: "hit-bust-forecast" }> => candidate.type === "hit-bust-forecast");
   if (forecast) return forecast.wouldBust ? "现在 Hit 会导致爆牌。" : "现在 Hit 不会导致爆牌。";
@@ -106,7 +119,7 @@ function ruleNotice(
   if (comparison) return comparison.relation === "equal" ? "双方当前基础点数相同。" : comparison.relation === "higher" ? "你的当前基础点数更高。" : "对手的当前基础点数更高。";
   const gunLoad = results.find((candidate): candidate is Extract<typeof candidate, { type: "gun-bullets-added" }> => candidate.type === "gun-bullets-added");
   if (gunLoad && gunLoad.amount < 0) return `卸下${-gunLoad.amount}发子弹，当前弹巢共有${gunLoad.bullets}发。`;
-  if (gunLoad) return `为自己装填${gunLoad.amount}发子弹，当前弹巢共有${gunLoad.bullets}发；若本轮败北，将免于扣动扳机。`;
+  if (gunLoad) return `为${gunLoad.actor === event.owner ? "自己" : "对手"}装填${gunLoad.amount}发子弹，当前弹巢共有${gunLoad.bullets}发。`;
   const derived = results.find((candidate): candidate is Extract<typeof candidate, { type: "derived-card-added" }> => candidate.type === "derived-card-added");
   const replaced = results.find((candidate): candidate is Extract<typeof candidate, { type: "derived-card-replaced" }> => candidate.type === "derived-card-replaced");
   const statusResult = results.find((candidate): candidate is Extract<typeof candidate, { type: "status-stacks-updated" }> => candidate.type === "status-stacks-updated");
@@ -158,7 +171,7 @@ export function abilityTriggerNotice(events: readonly GameEvent[], opponentName:
   const resolvedTrigger = events.some((event) => event.type === "TRIGGER_PULLED");
   for (const event of events) {
     if (event.type !== "ABILITY_TRIGGERED") continue;
-    const definition = getAbilityDefinition(event.definitionId);
+    const definition = getAbilityDefinition(event.definitionId, undefined, event.level);
     if (!definition || (definition.sourceKind !== "player-skill" && definition.sourceKind !== "ai-skill")) continue;
     const rule = definition.rules.find((candidate) => candidate.id === event.ruleId)
       ?? STATUS_DEFINITIONS.flatMap((status) => status.rules).find((candidate) => candidate.id === event.ruleId);
@@ -175,7 +188,7 @@ export function pendingTriggerAbilityNotices(preview: PendingTriggerPreview, opp
   const groups = new Map<string, GroupedAbilityNotice>();
   for (const event of preview.events) {
     if (event.type !== "ABILITY_TRIGGERED") continue;
-    const definition = getAbilityDefinition(event.definitionId);
+    const definition = getAbilityDefinition(event.definitionId, undefined, event.level);
     if (!definition || (definition.sourceKind !== "player-skill" && definition.sourceKind !== "ai-skill")) continue;
     const rule = definition.rules.find((candidate) => candidate.id === event.ruleId)
       ?? STATUS_DEFINITIONS.flatMap((status) => status.rules).find((candidate) => candidate.id === event.ruleId);
@@ -189,7 +202,7 @@ export function abilityExpiredNotices(events: readonly GameEvent[]): AbilityNoti
   return events
     .filter((event): event is Extract<GameEvent, { type: "ABILITY_EXPIRED" }> => event.type === "ABILITY_EXPIRED")
     .filter((event) => {
-      const definition = getAbilityDefinition(event.definitionId);
+      const definition = getAbilityDefinition(event.definitionId, undefined, event.level);
       // Only the player's finite passive skills need an expiry reminder. A final
       // visible activation already explains trigger exhaustion in this transition.
       return event.owner === "player" && definition?.sourceKind === "player-skill"
@@ -203,6 +216,6 @@ export function abilityExpiredNotices(events: readonly GameEvent[]): AbilityNoti
     .map((event) => ({
       owner: "system",
       tone: "notification",
-      text: `${getAbilityDefinition(event.definitionId)?.name ?? "被动技能"}的效果已耗尽`
+      text: `${getAbilityDefinition(event.definitionId, undefined, event.level)?.name ?? "被动技能"}的效果已耗尽`
     }));
 }

@@ -59,6 +59,8 @@ export interface ContentFileSystem {
   openArchive?(source: ContentFileSource, options?: ContentOperationOptions): Promise<ContentArchive>;
   assetSource?(url: string): ContentFileSource | undefined;
   pickFile?(options?: ContentOperationOptions): Promise<ContentImportFile | null>;
+  /** Bounded reads for format detection and small import documents. */
+  readRange?(source: ContentFileSource, offset: number, length: number, options?: ContentOperationOptions): Promise<Uint8Array>;
 }
 
 export interface ResolvedContentAsset {

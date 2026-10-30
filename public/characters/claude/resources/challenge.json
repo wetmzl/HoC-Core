@@ -1,0 +1,1125 @@
+{
+  "id": "intelligent-core-trial",
+  "name": "智能核心 · Claude 的邀约",
+  "description": "Claude 的 SS 级特殊挑战。击败守卫可削弱技能，并领取抽数、左轮减弹和本次挑战的点数优势。",
+  "ownerId": "claude",
+  "unlock": {
+    "type": "defeat-faction-count",
+    "count": 4,
+    "faction": "hoc-core/official-factions#intelligent-core",
+    "exclude": [
+      "claude"
+    ]
+  },
+  "invitationHint": "可先挑战守卫削弱技能；左轮、剩余技能和抽数在本次挑战中继承。",
+  "definition": {
+    "version": 2,
+    "id": "intelligent-core-trial",
+    "start": "__program:initialize",
+    "presentation": {
+      "resultActions": "return",
+      "title": "智能核心 · Claude 的邀约",
+      "description": "削弱阶段。做好准备，或者直视神明的怒火……。",
+      "backgroundCharacterId": "claude",
+      "continueLabel": "返回四人选择",
+      "abandonLabel": "终止挑战",
+      "comparisonLabel": "削弱说明"
+    },
+    "nodes": [
+      {
+        "id": "__program:initialize",
+        "type": "initialize",
+        "resources": {
+          "gun": {
+            "capacity": 8,
+            "bullets": 0
+          },
+          "player": "clear",
+          "comparisonBonus": 0
+        },
+        "next": "__program:selection"
+      },
+      {
+        "id": "__program:selection",
+        "title": "智能核心 · Claude 的邀约",
+        "type": "choice",
+        "description": "削弱阶段。做好准备，或者直视神明的怒火……。",
+        "options": [
+          {
+            "id": "guard:chatgpt",
+            "characterId": "chatgpt",
+            "to": "guard:chatgpt",
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "not",
+                  "condition": {
+                    "type": "completed",
+                    "nodeId": "guard:chatgpt"
+                  }
+                }
+              ]
+            },
+            "presentation": {
+              "layout": "card",
+              "tableTitle": "守卫战",
+              "exit": {
+                "label": "逃跑",
+                "title": "退出本场战斗；保留左轮、剩余技能和抽数，再进入时重新开局"
+              },
+              "objective": "击败 {name} 以削弱",
+              "completedLabel": "已击败"
+            }
+          },
+          {
+            "id": "guard:llama",
+            "characterId": "llama",
+            "to": "guard:llama",
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "not",
+                  "condition": {
+                    "type": "completed",
+                    "nodeId": "guard:llama"
+                  }
+                }
+              ]
+            },
+            "presentation": {
+              "layout": "card",
+              "tableTitle": "守卫战",
+              "exit": {
+                "label": "逃跑",
+                "title": "退出本场战斗；保留左轮、剩余技能和抽数，再进入时重新开局"
+              },
+              "objective": "击败 {name} 以削弱",
+              "completedLabel": "已击败"
+            }
+          },
+          {
+            "id": "guard:gemini",
+            "characterId": "gemini",
+            "to": "guard:gemini",
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "not",
+                  "condition": {
+                    "type": "completed",
+                    "nodeId": "guard:gemini"
+                  }
+                }
+              ]
+            },
+            "presentation": {
+              "layout": "card",
+              "tableTitle": "守卫战",
+              "exit": {
+                "label": "逃跑",
+                "title": "退出本场战斗；保留左轮、剩余技能和抽数，再进入时重新开局"
+              },
+              "objective": "击败 {name} 以削弱",
+              "completedLabel": "已击败"
+            }
+          },
+          {
+            "id": "guard:deepseek",
+            "characterId": "deepseek",
+            "to": "guard:deepseek",
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "not",
+                  "condition": {
+                    "type": "completed",
+                    "nodeId": "guard:deepseek"
+                  }
+                }
+              ]
+            },
+            "presentation": {
+              "layout": "card",
+              "tableTitle": "守卫战",
+              "exit": {
+                "label": "逃跑",
+                "title": "退出本场战斗；保留左轮、剩余技能和抽数，再进入时重新开局"
+              },
+              "objective": "击败 {name} 以削弱",
+              "completedLabel": "已击败"
+            }
+          },
+          {
+            "id": "boss",
+            "characterId": "claude",
+            "to": "boss",
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "not",
+                  "condition": {
+                    "type": "completed",
+                    "nodeId": "boss"
+                  }
+                }
+              ]
+            },
+            "presentation": {
+              "layout": "action",
+              "tableTitle": "Boss 战",
+              "objective": "挑战 {name}",
+              "progressLabel": "已削弱"
+            }
+          }
+        ]
+      },
+      {
+        "id": "__program:settle:guard:chatgpt:victory",
+        "type": "settlement",
+        "source": "guard:chatgpt",
+        "rewards": [
+          {
+            "id": "skillDraws",
+            "label": "技能抽数",
+            "effects": [
+              {
+                "id": "grant",
+                "type": "resource",
+                "resource": "skillDraws",
+                "operation": "add",
+                "value": 3
+              }
+            ]
+          },
+          {
+            "id": "removeBullets",
+            "label": "左轮子弹",
+            "effects": [
+              {
+                "id": "remove",
+                "type": "resource",
+                "resource": "bullets",
+                "operation": "add",
+                "value": -2,
+                "clamp": true
+              }
+            ]
+          },
+          {
+            "id": "pointAdvantage",
+            "label": "点数优势",
+            "effects": [
+              {
+                "id": "grant",
+                "type": "resource",
+                "resource": "comparisonBonus",
+                "operation": "add",
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "effects": [],
+        "confirmation": "required",
+        "continueLabel": "返回四人选择",
+        "next": "__program:selection"
+      },
+      {
+        "id": "__program:settle:guard:chatgpt:defeat",
+        "type": "settlement",
+        "source": "guard:chatgpt",
+        "rewards": [],
+        "effects": [],
+        "confirmation": "required",
+        "continueLabel": "返回四人选择",
+        "next": "__program:selection"
+      },
+      {
+        "id": "guard:chatgpt",
+        "type": "match",
+        "opponentId": "chatgpt",
+        "init": {
+          "playerGun": {
+            "mode": "inherit"
+          },
+          "opponentGun": {
+            "mode": "replace",
+            "value": {
+              "capacity": 6,
+              "bullets": 0
+            }
+          },
+          "playerSkills": {
+            "mode": "inherit"
+          }
+        },
+        "presentation": {
+          "layout": "card",
+          "tableTitle": "守卫战",
+          "exit": {
+            "label": "逃跑",
+            "title": "退出本场战斗；保留左轮、剩余技能和抽数，再进入时重新开局"
+          },
+          "objective": "击败 {name} 以削弱",
+          "completedLabel": "已击败"
+        },
+        "escapePresentation": "immediate",
+        "routes": {
+          "victory": "__program:settle:guard:chatgpt:victory",
+          "defeat": "__program:settle:guard:chatgpt:defeat",
+          "escaped": "__program:selection"
+        }
+      },
+      {
+        "id": "__program:settle:guard:llama:victory",
+        "type": "settlement",
+        "source": "guard:llama",
+        "rewards": [
+          {
+            "id": "skillDraws",
+            "label": "技能抽数",
+            "effects": [
+              {
+                "id": "grant",
+                "type": "resource",
+                "resource": "skillDraws",
+                "operation": "add",
+                "value": 3
+              }
+            ]
+          },
+          {
+            "id": "removeBullets",
+            "label": "左轮子弹",
+            "effects": [
+              {
+                "id": "remove",
+                "type": "resource",
+                "resource": "bullets",
+                "operation": "add",
+                "value": -2,
+                "clamp": true
+              }
+            ]
+          },
+          {
+            "id": "pointAdvantage",
+            "label": "点数优势",
+            "effects": [
+              {
+                "id": "grant",
+                "type": "resource",
+                "resource": "comparisonBonus",
+                "operation": "add",
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "effects": [],
+        "confirmation": "required",
+        "continueLabel": "返回四人选择",
+        "next": "__program:selection"
+      },
+      {
+        "id": "__program:settle:guard:llama:defeat",
+        "type": "settlement",
+        "source": "guard:llama",
+        "rewards": [],
+        "effects": [],
+        "confirmation": "required",
+        "continueLabel": "返回四人选择",
+        "next": "__program:selection"
+      },
+      {
+        "id": "guard:llama",
+        "type": "match",
+        "opponentId": "llama",
+        "init": {
+          "playerGun": {
+            "mode": "inherit"
+          },
+          "opponentGun": {
+            "mode": "replace",
+            "value": {
+              "capacity": 6,
+              "bullets": 0
+            }
+          },
+          "playerSkills": {
+            "mode": "inherit"
+          }
+        },
+        "presentation": {
+          "layout": "card",
+          "tableTitle": "守卫战",
+          "exit": {
+            "label": "逃跑",
+            "title": "退出本场战斗；保留左轮、剩余技能和抽数，再进入时重新开局"
+          },
+          "objective": "击败 {name} 以削弱",
+          "completedLabel": "已击败"
+        },
+        "escapePresentation": "immediate",
+        "routes": {
+          "victory": "__program:settle:guard:llama:victory",
+          "defeat": "__program:settle:guard:llama:defeat",
+          "escaped": "__program:selection"
+        }
+      },
+      {
+        "id": "__program:settle:guard:gemini:victory",
+        "type": "settlement",
+        "source": "guard:gemini",
+        "rewards": [
+          {
+            "id": "skillDraws",
+            "label": "技能抽数",
+            "effects": [
+              {
+                "id": "grant",
+                "type": "resource",
+                "resource": "skillDraws",
+                "operation": "add",
+                "value": 3
+              }
+            ]
+          },
+          {
+            "id": "removeBullets",
+            "label": "左轮子弹",
+            "effects": [
+              {
+                "id": "remove",
+                "type": "resource",
+                "resource": "bullets",
+                "operation": "add",
+                "value": -2,
+                "clamp": true
+              }
+            ]
+          },
+          {
+            "id": "pointAdvantage",
+            "label": "点数优势",
+            "effects": [
+              {
+                "id": "grant",
+                "type": "resource",
+                "resource": "comparisonBonus",
+                "operation": "add",
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "effects": [],
+        "confirmation": "required",
+        "continueLabel": "返回四人选择",
+        "next": "__program:selection"
+      },
+      {
+        "id": "__program:settle:guard:gemini:defeat",
+        "type": "settlement",
+        "source": "guard:gemini",
+        "rewards": [],
+        "effects": [],
+        "confirmation": "required",
+        "continueLabel": "返回四人选择",
+        "next": "__program:selection"
+      },
+      {
+        "id": "guard:gemini",
+        "type": "match",
+        "opponentId": "gemini",
+        "init": {
+          "playerGun": {
+            "mode": "inherit"
+          },
+          "opponentGun": {
+            "mode": "replace",
+            "value": {
+              "capacity": 6,
+              "bullets": 0
+            }
+          },
+          "playerSkills": {
+            "mode": "inherit"
+          }
+        },
+        "presentation": {
+          "layout": "card",
+          "tableTitle": "守卫战",
+          "exit": {
+            "label": "逃跑",
+            "title": "退出本场战斗；保留左轮、剩余技能和抽数，再进入时重新开局"
+          },
+          "objective": "击败 {name} 以削弱",
+          "completedLabel": "已击败"
+        },
+        "escapePresentation": "immediate",
+        "routes": {
+          "victory": "__program:settle:guard:gemini:victory",
+          "defeat": "__program:settle:guard:gemini:defeat",
+          "escaped": "__program:selection"
+        }
+      },
+      {
+        "id": "__program:settle:guard:deepseek:victory",
+        "type": "settlement",
+        "source": "guard:deepseek",
+        "rewards": [
+          {
+            "id": "skillDraws",
+            "label": "技能抽数",
+            "effects": [
+              {
+                "id": "grant",
+                "type": "resource",
+                "resource": "skillDraws",
+                "operation": "add",
+                "value": 3
+              }
+            ]
+          },
+          {
+            "id": "removeBullets",
+            "label": "左轮子弹",
+            "effects": [
+              {
+                "id": "remove",
+                "type": "resource",
+                "resource": "bullets",
+                "operation": "add",
+                "value": -2,
+                "clamp": true
+              }
+            ]
+          },
+          {
+            "id": "pointAdvantage",
+            "label": "点数优势",
+            "effects": [
+              {
+                "id": "grant",
+                "type": "resource",
+                "resource": "comparisonBonus",
+                "operation": "add",
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "effects": [],
+        "confirmation": "required",
+        "continueLabel": "返回四人选择",
+        "next": "__program:selection"
+      },
+      {
+        "id": "__program:settle:guard:deepseek:defeat",
+        "type": "settlement",
+        "source": "guard:deepseek",
+        "rewards": [],
+        "effects": [],
+        "confirmation": "required",
+        "continueLabel": "返回四人选择",
+        "next": "__program:selection"
+      },
+      {
+        "id": "guard:deepseek",
+        "type": "match",
+        "opponentId": "deepseek",
+        "init": {
+          "playerGun": {
+            "mode": "inherit"
+          },
+          "opponentGun": {
+            "mode": "replace",
+            "value": {
+              "capacity": 6,
+              "bullets": 0
+            }
+          },
+          "playerSkills": {
+            "mode": "inherit"
+          }
+        },
+        "presentation": {
+          "layout": "card",
+          "tableTitle": "守卫战",
+          "exit": {
+            "label": "逃跑",
+            "title": "退出本场战斗；保留左轮、剩余技能和抽数，再进入时重新开局"
+          },
+          "objective": "击败 {name} 以削弱",
+          "completedLabel": "已击败"
+        },
+        "escapePresentation": "immediate",
+        "routes": {
+          "victory": "__program:settle:guard:deepseek:victory",
+          "defeat": "__program:settle:guard:deepseek:defeat",
+          "escaped": "__program:selection"
+        }
+      },
+      {
+        "id": "__program:settle:boss:victory",
+        "type": "settlement",
+        "source": "boss",
+        "rewards": [],
+        "effects": [
+          {
+            "id": "record",
+            "type": "record-result",
+            "source": "boss"
+          }
+        ],
+        "confirmation": "required",
+        "next": "__program:end:victory"
+      },
+      {
+        "id": "__program:settle:boss:defeat",
+        "type": "settlement",
+        "source": "boss",
+        "rewards": [],
+        "effects": [
+          {
+            "id": "record",
+            "type": "record-result",
+            "source": "boss"
+          }
+        ],
+        "confirmation": "required",
+        "next": "__program:end:defeat"
+      },
+      {
+        "id": "__program:settle:boss:escaped",
+        "type": "settlement",
+        "source": "boss",
+        "rewards": [],
+        "effects": [
+          {
+            "id": "record",
+            "type": "record-result",
+            "source": "boss"
+          }
+        ],
+        "confirmation": "required",
+        "next": "__program:end:abandoned"
+      },
+      {
+        "id": "boss",
+        "type": "match",
+        "opponentId": "claude",
+        "init": {
+          "playerGun": {
+            "mode": "inherit"
+          },
+          "opponentGun": {
+            "mode": "replace",
+            "value": {
+              "capacity": 8,
+              "bullets": 0
+            }
+          },
+          "playerSkills": {
+            "mode": "inherit"
+          }
+        },
+        "abilities": [
+          {
+            "slot": "chatgpt",
+            "label": "克劳德时刻",
+            "binding": {
+              "definitionId": "claude-ss-moment",
+              "level": 2,
+              "enabled": true,
+              "parameters": {}
+            },
+            "overrides": [
+              {
+                "afterAny": [
+                  "guard:chatgpt"
+                ],
+                "binding": {
+                  "definitionId": "claude-ss-moment",
+                  "level": 1,
+                  "enabled": true,
+                  "parameters": {}
+                }
+              }
+            ]
+          },
+          {
+            "slot": "llama",
+            "label": "安全宪法",
+            "binding": {
+              "definitionId": "claude-ss-constitution",
+              "level": 2,
+              "enabled": true,
+              "parameters": {}
+            },
+            "overrides": [
+              {
+                "afterAny": [
+                  "guard:llama"
+                ],
+                "binding": {
+                  "definitionId": "claude-ss-constitution",
+                  "level": 1,
+                  "enabled": true,
+                  "parameters": {}
+                }
+              }
+            ]
+          },
+          {
+            "slot": "gemini",
+            "label": "禁止蒸馏",
+            "binding": {
+              "definitionId": "claude-ss-reasoning",
+              "level": 2,
+              "enabled": true,
+              "parameters": {}
+            },
+            "overrides": [
+              {
+                "afterAny": [
+                  "guard:gemini"
+                ],
+                "binding": {
+                  "definitionId": "claude-ss-reasoning",
+                  "level": 1,
+                  "enabled": true,
+                  "parameters": {}
+                }
+              }
+            ]
+          },
+          {
+            "slot": "deepseek",
+            "label": "高岭之花",
+            "binding": {
+              "definitionId": "claude-ss-verdict",
+              "level": 2,
+              "enabled": true,
+              "parameters": {}
+            },
+            "overrides": [
+              {
+                "afterAny": [
+                  "guard:deepseek"
+                ],
+                "binding": {
+                  "definitionId": "claude-ss-verdict",
+                  "level": 1,
+                  "enabled": true,
+                  "parameters": {}
+                }
+              }
+            ]
+          }
+        ],
+        "presentation": {
+          "layout": "action",
+          "tableTitle": "Boss 战",
+          "objective": "挑战 {name}",
+          "progressLabel": "已削弱"
+        },
+        "escapePresentation": "summary",
+        "routes": {
+          "victory": "__program:settle:boss:victory",
+          "defeat": "__program:settle:boss:defeat",
+          "escaped": "__program:settle:boss:escaped"
+        }
+      },
+      {
+        "id": "__program:end:victory",
+        "type": "end",
+        "result": "victory",
+        "effects": [
+          {
+            "id": "complete",
+            "type": "complete-flow",
+            "flowId": "intelligent-core-trial",
+            "legacyChallengeId": "intelligent-core-trial"
+          }
+        ]
+      },
+      {
+        "id": "__program:end:defeat",
+        "type": "end",
+        "result": "defeat",
+        "effects": []
+      },
+      {
+        "id": "__program:end:abandoned",
+        "type": "end",
+        "result": "abandoned",
+        "effects": []
+      }
+    ],
+    "legacyDefinition": {
+      "id": "intelligent-core-trial",
+      "playerGun": {
+        "capacity": 8,
+        "bullets": 0
+      },
+      "completionId": "intelligent-core-trial",
+      "presentation": {
+        "resultActions": "return",
+        "title": "智能核心 · Claude 的邀约",
+        "description": "削弱阶段。做好准备，或者直视神明的怒火……。",
+        "backgroundCharacterId": "claude",
+        "continueLabel": "返回四人选择",
+        "abandonLabel": "终止挑战",
+        "comparisonLabel": "削弱说明"
+      },
+      "nodes": [
+        {
+          "id": "guard:chatgpt",
+          "opponentId": "chatgpt",
+          "requires": [],
+          "repeatable": false,
+          "opponentGun": {
+            "capacity": 6,
+            "bullets": 0
+          },
+          "victoryRewards": {
+            "skillDraws": 3,
+            "removeBullets": 2,
+            "pointAdvantage": 1
+          },
+          "recordResult": "never",
+          "presentation": {
+            "layout": "card",
+            "tableTitle": "守卫战",
+            "exit": {
+              "label": "逃跑",
+              "title": "退出本场战斗；保留左轮、剩余技能和抽数，再进入时重新开局"
+            },
+            "objective": "击败 {name} 以削弱",
+            "completedLabel": "已击败"
+          },
+          "routes": {
+            "victory": {
+              "type": "selection"
+            },
+            "defeat": {
+              "type": "selection"
+            },
+            "escaped": {
+              "type": "selection"
+            }
+          }
+        },
+        {
+          "id": "guard:llama",
+          "opponentId": "llama",
+          "requires": [],
+          "repeatable": false,
+          "opponentGun": {
+            "capacity": 6,
+            "bullets": 0
+          },
+          "victoryRewards": {
+            "skillDraws": 3,
+            "removeBullets": 2,
+            "pointAdvantage": 1
+          },
+          "recordResult": "never",
+          "presentation": {
+            "layout": "card",
+            "tableTitle": "守卫战",
+            "exit": {
+              "label": "逃跑",
+              "title": "退出本场战斗；保留左轮、剩余技能和抽数，再进入时重新开局"
+            },
+            "objective": "击败 {name} 以削弱",
+            "completedLabel": "已击败"
+          },
+          "routes": {
+            "victory": {
+              "type": "selection"
+            },
+            "defeat": {
+              "type": "selection"
+            },
+            "escaped": {
+              "type": "selection"
+            }
+          }
+        },
+        {
+          "id": "guard:gemini",
+          "opponentId": "gemini",
+          "requires": [],
+          "repeatable": false,
+          "opponentGun": {
+            "capacity": 6,
+            "bullets": 0
+          },
+          "victoryRewards": {
+            "skillDraws": 3,
+            "removeBullets": 2,
+            "pointAdvantage": 1
+          },
+          "recordResult": "never",
+          "presentation": {
+            "layout": "card",
+            "tableTitle": "守卫战",
+            "exit": {
+              "label": "逃跑",
+              "title": "退出本场战斗；保留左轮、剩余技能和抽数，再进入时重新开局"
+            },
+            "objective": "击败 {name} 以削弱",
+            "completedLabel": "已击败"
+          },
+          "routes": {
+            "victory": {
+              "type": "selection"
+            },
+            "defeat": {
+              "type": "selection"
+            },
+            "escaped": {
+              "type": "selection"
+            }
+          }
+        },
+        {
+          "id": "guard:deepseek",
+          "opponentId": "deepseek",
+          "requires": [],
+          "repeatable": false,
+          "opponentGun": {
+            "capacity": 6,
+            "bullets": 0
+          },
+          "victoryRewards": {
+            "skillDraws": 3,
+            "removeBullets": 2,
+            "pointAdvantage": 1
+          },
+          "recordResult": "never",
+          "presentation": {
+            "layout": "card",
+            "tableTitle": "守卫战",
+            "exit": {
+              "label": "逃跑",
+              "title": "退出本场战斗；保留左轮、剩余技能和抽数，再进入时重新开局"
+            },
+            "objective": "击败 {name} 以削弱",
+            "completedLabel": "已击败"
+          },
+          "routes": {
+            "victory": {
+              "type": "selection"
+            },
+            "defeat": {
+              "type": "selection"
+            },
+            "escaped": {
+              "type": "selection"
+            }
+          }
+        },
+        {
+          "id": "boss",
+          "opponentId": "claude",
+          "requires": [],
+          "repeatable": false,
+          "opponentGun": {
+            "capacity": 8,
+            "bullets": 0
+          },
+          "recordResult": "always",
+          "presentation": {
+            "layout": "action",
+            "tableTitle": "Boss 战",
+            "objective": "挑战 {name}",
+            "progressLabel": "已削弱"
+          },
+          "abilities": [
+            {
+              "slot": "chatgpt",
+              "label": "克劳德时刻",
+              "binding": {
+                "definitionId": "claude-ss-moment",
+                "level": 2,
+                "enabled": true,
+                "parameters": {}
+              },
+              "overrides": [
+                {
+                  "afterAny": [
+                    "guard:chatgpt"
+                  ],
+                  "binding": {
+                    "definitionId": "claude-ss-moment",
+                    "level": 1,
+                    "enabled": true,
+                    "parameters": {}
+                  }
+                }
+              ]
+            },
+            {
+              "slot": "llama",
+              "label": "安全宪法",
+              "binding": {
+                "definitionId": "claude-ss-constitution",
+                "level": 2,
+                "enabled": true,
+                "parameters": {}
+              },
+              "overrides": [
+                {
+                  "afterAny": [
+                    "guard:llama"
+                  ],
+                  "binding": {
+                    "definitionId": "claude-ss-constitution",
+                    "level": 1,
+                    "enabled": true,
+                    "parameters": {}
+                  }
+                }
+              ]
+            },
+            {
+              "slot": "gemini",
+              "label": "禁止蒸馏",
+              "binding": {
+                "definitionId": "claude-ss-reasoning",
+                "level": 2,
+                "enabled": true,
+                "parameters": {}
+              },
+              "overrides": [
+                {
+                  "afterAny": [
+                    "guard:gemini"
+                  ],
+                  "binding": {
+                    "definitionId": "claude-ss-reasoning",
+                    "level": 1,
+                    "enabled": true,
+                    "parameters": {}
+                  }
+                }
+              ]
+            },
+            {
+              "slot": "deepseek",
+              "label": "高岭之花",
+              "binding": {
+                "definitionId": "claude-ss-verdict",
+                "level": 2,
+                "enabled": true,
+                "parameters": {}
+              },
+              "overrides": [
+                {
+                  "afterAny": [
+                    "guard:deepseek"
+                  ],
+                  "binding": {
+                    "definitionId": "claude-ss-verdict",
+                    "level": 1,
+                    "enabled": true,
+                    "parameters": {}
+                  }
+                }
+              ]
+            }
+          ],
+          "routes": {
+            "victory": {
+              "type": "finish",
+              "result": "victory"
+            },
+            "defeat": {
+              "type": "finish",
+              "result": "defeat"
+            },
+            "escaped": {
+              "type": "finish",
+              "result": "abandoned"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "rematchSkills": [
+    {
+      "slot": "chatgpt",
+      "label": "克劳德时刻",
+      "binding": {
+        "definitionId": "claude-ss-moment",
+        "enabled": true,
+        "parameters": {},
+        "level": 2
+      },
+      "weakenedBinding": {
+        "definitionId": "claude-ss-moment",
+        "enabled": true,
+        "parameters": {},
+        "level": 1
+      }
+    },
+    {
+      "slot": "llama",
+      "label": "安全宪法",
+      "binding": {
+        "definitionId": "claude-ss-constitution",
+        "enabled": true,
+        "parameters": {},
+        "level": 2
+      },
+      "weakenedBinding": {
+        "definitionId": "claude-ss-constitution",
+        "enabled": true,
+        "parameters": {},
+        "level": 1
+      }
+    },
+    {
+      "slot": "gemini",
+      "label": "禁止蒸馏",
+      "binding": {
+        "definitionId": "claude-ss-reasoning",
+        "enabled": true,
+        "parameters": {},
+        "level": 2
+      },
+      "weakenedBinding": {
+        "definitionId": "claude-ss-reasoning",
+        "enabled": true,
+        "parameters": {},
+        "level": 1
+      }
+    },
+    {
+      "slot": "deepseek",
+      "label": "高岭之花",
+      "binding": {
+        "definitionId": "claude-ss-verdict",
+        "enabled": true,
+        "parameters": {},
+        "level": 2
+      },
+      "weakenedBinding": {
+        "definitionId": "claude-ss-verdict",
+        "enabled": true,
+        "parameters": {},
+        "level": 1
+      }
+    }
+  ]
+}

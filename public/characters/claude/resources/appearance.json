@@ -1,0 +1,214 @@
+{
+  "skins": [
+    {
+      "id": "default",
+      "name": "原装"
+    },
+    {
+      "id": "autumn-correspondence",
+      "name": "秋日书信",
+      "unlock": {
+        "type": "defeat-character",
+        "count": 1
+      }
+    }
+  ],
+  "resources": {
+    "image:cover": {
+      "type": "image",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": "cover.png"
+        },
+        {
+          "skinId": "autumn-correspondence",
+          "value": "skins/autumn-correspondence/cover.png"
+        }
+      ]
+    },
+    "focus:cover": {
+      "type": "data",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "x": 0.5,
+            "y": 0.325
+          }
+        },
+        {
+          "skinId": "autumn-correspondence",
+          "value": {
+            "x": 0.5,
+            "y": 0.325
+          }
+        }
+      ]
+    },
+    "portrait:relaxed": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "relaxed.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 33.5,
+              "left": 125.9
+            }
+          }
+        },
+        {
+          "skinId": "autumn-correspondence",
+          "value": {
+            "image": "skins/autumn-correspondence/relaxed.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 33.5,
+              "left": 125.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:conflicted": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "conflicted.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 33.5,
+              "left": 125.9
+            }
+          }
+        },
+        {
+          "skinId": "autumn-correspondence",
+          "value": {
+            "image": "skins/autumn-correspondence/conflicted.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 33.5,
+              "left": 125.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:mocking": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "mocking.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 33.5,
+              "left": 125.9
+            }
+          }
+        },
+        {
+          "skinId": "autumn-correspondence",
+          "value": {
+            "image": "skins/autumn-correspondence/mocking.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 33.5,
+              "left": 125.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:threatened": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "threatened.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 33.5,
+              "left": 125.9
+            }
+          }
+        },
+        {
+          "skinId": "autumn-correspondence",
+          "value": {
+            "image": "skins/autumn-correspondence/threatened.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 33.5,
+              "left": 125.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:unconscious": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "unconscious-reclined.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 33.5,
+              "left": 125.9
+            }
+          }
+        },
+        {
+          "skinId": "autumn-correspondence",
+          "value": {
+            "image": "skins/autumn-correspondence/unconscious-reclined.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 33.5,
+              "left": 125.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:tap": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "tap.png",
+            "alt": "Claude 被戳后害羞"
+          }
+        },
+        {
+          "skinId": "autumn-correspondence",
+          "value": {
+            "image": "skins/autumn-correspondence/tap.png",
+            "alt": "Claude 被戳后害羞"
+          }
+        }
+      ]
+    }
+  }
+}

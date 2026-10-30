@@ -10,10 +10,15 @@ const rule = (id: string, when: DialogueCondition, anchor: DialogueAnchor, poolI
 export function createDialogueDraft(): CharacterDialogue {
   const rules: DialogueRule[] = [
     rule("PLAYER_TRIGGER_READY", fact("phase", { eq: "roulette-reaction" }), "round-acknowledged"),
+    rule("PLAYER_DEFEAT_PREVENTED", all(
+      fact("phase", { eq: "roulette-result" }),
+      fact("defeat-prevented", { eq: true }, { actor: "player" }),
+    ), "trigger-result"),
     rule("PLAYER_TRIGGER_HIT", all(
       fact("phase", { eq: "roulette-result" }),
       fact("trigger-actor", { eq: "player" }),
       fact("trigger-result", { eq: "fired" }),
+      not(fact("defeat-prevented", { eq: true }, { actor: "player" })),
     ), "trigger-result"),
     rule("PLAYER_SURVIVED_TRIGGER", all(
       fact("phase", { eq: "roulette-result" }),
@@ -21,10 +26,15 @@ export function createDialogueDraft(): CharacterDialogue {
       not(fact("trigger-result", { eq: "fired" })),
     ), "trigger-result"),
     rule("OPPONENT_TRIGGER_READY", fact("phase", { eq: "roulette-trigger" }), "round-acknowledged"),
+    rule("OPPONENT_DEFEAT_PREVENTED", all(
+      fact("phase", { eq: "roulette-result" }),
+      fact("defeat-prevented", { eq: true }, { actor: "opponent" }),
+    ), "trigger-result"),
     rule("OPPONENT_TRIGGER_HIT", all(
       fact("phase", { eq: "roulette-result" }),
       fact("trigger-actor", { eq: "opponent" }),
       fact("trigger-result", { eq: "fired" }),
+      not(fact("defeat-prevented", { eq: true }, { actor: "opponent" })),
     ), "trigger-result"),
     rule("OPPONENT_SURVIVED_TRIGGER", all(
       fact("phase", { eq: "roulette-result" }),
@@ -145,6 +155,8 @@ export function createDialogueDraft(): CharacterDialogue {
       "OPPONENT_TRIGGER_HIT",
       "SPECIAL_TWENTY_ONE_PUSH",
       "SPECIAL_LOW_PUSH",
+      "PLAYER_DEFEAT_PREVENTED",
+      "OPPONENT_DEFEAT_PREVENTED",
     ].map(id => [id, []])),
     rules,
     fallbackPoolId: "MATCH_START"

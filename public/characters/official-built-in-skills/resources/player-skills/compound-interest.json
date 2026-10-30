@@ -34,18 +34,24 @@
         "trigger": "on-ability-played",
         "effects": [
           {
-            "type": "add-derived-card",
+            "type": "acquire-card",
             "target": "owner",
-            "rank": {
-              "type": "scalar",
-              "value": {
-                "type": "event-hand-card-count",
-                "target": "owner"
+            "reportResult": true,
+            "choices": [
+              {
+                "source": "derived",
+                "rank": {
+                  "type": "scalar",
+                  "value": {
+                    "type": "event-hand-card-count",
+                    "target": "owner"
+                  }
+                },
+                "suit": {
+                  "type": "uniform-ability-rng"
+                }
               }
-            },
-            "suit": {
-              "type": "uniform-ability-rng"
-            }
+            ]
           }
         ]
       }

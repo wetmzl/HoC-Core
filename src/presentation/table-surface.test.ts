@@ -10,12 +10,18 @@ it("uses the original image content, including contain letterboxing and portrait
   expect(tablePortraitGeometry(landscape, { anchorY: .85 })?.offsetY).toBeCloseTo(22.4);
   expect(tablePortraitGeometry({ ...landscape, scale: 1.5 }, { anchorY: .85 })?.offsetY).toBeCloseTo(33.6);
   expect(tablePortraitGeometry({ ...landscape, naturalWidth: 768, naturalHeight: 1152 }, { anchorY: .9 })?.offsetY).toBeCloseTo(26);
+  expect(tablePortraitGeometry(landscape, { anchorY: 1, offsetX: -.06 })?.offsetX).toBeCloseTo(-13.44);
+  expect(tablePortraitGeometry({ ...landscape, scale: 1.5 }, { anchorY: 1, offsetX: -.06 })?.offsetX).toBeCloseTo(-20.16);
+  expect(tablePortraitGeometry({ ...landscape, naturalWidth: 768, naturalHeight: 1152 }, { anchorY: 1, offsetX: .1 })?.offsetX).toBeCloseTo(17.333333);
   expect(tablePortraitGeometry({ ...landscape, naturalWidth: 0 }, { anchorY: .9 })).toBeUndefined();
 });
 
 it("inherits the role default and resolves relative, absolute and host-managed image overrides", () => {
-  const presentation = { anchorY: .95, images: [{ image: "/art/tap.webp", anchorY: .85 }, { image: "blob:pose", anchorY: .9 }] };
-  expect(tablePortraitPlacement(undefined, "/art/base.webp").anchorY).toBe(1);
+  const presentation = { anchorY: .95, offsetX: -.06, images: [{ image: "/art/tap.webp", anchorY: .85 }, { image: "blob:pose", anchorY: .9, offsetX: 0 }] };
+  expect(tablePortraitPlacement(undefined, "/art/base.webp")).toEqual({ anchorY: 1, offsetX: 0 });
+  expect(tablePortraitPlacement(presentation, "/art/base.webp").offsetX).toBe(-.06);
+  expect(tablePortraitPlacement(presentation, "/art/tap.webp").offsetX).toBe(-.06);
+  expect(tablePortraitPlacement(presentation, "blob:pose").offsetX).toBe(0);
   expect(tablePortraitPlacement(presentation, "/art/base.webp").anchorY).toBe(.95);
   expect(tablePortraitPlacement(presentation, "https://example.test/art/tap.webp", "https://example.test/").anchorY).toBe(.85);
   expect(tablePortraitPlacement(presentation, "blob:pose").anchorY).toBe(.9);
@@ -40,10 +46,11 @@ it("keeps the tabletop fixed across direct src swaps, scale, loading and resize;
   const disconnect = vi.fn();
   vi.stubGlobal("ResizeObserver", class { constructor(callback: () => void) { resize = callback; } observe() {} disconnect = disconnect; });
   const elements: Record<string, unknown> = { ".table-playing": shell, ".table-bottom": bottom, ".character-strip": strip, ".character-portrait": portrait, ".player-zone .hand-row": hand };
-  const mounted = mountTableSurface({ querySelector: (selector: string) => elements[selector] } as HTMLElement, { anchorY: .9, images: [{ image: "/thinking.png", anchorY: .8 }] });
+  const mounted = mountTableSurface({ querySelector: (selector: string) => elements[selector] } as HTMLElement, { anchorY: .9, offsetX: -.06, images: [{ image: "/thinking.png", anchorY: .8 }] });
   const offset = () => parseFloat(strip.style.getPropertyValue("--table-art-anchor-offset"));
   const tableTop = () => bottom.style.getPropertyValue("--table-surface-top");
   expect(offset()).toBeCloseTo(20);
+  expect(parseFloat(strip.style.getPropertyValue("--table-art-offset-x"))).toBeCloseTo(-18);
   expect(tableTop()).toBe("-10px");
   // The previous image remains displayed while the new thinking art is loading.
   portrait.src = "https://example.test/thinking.png";
@@ -60,9 +67,11 @@ it("keeps the tabletop fixed across direct src swaps, scale, loading and resize;
   portrait.clientWidth = 224;
   resize();
   expect(offset()).toBeCloseTo(44.8);
+  expect(parseFloat(strip.style.getPropertyValue("--table-art-offset-x"))).toBeCloseTo(-20.16);
   expect(tableTop()).toBe("-10px");
   mounted.dispose();
   expect(disconnect).toHaveBeenCalledOnce();
+  expect(strip.style.getPropertyValue("--table-art-offset-x")).toBe("");
   expect(strip.style.getPropertyValue("--table-art-anchor-offset")).toBe("");
   portrait.dispatchEvent(new Event("load"));
   expect(strip.style.getPropertyValue("--table-art-anchor-offset")).toBe("");

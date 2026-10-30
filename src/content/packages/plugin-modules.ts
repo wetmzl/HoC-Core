@@ -6,7 +6,7 @@ import { gameAudio } from "../../audio/game-audio";
 import { SUPPORTED_PLUGIN_MODULE_API_VERSIONS } from "./plugin-version";
 import { assertPluginCreditsVersion, PluginModuleResourceSchema, type PluginCreditsDeclaration } from "./plugin-declarations";
 import { PluginSettingsSession } from "./plugin-settings";
-import { assertAuthoringSchema, assertAuthoringValue, type AuthoringSchema } from "./authoring-schema";
+import { authoringPresentationAllows, assertAuthoringSchema, assertAuthoringValue, type AuthoringSchema } from "./authoring-schema";
 import { sha256 } from "../storage/encoding";
 import type { ContentPackageAccess, ContentSource } from "./content-source";
 import { HocpkgPortablePathSchema } from "./schema";
@@ -129,7 +129,12 @@ export async function loadPluginModules(source: ContentSource, settings = new Pl
           document.head.append(style);
           for (const handler of registration.handlers) {
             claimed.add(handler.type);
-            handlers.push({ ...handler, parse(payload, context) {
+            handlers.push({ ...handler,
+              presentationAllows: (path, apiVersion) => {
+                const schema = extensionSchemas.get(`${handler.type}@${apiVersion}`);
+                return !!schema && authoringPresentationAllows(schema, path);
+              },
+              parse(payload, context) {
               const schema = extensionSchemas.get(`${handler.type}@${context.descriptor.apiVersion}`);
               if (schema) assertAuthoringValue(schema, payload, { files: context.manifest.files, resources: context.manifest.resources, requires: context.descriptor.requires });
               return handler.parse(payload, context);

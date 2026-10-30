@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LOBBY_BGM_URL, TABLE_BGM_URL } from "../resources/cache-policy";
 import { GameAudio, SOUND_SOURCES } from "./game-audio";
 
-class RecordingAudioElement {
+class RecordingAudioElement extends EventTarget {
   static readonly instances: RecordingAudioElement[] = [];
   readonly load = vi.fn();
   readonly play = vi.fn(async () => { this.paused = false; });
@@ -17,6 +17,7 @@ class RecordingAudioElement {
   currentTime = 0;
 
   constructor(src: string) {
+    super();
     this.src = src;
     RecordingAudioElement.instances.push(this);
   }
@@ -127,5 +128,23 @@ describe("staged game audio loading", () => {
     expect(match.volume).toBe(0);
     expect(lobby.paused).toBe(false);
     expect(lobby.volume).toBeCloseTo(0.18);
+  });
+
+  it("changes only music volume while effects keep their own levels and the master switch still mutes them", async () => {
+    vi.useFakeTimers(); vi.stubGlobal("Audio", RecordingAudioElement);
+    vi.stubGlobal("window", {});
+    vi.stubGlobal("document", { hidden: false });
+    const audio = new GameAudio();
+    audio.configure(true, .4); audio.unlock(); await vi.runAllTimersAsync();
+    const lobby = RecordingAudioElement.instances.find(track => track.src === LOBBY_BGM_URL)!;
+    expect(lobby.volume).toBeCloseTo(.4);
+    const effect = audio.createEffect("blob:effect", () => {});
+    audio.setMusicVolume(0); effect.play({ volume: .62 });
+    const cue = RecordingAudioElement.instances.find(track => track.src === "blob:effect")!;
+    expect(lobby.volume).toBe(0); expect(cue.volume).toBe(.62); expect(cue.paused).toBe(false);
+    audio.configure(false); expect(lobby.paused).toBe(true); expect(cue.paused).toBe(true);
+    audio.configure(true); await vi.runAllTimersAsync(); expect(lobby.volume).toBe(0);
+    audio.setMusicVolume(.4); expect(lobby.volume).toBe(.4);
+    effect.dispose(); await audio.dispose();
   });
 });
