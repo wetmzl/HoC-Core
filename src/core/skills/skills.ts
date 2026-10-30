@@ -3,6 +3,7 @@ import type { SeededRng, RngSnapshot } from "../rng/seeded";
 import type { CharacterDefeatRecord } from "../progression/defeats";
 import { INITIAL_PLAYER_SKILL_IDS, PLAYER_SKILL_DEFINITIONS } from "./definitions";
 import type { PlayerSkillDefinition, SkillDrawOffer, SkillTag } from "./types";
+import { canAcquirePlayerSkill, type SkillAcquisitionCounts } from "./acquisition";
 export { PLAYER_SKILL_INVENTORY_CAPACITY } from "./constants";
 
 export const SKILL_DRAW_CANDIDATE_COUNT = 3;
@@ -24,12 +25,14 @@ export function canGenerateSkillDraw(
   unlockedDefinitionIds: readonly string[],
   heldDefinitionIds: readonly string[],
   weightModifiers: readonly SkillDrawWeightModifier[] = [],
-  selectedSkillTags: readonly SkillTag[] = []
+  selectedSkillTags: readonly SkillTag[] = [],
+  acquisitionCounts: SkillAcquisitionCounts = {}
 ): boolean {
   const unlocked = new Set(unlockedDefinitionIds);
   const held = new Set(heldDefinitionIds);
   return PLAYER_SKILL_DEFINITIONS.some((skill) => unlocked.has(skill.id) && skill.drop.enabled
     && (skill.category === "active" || skill.stackable || !held.has(skill.id))
+    && canAcquirePlayerSkill(skill, acquisitionCounts, heldDefinitionIds)
     && calculatePlayerSkillWeight(skill, weightModifiers, selectedSkillTags) > 0);
 }
 
@@ -55,12 +58,14 @@ export function generateSkillDrawOffer(
   weightModifiers: readonly SkillDrawWeightModifier[] = [],
   offerId = "skill-draw",
   selectedSkillTags: readonly SkillTag[] = [],
-  candidateCount = SKILL_DRAW_CANDIDATE_COUNT
+  candidateCount = SKILL_DRAW_CANDIDATE_COUNT,
+  acquisitionCounts: SkillAcquisitionCounts = {}
 ): { readonly offer: SkillDrawOffer; readonly rng: RngSnapshot } {
   const unlocked = new Set(unlockedDefinitionIds);
   const held = new Set(heldDefinitionIds);
   const pool = PLAYER_SKILL_DEFINITIONS.filter((skill) => unlocked.has(skill.id) && skill.drop.enabled)
     .filter((skill) => skill.category === "active" || skill.stackable || !held.has(skill.id))
+    .filter((skill) => canAcquirePlayerSkill(skill, acquisitionCounts, heldDefinitionIds))
     .map((skill) => ({ skill, weight: calculatePlayerSkillWeight(skill, weightModifiers, selectedSkillTags) }))
     .filter((candidate) => candidate.weight > 0);
   const candidates: PlayerSkillDefinition[] = [];

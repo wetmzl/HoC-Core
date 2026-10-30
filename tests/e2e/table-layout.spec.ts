@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const longLine = "这是一段用于检查滚动阅读的示例台词。".repeat(35);
 const viewports = [{ width: 390, height: 844 }, { width: 320, height: 720 }, { width: 1280, height: 900 }];
 
-async function mountTable(page: Page, options: { text: string; reducedMotion?: boolean; phase?: string; advice?: boolean; displays?: number; rankBoard?: boolean; debug?: boolean; anchors?: boolean }) {
+async function mountTable(page: Page, options: { text: string; reducedMotion?: boolean; phase?: string; displays?: number; rankBoard?: boolean; debug?: boolean; anchors?: boolean }) {
   await page.goto(options.debug ? "/?debug" : "/");
   await expect(page.getByRole("button", { name: "开始游戏", exact: true })).toBeEnabled();
   if (options.reducedMotion === false) await page.clock.install();
@@ -41,7 +41,7 @@ async function mountTable(page: Page, options: { text: string; reducedMotion?: b
     const opponent = { ...base.opponent, hand: { cards: cards.slice(2, 4) }, bustLimit: undefined };
     const phase = options.phase ?? "turns";
     const match = { ...base, player, opponent, shoe: { cards, cursor: 4, shuffleIndex: 1 },
-      playerSkills: { ...base.playerSkills, drawCount: 2, drawOffer: null, advice: options.advice ? "hit" : null },
+      playerSkills: { ...base.playerSkills, drawCount: 2, drawOffer: null },
       round: { ...base.round, player, opponent, phase, currentActor: phase === "turns" ? "player" : null,
         outcome: phase === "turns" ? null : { winner: "player", reason: "comparison", penaltyTarget: "opponent", bulletsAdded: 1 } },
       history: [{ type: "ROUND_STARTED", roundIndex: 0 }] };
@@ -266,9 +266,9 @@ for (const viewport of viewports) {
 for (const phase of ["turns", "round-reveal", "roulette-trigger", "roulette-result", "round-end"]) {
   test(`窄屏回合按钮与技能建议 ${phase}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 320, height: 720 });
-    await mountTable(page, { text: longLine, phase, advice: true, displays: phase === "roulette-result" ? 0 : 3 });
+    await mountTable(page, { text: longLine, phase, displays: phase === "roulette-result" ? 0 : 3 });
     await assertLayout(page);
-    await expect(page.locator(".skill-advice")).toBeVisible();
+    await expect(page.locator(".skill-advice")).toHaveCount(0);
     await expect(page.locator(".action-dock button").first()).toBeVisible();
     await expect(page.locator("#dialogue-text")).toHaveText(longLine);
     if (phase === "roulette-result") {

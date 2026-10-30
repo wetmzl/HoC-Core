@@ -1,33 +1,34 @@
 import { describe, expect, it } from "vitest";
 import { createCard, createDerivedCard } from "../blackjack/card";
 import { createHand } from "../blackjack/hand";
-import { drawPhysicalCardForLimit } from "./card-zone-adapter";
+import { drawPhysicalCandidate } from "./card-zone-adapter";
 import { evaluateCondition } from "./conditions";
 import type { Rank } from "../blackjack/types";
 import type { AbilityInstance, AbilityWorld } from "./types";
 
+const selectForLimit = (shoe: import("../blackjack/types").ShoeState, hand: import("../blackjack/types").Hand, limit: number) => drawPhysicalCandidate(shoe, hand, { operator: "exactly", value: limit, evaluationLimit: limit }, "first") ?? drawPhysicalCandidate(shoe, hand, undefined, "lowest-value");
 const cards = (ranks: Rank[]) => ranks.map((rank,i)=>createCard("clubs",rank,"card-"+i));
 describe("physical card selection policies",()=>{
  it("prefers an exact limit over a smaller available card",()=>{
   const shoe={cards:cards(["A","2","8"]),cursor:0,shuffleIndex:0};
-  const result=drawPhysicalCardForLimit(shoe,createHand(cards(["10","3"])),21)!;
+  const result=selectForLimit(shoe,createHand(cards(["10","3"])),21)!;
   expect(result.card.attributes.rank).toBe("8");expect(result.shoe.cursor).toBe(1);
   expect(new Set(result.shoe.cards.map(c=>c.id))).toEqual(new Set(shoe.cards.map(c=>c.id)));
   expect(shoe.cursor).toBe(0);expect(shoe.cards[0].attributes.rank).toBe("A");
  });
  it("falls back to the lowest card rather than the highest safe resulting total",()=>{
-  expect(drawPhysicalCardForLimit({cards:cards(["2","7","K"]),cursor:0,shuffleIndex:0},createHand(cards(["5","3"])),21)!.card.attributes.rank).toBe("2");
+  expect(selectForLimit({cards:cards(["2","7","K"]),cursor:0,shuffleIndex:0},createHand(cards(["5","3"])),21)!.card.attributes.rank).toBe("2");
  });
  it("treats A as the lowest fallback and never repairs an already busted hand",()=>{
-  const result=drawPhysicalCardForLimit({cards:cards(["A","2","K"]),cursor:0,shuffleIndex:0},createHand(cards(["K","Q","5"])),21)!;
+  const result=selectForLimit({cards:cards(["A","2","K"]),cursor:0,shuffleIndex:0},createHand(cards(["K","Q","5"])),21)!;
   expect(result.card.attributes.rank).toBe("A");expect(result.card.attributes.source).toBe("shoe");
  });
  it("honors a modified limit and ignores already consumed cards",()=>{
-  const result=drawPhysicalCardForLimit({cards:cards(["8","A","4","7"]),cursor:1,shuffleIndex:0},createHand(cards(["10","3"])),20)!;
+  const result=selectForLimit({cards:cards(["8","A","4","7"]),cursor:1,shuffleIndex:0},createHand(cards(["10","3"])),20)!;
   expect(result.card.attributes.rank).toBe("7");expect(result.shoe.cursor).toBe(2);
  });
  it("fails without consuming anything on an empty shoe",()=>{
-  expect(drawPhysicalCardForLimit({cards:[],cursor:0,shuffleIndex:0},createHand(),21)).toBeUndefined();
+  expect(selectForLimit({cards:[],cursor:0,shuffleIndex:0},createHand(),21)).toBeUndefined();
  });
 });
 describe("acquired card source facts",()=>{

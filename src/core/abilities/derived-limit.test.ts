@@ -7,9 +7,7 @@ import { applyEffect } from "./effects";
 import { createAbilityRuntime } from "./runtime";
 import type { AbilityInstance, AbilityWorld, Effect } from "./types";
 
-const effect: Effect = { type: "add-derived-card-to-limit", target: "rival", fallback: {
-  rank: { type: "static", rank: "A" }, suit: { type: "uniform-ability-rng" }
-} };
+const effect: Effect = { type: "acquire-card", target: "rival", reveal: true, choices: [{ source: "derived", candidate: { type: "resulting-hand-total-exactly", value: { type: "bust-limit", target: "rival" } }, evaluationLimit: { type: "bust-limit", target: "rival" }, pick: "uniform-ability-rng" }, { source: "derived", rank: { type: "static", rank: "A" }, suit: { type: "uniform-ability-rng" } }] };
 function run(ranks: Rank[], limit = 21, empty = false) {
   const rng = new SeededRng("derived-limit");
   const world: AbilityWorld = { hands: { player: createHand(), opponent: createHand(ranks.map((rank, i) => createCard("clubs", rank, `held-${i}`))) },

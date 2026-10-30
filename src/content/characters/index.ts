@@ -4,4 +4,4 @@ export { defeatedCharacterIds, defeatedCharacterIdsByFirstDefeat, isCharacterUnl
 export { TABLE_ART_BASELINE } from "./types";
 export { TablePortraitSchema, tablePortraitPlacement } from "./table-portrait";
 export type { TablePortrait, TablePortraitImage } from "./table-portrait";
-export type { CharacterBadge, CharacterAssets, CharacterData, CharacterDefinition, CharacterMetadata, CharacterPortraitScales, CharacterPortraitSurface, CharacterUnlockCondition, RevolverPlacement, Tier } from "./types";
+export type { CharacterAppearance, CharacterBadge, CharacterAssets, CharacterData, CharacterDefinition, CharacterMetadata, CharacterPortraitScales, CharacterPortraitSurface, CharacterUnlockCondition, RevolverPlacement, Tier } from "./types";

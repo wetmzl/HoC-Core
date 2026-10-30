@@ -24,7 +24,7 @@ test("directory badges load with packages, stay in portrait corners and honor mo
     await page.locator("[data-load-more-defeated]").scrollIntoViewIfNeeded();
     await page.waitForTimeout(200);
   }
-  await expect(page.locator(".character-badge")).toHaveCount(5);
+  await expect(page.locator(".character-badge")).toHaveCount(6);
   const output = resolve("output/character-badges"); mkdirSync(output, { recursive: true });
   for (const width of [1280, 390, 320]) {
     await page.setViewportSize({ width, height: width === 320 ? 720 : 844 });
@@ -33,10 +33,16 @@ test("directory badges load with packages, stay in portrait corners and honor mo
       await expect.poll(() => badge.locator("img").evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
       const bounds = await badge.evaluate(element => {
         const icon = element.getBoundingClientRect(), portrait = element.parentElement!.getBoundingClientRect();
-        return { right: portrait.right - icon.right, bottom: portrait.bottom - icon.bottom, width: icon.width, label: element.getAttribute("aria-label") };
+        return { right: portrait.right - icon.right, bottom: portrait.bottom - icon.bottom, width: icon.width, tier: element.getAttribute("data-tier"), label: element.getAttribute("aria-label") };
       });
-      expect(bounds.right).toBeCloseTo(5); expect(bounds.bottom).toBeCloseTo(5);
-      expect(bounds.width).toBeLessThanOrEqual(38); expect(bounds.label).toContain("智能核心");
+      if (bounds.tier === "SS") {
+        expect(bounds.right).toBeGreaterThanOrEqual(5); expect(bounds.bottom).toBeGreaterThanOrEqual(10);
+        expect(bounds.width).toBeGreaterThan(38); expect(bounds.width).toBeLessThanOrEqual(48);
+      } else {
+        expect(bounds.right).toBeCloseTo(5); expect(bounds.bottom).toBeCloseTo(5);
+        expect(bounds.width).toBeLessThanOrEqual(38);
+      }
+      expect(bounds.label).toContain("智能核心");
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await page.screenshot({ path: resolve(output, `directory-${width}.png`), fullPage: true });
@@ -82,6 +88,7 @@ test("directory badges load with packages, stay in portrait corners and honor mo
 
 test("all six tier treatments keep the icon still and progressively decorate its frame", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByRole("button", { name: "开始游戏", exact: true })).toBeEnabled();
   await page.evaluate(async () => {
     const { characterCardMarkup } = await import("/src/lobby-screen-module.ts" as string);
     const tiers = ["D", "C", "B", "A", "S", "SS"];

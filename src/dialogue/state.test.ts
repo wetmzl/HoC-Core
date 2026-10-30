@@ -59,6 +59,11 @@ function triggerState(actor: "player" | "opponent", result: "fired" | "empty-cha
   };
 }
 
+function protectedTrigger(actor: "player" | "opponent"): MatchState {
+  const state = triggerState(actor, "fired");
+  return { ...state, history: [...state.history, { type: "DEFEAT_PREVENTED", actor, sourceInstanceId: "fixture-protection" }] };
+}
+
 const comparison = (winner: "player" | "opponent"): RoundOutcome => ({
   winner,
   reason: "comparison",
@@ -180,6 +185,8 @@ describe("declarative character dialogue resolver", () => {
       rouletteState("roulette-trigger"),
       triggerState("player", "fired"),
       triggerState("opponent", "fired"),
+      protectedTrigger("player"),
+      protectedTrigger("opponent"),
       reveal([card("A"), card("K")], [card("A", "hearts"), card("Q", "hearts")], push),
       reveal([card("10"), card("Q")], [card("10", "hearts"), card("9", "hearts")], comparison("player")),
       reveal([card("10"), card("3")], [card("8", "hearts"), card("5", "hearts")], push)

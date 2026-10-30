@@ -5,7 +5,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "chatgpt",
-    "version": "1.0.14"
+    "version": "1.0.21"
   },
   "metadata": {
     "title": "ChatGPT 角色包",
@@ -23,18 +23,20 @@
           "maintainer"
         ]
       }
-    ]
+    ],
+    "coverImage": "cover.png"
   },
   "resources": [
     {
       "id": "match",
       "type": "game.character-match",
-      "apiVersion": 7,
+      "apiVersion": 13,
       "entry": "resources/character-match.json",
       "requires": [
         "poker-face",
         "reset",
-        "dialogue"
+        "dialogue",
+        "appearance"
       ]
     },
     {
@@ -54,7 +56,7 @@
     {
       "id": "poker-face",
       "type": "game.ai-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/ai-skills/chatgpt-poker-face.json",
       "requires": [
         "follow-hit"
@@ -63,7 +65,7 @@
     {
       "id": "reset",
       "type": "game.ai-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/ai-skills/chatgpt-reset.json",
       "requires": [
         "reset-charge"
@@ -72,21 +74,36 @@
     {
       "id": "dialogue",
       "type": "game.character-dialogue",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/dialogue.json",
-      "requires": []
+      "requires": [
+        "appearance"
+      ]
     },
     {
       "id": "reward:chatgpt-reset-player",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/chatgpt-reset-player.json",
       "requires": [
         "match"
       ]
+    },
+    {
+      "id": "appearance",
+      "type": "presentation.character",
+      "apiVersion": 2,
+      "entry": "resources/appearance.json",
+      "requires": []
     }
   ],
   "files": [
+    {
+      "path": "ART-CREDITS.md",
+      "bytes": 796,
+      "sha256": "4509600d78b514c165f16c78b47ac1c1273aef0eae51b5845b4e6dbaa63235ad",
+      "mediaType": "text/markdown"
+    },
     {
       "path": "conflicted.png",
       "bytes": 1104411,
@@ -95,8 +112,8 @@
     },
     {
       "path": "cover.png",
-      "bytes": 508536,
-      "sha256": "1112d0736b45dbd1f2afb4697313e431881bb0cc320cbde396a52df05829d906",
+      "bytes": 2721455,
+      "sha256": "4314707f22d7cbfa044ed0f640acd42ee8d8614633b786c195f5d1f040a3525d",
       "mediaType": "image/png"
     },
     {
@@ -124,15 +141,21 @@
       "mediaType": "application/json"
     },
     {
+      "path": "resources/appearance.json",
+      "bytes": 4750,
+      "sha256": "258ba72f5b54f08b46439bc2cbefc9ca1b0a1ddc7d26c0621b68cd5c428d1365",
+      "mediaType": "application/json"
+    },
+    {
       "path": "resources/character-match.json",
-      "bytes": 3557,
-      "sha256": "e582558a0809b9e21c3b0cb47f534404c20ac51a7264bc6d556e872fa8db7f7e",
+      "bytes": 5654,
+      "sha256": "03f833ef64014df03e655ab19d96a38eb6c8657efd31eba108f8ff104a6ea1ac",
       "mediaType": "application/json"
     },
     {
       "path": "resources/dialogue.json",
-      "bytes": 28069,
-      "sha256": "091b8e9b843cebd2612dc20aba6f50c367b8e22bbd4c72201d809e84b591fb2e",
+      "bytes": 30595,
+      "sha256": "6a8f2ec9614df82d59949209ced60e83c52689fa2b3703cb808afb838992a30c",
       "mediaType": "application/json"
     },
     {
@@ -152,6 +175,48 @@
       "bytes": 80,
       "sha256": "24ed5ae1ed99903d16220f41b7c84f3c003ef493bd731ebc524f02becab29890",
       "mediaType": "application/json"
+    },
+    {
+      "path": "skins/moonwhite-concierge/conflicted.png",
+      "bytes": 2182119,
+      "sha256": "e7e23eaf11d57faedbdd792deb2d51d3d67fcae847258b2b1379afdb75710a38",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/moonwhite-concierge/cover.png",
+      "bytes": 2822781,
+      "sha256": "d2ec5769ef073a30b48918fd3b22509da04d440f682efe5741e36690337a6386",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/moonwhite-concierge/mocking.png",
+      "bytes": 2268271,
+      "sha256": "a48746f1c3918fc4ce9a282786bdd8cfcfd3bc42af29f7605c22f592ada1d14d",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/moonwhite-concierge/relaxed.png",
+      "bytes": 2158649,
+      "sha256": "74117f95c4c67f62011af29ba79bba7b22e8d64b74ee70e4add234ad389c391f",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/moonwhite-concierge/tap.png",
+      "bytes": 2168183,
+      "sha256": "9f31b3ac36d36d65f3506e270d951ac765dce2451483a2d495590fe6c32a5281",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/moonwhite-concierge/threatened.png",
+      "bytes": 2260591,
+      "sha256": "1ad30d4de0b16d9258566930cf7ca1f1c4a7b5407c4fd8b0d4d6f1249287d595",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/moonwhite-concierge/unconscious-reclined.png",
+      "bytes": 2369515,
+      "sha256": "dd608d70cae30f0661f096d492e91f0c233d87f6a4485e30f9b1643944ae0f65",
+      "mediaType": "image/png"
     },
     {
       "path": "tap.png",

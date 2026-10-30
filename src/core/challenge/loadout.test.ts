@@ -1,0 +1,20 @@
+import { CHARACTER_CATALOG } from "../../content/characters";
+import { expect, it } from "vitest";
+import { createChallenge } from "./reducer";
+import legacyTrial from "./fixtures/legacy-challenge.json";
+import { ChallengeDefinitionSchema as LegacyChallengeSchema } from "./schema";
+const getChallenges = () => [LegacyChallengeSchema.parse(legacyTrial)];
+import { createMatch } from "../match/reducer";
+import { encounterGuns } from "../roulette/loadout";
+import { deathProbability } from "../roulette/roulette";
+it("uses eight chambers throughout a challenge, six on guards and eight on Boss rematches", () => {
+  const run = createChallenge("guns", getChallenges()[0], getChallenges()[0].guards.map(guard => ({ opponentId: guard.characterId, timestamp: new Date().toISOString() })), CHARACTER_CATALOG);
+  expect(run.playerGun).toEqual({ capacity: 8, bullets: 0 });
+  const guard = createMatch("guard", encounterGuns(false, { ...run.playerGun, bullets: 6 }));
+  expect(guard.roulette).toEqual({ player: { capacity: 8, bullets: 6 }, opponent: { capacity: 6, bullets: 0 } });
+  expect(deathProbability(guard.roulette.player)).toBe(0.75);
+  expect(createMatch("boss", encounterGuns(true, guard.roulette.player)).roulette).toEqual({ player: { capacity: 8, bullets: 6 }, opponent: { capacity: 8, bullets: 0 } });
+  expect(createMatch("rematch", encounterGuns(true)).roulette).toEqual({ player: { capacity: 8, bullets: 0 }, opponent: { capacity: 8, bullets: 0 } });
+  expect(createMatch("ordinary", encounterGuns(false)).roulette.player.capacity).toBe(6);
+  expect(() => createMatch("bad", { opponentGun: { capacity: 8, bullets: 9 } })).toThrow();
+});

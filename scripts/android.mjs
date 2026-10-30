@@ -21,14 +21,14 @@ function javaHome() {
 }
 
 const args = process.argv.slice(2);
-if (args[0] !== "build" || args.length > 2 || (args[1] && args[1] !== "--debug")) {
-  throw new Error("用法：node scripts/android.mjs build [--debug]（默认 Release）");
+if (args[0] !== "build" || args.length > 2 || (args[1] && !["--debug", "--boss-dev"].includes(args[1]))) {
+  throw new Error("用法：node scripts/android.mjs build [--debug|--boss-dev]（默认 Release）");
 }
 if (!existsSync(gradle)) throw new Error("Android 工程不存在，请先运行 npm run android:sync。");
 const detectedJavaHome = javaHome();
 if (!detectedJavaHome) throw new Error("找不到 JDK；请设置 JAVA_HOME 或使用 Android Studio 自带 JBR。");
 
-const result = spawnSync(gradle, [args[1] === "--debug" ? ":app:assembleDebug" : ":app:assembleRelease"], {
+const result = spawnSync(gradle, [args[1] === "--boss-dev" ? ":app:assembleBossdev" : args[1] === "--debug" ? ":app:assembleDebug" : ":app:assembleRelease"], {
   cwd: androidRoot,
   env: { ...process.env, JAVA_HOME: detectedJavaHome },
   stdio: "inherit"

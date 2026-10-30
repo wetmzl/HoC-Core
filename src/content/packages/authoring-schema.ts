@@ -9,7 +9,7 @@ export interface AuthoringContext {
   readonly resources?: readonly { id: string; type: string }[];
   readonly requires?: readonly string[];
 }
-const keywords = new Set(["$schema", "$id", "$defs", "$ref", "title", "description", "default", "examples", "type", "enum", "const", "properties", "required", "additionalProperties", "items", "minItems", "maxItems", "uniqueItems", "contains", "minLength", "maxLength", "pattern", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "allOf", "anyOf", "oneOf", "if", "then", "else", "x-ui", "x-uniqueBy", "x-mediaType", "x-resourceType", "x-requires", "x-normalized-region", "x-portable-path", "x-enumFrom"]);
+const keywords = new Set(["$schema", "$id", "$defs", "$ref", "title", "description", "default", "examples", "type", "enum", "const", "properties", "required", "additionalProperties", "items", "minItems", "maxItems", "uniqueItems", "contains", "minLength", "maxLength", "pattern", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "allOf", "anyOf", "oneOf", "if", "then", "else", "x-ui", "x-uniqueBy", "x-mediaType", "x-resourceType", "x-requires", "x-normalized-region", "x-portable-path", "x-enumFrom", "x-presentation"]);
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const equal = (a: unknown, b: unknown): boolean => {
   if (a === b) return true;
@@ -30,7 +30,7 @@ export function assertAuthoringSchema(schema: unknown): asserts schema is Author
     }
     for (const key of ["minItems", "maxItems", "minLength", "maxLength"]) if (node[key] !== undefined && (!Number.isInteger(node[key]) || Number(node[key]) < 0)) throw new Error(`${key} 必须是非负整数`);
     if (node.multipleOf !== undefined && Number(node.multipleOf) <= 0) throw new Error("multipleOf 必须为正数");
-    for (const key of ["additionalProperties", "uniqueItems", "x-requires", "x-normalized-region", "x-portable-path"]) if (node[key] !== undefined && typeof node[key] !== "boolean") throw new Error(`${key} 必须是布尔值`);
+    for (const key of ["additionalProperties", "uniqueItems", "x-requires", "x-normalized-region", "x-portable-path", "x-presentation"]) if (node[key] !== undefined && typeof node[key] !== "boolean") throw new Error(`${key} 必须是布尔值`);
     if (node.required !== undefined && (!Array.isArray(node.required) || node.required.some(v => typeof v !== "string") || new Set(node.required).size !== node.required.length)) throw new Error("required 必须是唯一字符串数组");
     if (node.enum !== undefined && (!Array.isArray(node.enum) || !node.enum.length)) throw new Error("enum 必须是非空数组");
     for (const key of ["properties", "$defs"]) if (node[key] !== undefined) {
@@ -130,4 +130,25 @@ export function validateAuthoringValue(schema: AuthoringSchema, value: unknown, 
 export function assertAuthoringValue(schema: AuthoringSchema, value: unknown, context: AuthoringContext = {}): void {
   const issues = validateAuthoringValue(schema, value, context);
   if (issues.length) throw new Error(issues.map(i => `${i.path || "/"}: ${i.message}`).join("；"));
+}
+
+/** A plugin explicitly marks cosmetic fields. References to rule/identity fields stay rejected. */
+export function authoringPresentationAllows(schema: AuthoringSchema, path: readonly string[]): boolean {
+  const visit = (node: AuthoringSchema, index: number, depth: number): boolean => {
+    if (depth > 64) return false;
+    if (node["x-presentation"] === true) return true;
+    if (typeof node.$ref === "string") {
+      const target = (schema.$defs as Record<string, AuthoringSchema> | undefined)?.[node.$ref.split("/").at(-1)!];
+      if (target && visit(target, index, depth + 1)) return true;
+    }
+    for (const key of ["allOf", "anyOf", "oneOf", "then", "else"]) {
+      const branches = Array.isArray(node[key]) ? node[key] as AuthoringSchema[] : object(node[key]) ? [node[key] as AuthoringSchema] : [];
+      if (branches.some(branch => visit(branch, index, depth + 1))) return true;
+    }
+    if (index === path.length) return false;
+    if (node.type === "array" && object(node.items)) return visit(node.items as AuthoringSchema, index + 1, depth + 1);
+    const child = (node.properties as Record<string, AuthoringSchema> | undefined)?.[path[index]];
+    return !!child && visit(child, index + 1, depth + 1);
+  };
+  return visit(schema, 0, 0);
 }

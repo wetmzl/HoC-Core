@@ -55,7 +55,7 @@ describe("generic rank records", () => {
   });
   it("tracks intermediate acquisitions even when another effect removes the new card", () => {
     const f = fixture();
-    const result = applyEffects([{ type: "add-derived-card", target: "owner", rank: { type: "static", rank: "3" }, suit: { type: "static", suit: "clubs" } }, { type: "replace-hand-card-with-derived", target: "owner", card: "last-card", rank: { type: "static", rank: "4" }, suit: { type: "static", suit: "clubs" } }], { ...f, ability: f.instance, rng: new SeededRng("acquired"), event: { trigger: "on-ability-played", sourceEventId: "acquired" } });
+    const result = applyEffects([{ type: "acquire-card", target: "owner", reportResult: true, choices: [{ source: "derived", rank: { type: "static", rank: "3" }, suit: { type: "static", suit: "clubs" } }] }, { type: "replace-hand-card-with-derived", target: "owner", card: "last-card", rank: { type: "static", rank: "4" }, suit: { type: "static", suit: "clubs" } }], { ...f, ability: f.instance, rng: new SeededRng("acquired"), event: { trigger: "on-ability-played", sourceEventId: "acquired" } });
     expect(result.acquiredCards?.map(entry => entry.card.attributes.rank)).toEqual(["3", "4"]);
   });
   it("replays random selection exactly and projection never mutates the stream", () => {
@@ -115,7 +115,7 @@ describe("generic rank records", () => {
   });
   it("gives distinct acquisition event identities to different instances of the same rule", () => {
     const f = fixture();
-    const definition = { ...f.registry.definitions[0], displays: [], rules: [{ id: "create", trigger: "on-round-start", effects: [{ type: "add-derived-card", target: "owner", rank: { type: "static", rank: "2" }, suit: { type: "static", suit: "clubs" } }] }] };
+    const definition = { ...f.registry.definitions[0], displays: [], rules: [{ id: "create", trigger: "on-round-start", effects: [{ type: "acquire-card", target: "owner", reportResult: true, choices: [{ source: "derived", rank: { type: "static", rank: "2" }, suit: { type: "static", suit: "clubs" } }] }] }] };
     const observer = { ...definition, id: "example-acquisition-observer", rules: [{ id: "observe", trigger: "after-card-acquired", conditions: [{ type: "actor-is", actor: "owner" }], limit: { perEvent: 1 }, effects: [{ type: "add-skill-draws", target: "owner", amount: 1 }] }] };
     const registry = createStandaloneAbilityRegistry([definition, observer], []);
     let runtime = createAbilityRuntime(new SeededRng("event-identities").snapshot());
@@ -126,8 +126,8 @@ describe("generic rank records", () => {
   it("rechecks hand mutations made in the post-Hit window before applying forced Stand", () => {
     const definition = { id: "example-post-hit-mutation", name: "Post Hit", description: "Post-Hit hand mutation", sourceKind: "ai-skill", primaryDomain: "gambler", tags: ["hand-mutation"], activation: { type: "automatic" },
       rules: [{ id: "mutate", trigger: "after-hit-resolved", effects: [
-        { type: "add-derived-card", target: "owner", rank: { type: "static", rank: "K" }, suit: { type: "static", suit: "clubs" } },
-        { type: "add-derived-card", target: "owner", rank: { type: "static", rank: "K" }, suit: { type: "static", suit: "hearts" } },
+        { type: "acquire-card", target: "owner", reportResult: true, choices: [{ source: "derived", rank: { type: "static", rank: "K" }, suit: { type: "static", suit: "clubs" } }] },
+        { type: "acquire-card", target: "owner", reportResult: true, choices: [{ source: "derived", rank: { type: "static", rank: "K" }, suit: { type: "static", suit: "hearts" } }] },
         { type: "force-stand", target: "owner" }
       ] }] };
     installAbilityRegistry([...original.definitions, definition], original.statuses, original.catalogVersion);

@@ -1,6 +1,7 @@
 import type { ContentFileSource, ContentOperationProgress } from "./contracts";
 import { archiveBlob, extractZipEntry, zipIndex } from "./browser-archive";
 import { sha256 } from "./encoding";
+import { copyBrowserFiles } from "./browser-file-copy";
 
 const scope = globalThis as unknown as { onmessage: (event: MessageEvent) => void; postMessage(value: unknown): void };
 let cancelled = false;
@@ -64,14 +65,12 @@ scope.onmessage = (event) => {
       check(); return results;
     }
     if (action === "copyMany") {
-      const results = [];
-      for (const file of files) {
+      return copyBrowserFiles(files, async file => {
         check();
-        // Only this file's bytes survive while its digest and OPFS write settle.
-        results.push(await write(root, file.destination, new Uint8Array(await (await blobFor(file.source, root)).arrayBuffer())));
-        progress("copying", file.destination, results.at(-1)!.bytes);
-      }
-      check(); return results;
+        const digest = await write(root, file.destination, new Uint8Array(await (await blobFor(file.source, root)).arrayBuffer()));
+        progress("copying", file.destination, digest.bytes);
+        return digest;
+      }, check);
     }
     const blob = await blobFor(source, root);
     check();

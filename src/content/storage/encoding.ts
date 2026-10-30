@@ -1,6 +1,22 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+export class ContentDigestUnavailableError extends Error {
+  constructor(cause?: unknown) {
+    super("当前环境无法校验内容数据，请重新打开游戏；若仍有问题，请检查浏览器或系统网页组件更新。", { cause });
+    this.name = "ContentDigestUnavailableError";
+  }
+}
+
+export function assertContentDigestAvailable(): void {
+  try {
+    if (typeof globalThis.crypto?.subtle?.digest === "function") return;
+  } catch (error) {
+    throw new ContentDigestUnavailableError(error);
+  }
+  throw new ContentDigestUnavailableError();
+}
+
 export function encodeText(value: string): Uint8Array {
   return encoder.encode(value);
 }
@@ -23,7 +39,14 @@ export function stableJson(value: unknown): string {
 export async function sha256(bytes: Uint8Array): Promise<string> {
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
-  const digest = await crypto.subtle.digest("SHA-256", copy.buffer);
+  let digest: ArrayBuffer;
+  try {
+    assertContentDigestAvailable();
+    digest = await crypto.subtle.digest("SHA-256", copy.buffer);
+  } catch (error) {
+    if (error instanceof ContentDigestUnavailableError) throw error;
+    throw new ContentDigestUnavailableError(error);
+  }
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 

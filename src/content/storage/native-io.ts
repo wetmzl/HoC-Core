@@ -12,10 +12,11 @@ interface NativeContentIo {
   closeArchive(options: unknown): Promise<void>;
   cancel(options: unknown): Promise<void>;
   pickFile(options: unknown): Promise<{ file: ContentImportFile | null }>;
+  readRange(options: unknown): Promise<{ data: string }>;
   addListener(event: "progress", listener: (progress: ContentOperationProgress & { operationId: string }) => void): Promise<PluginListenerHandle>;
 }
 const plugin = registerPlugin<NativeContentIo>("ContentIo");
-async function operation<T>(method: "inspect" | "copy" | "openArchive" | "extract" | "pickFile" | "copyMany" | "extractMany", args: Record<string, unknown>, options?: ContentOperationOptions): Promise<T> {
+async function operation<T>(method: "inspect" | "copy" | "openArchive" | "extract" | "pickFile" | "copyMany" | "extractMany" | "readRange", args: Record<string, unknown>, options?: ContentOperationOptions): Promise<T> {
   checkCancelled(options);
   const operationId = crypto.randomUUID();
   const listener = options?.onProgress ? await plugin.addListener("progress", progress => {
@@ -39,6 +40,11 @@ async function operation<T>(method: "inspect" | "copy" | "openArchive" | "extrac
   }
 }
 export const nativeIo = {
+  async readRange(source: ContentFileSource, offset: number, length: number, options?: ContentOperationOptions): Promise<Uint8Array> {
+    if (source.kind !== "stored") throw new Error("当前文件来源无法用于原生导入，请重新选择文件。");
+    const result = await operation<{ data: string }>("readRange", { source, offset, length }, options);
+    return Uint8Array.from(atob(result.data), character => character.charCodeAt(0));
+  },
   async inspect(paths: readonly string[], options?: ContentOperationOptions) {
     return (await operation<{ results: ContentDigest[] }>("inspect", { paths }, options)).results;
   },
@@ -49,6 +55,7 @@ export const nativeIo = {
     return (await operation<{ results: ContentDigest[] }>("copyMany", { files }, options)).results;
   },
   async openArchive(source: ContentFileSource, options?: ContentOperationOptions): Promise<ContentArchive> {
+    if (source.kind !== "stored") throw new Error("当前文件来源无法用于原生导入，请重新选择文件。");
     const archive = await operation<{ token: string; entries: ContentArchiveEntry[] }>("openArchive", { source }, options);
     return { entries: archive.entries,
       extract: (path, destination, options) => operation<ContentDigest>("extract", { token: archive.token, path, destination }, options),

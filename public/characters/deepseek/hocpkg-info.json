@@ -5,7 +5,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "deepseek",
-    "version": "1.1.12"
+    "version": "1.1.19"
   },
   "metadata": {
     "title": "DeepSeek 角色包",
@@ -24,23 +24,25 @@
           "maintainer"
         ]
       }
-    ]
+    ],
+    "coverImage": "cover.png"
   },
   "resources": [
     {
       "id": "match",
       "type": "game.character-match",
-      "apiVersion": 7,
+      "apiVersion": 13,
       "entry": "resources/character-match.json",
       "requires": [
         "ai:deepseek-stealing-food",
-        "dialogue"
+        "dialogue",
+        "appearance"
       ]
     },
     {
       "id": "ai:deepseek-stealing-food",
       "type": "game.ai-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/ai-skills/deepseek-stealing-food.json",
       "requires": [
         "status:deepseek-stealing-food-penalty"
@@ -56,9 +58,11 @@
     {
       "id": "dialogue",
       "type": "game.character-dialogue",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/dialogue.json",
-      "requires": []
+      "requires": [
+        "appearance"
+      ]
     },
     {
       "id": "status:deepseek-stealing-food-player-penalty",
@@ -70,15 +74,28 @@
     {
       "id": "reward:deepseek-stealing-food-player",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/deepseek-stealing-food-player.json",
       "requires": [
         "match",
         "status:deepseek-stealing-food-player-penalty"
       ]
+    },
+    {
+      "id": "appearance",
+      "type": "presentation.character",
+      "apiVersion": 2,
+      "entry": "resources/appearance.json",
+      "requires": []
     }
   ],
   "files": [
+    {
+      "path": "ART-CREDITS.md",
+      "bytes": 797,
+      "sha256": "9b00c0b98a313764fb7b7e3bb12cd7e746bdce366e4c75250a357dd1361555a2",
+      "mediaType": "text/markdown"
+    },
     {
       "path": "conflicted.png",
       "bytes": 1026105,
@@ -87,8 +104,8 @@
     },
     {
       "path": "cover.png",
-      "bytes": 490959,
-      "sha256": "386519405fc5cdcd5274502707851fd94e95bcd8d2edd8fddeb802421e87286a",
+      "bytes": 2750147,
+      "sha256": "db30ec4154ce09826b6b3ee8d8f23da440b570a68ba4a59f783df6d994539189",
       "mediaType": "image/png"
     },
     {
@@ -110,15 +127,21 @@
       "mediaType": "application/json"
     },
     {
+      "path": "resources/appearance.json",
+      "bytes": 4709,
+      "sha256": "2fd832471f8efab3414e4f6643174fc668fac6ac1f64baacb0856e63ce438a40",
+      "mediaType": "application/json"
+    },
+    {
       "path": "resources/character-match.json",
-      "bytes": 2602,
-      "sha256": "9c113fd5fe808b8dcbebfecd8f0d51b3e58291c4a78bb35bd6b6d6cac0151026",
+      "bytes": 4681,
+      "sha256": "bcd21898b2bc28271d146effec76cc774b49b8413eaf18ad6905cb66a3016caa",
       "mediaType": "application/json"
     },
     {
       "path": "resources/dialogue.json",
-      "bytes": 27504,
-      "sha256": "44afb915d1e8d9e7aa0c2e76b0b99a3b131784bbbb21fae1cfaeb4901ec2d36c",
+      "bytes": 30028,
+      "sha256": "f28f50b2030814d9627c6434b44048ed34695e77345d2eefe8239d02a28f42d6",
       "mediaType": "application/json"
     },
     {
@@ -138,6 +161,48 @@
       "bytes": 734,
       "sha256": "2a6edbed0c8d3fd167a6336885515a07261da12446791569ddd1864f781dd6a6",
       "mediaType": "application/json"
+    },
+    {
+      "path": "skins/voyage-navigator/conflicted.png",
+      "bytes": 2024848,
+      "sha256": "3ee8add6f267a46db83311dab81a205eb7adcc1a77b18026c9d967a211009a04",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/voyage-navigator/cover.png",
+      "bytes": 2805493,
+      "sha256": "2b3019dfc5e9f8c1da7f1db7c0d32c3c5e0c0dbdfc98b960448242a213b72a0a",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/voyage-navigator/mocking.png",
+      "bytes": 2089169,
+      "sha256": "3c9b04bf74432efb994a342320c79320b8224aba5b4ed962e8ed5941f25eb800",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/voyage-navigator/relaxed.png",
+      "bytes": 2026772,
+      "sha256": "79fc9d3fbee49aab004f3bc30ede4b6d8691951a7c3efb391823779a6d24250c",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/voyage-navigator/tap.png",
+      "bytes": 1898014,
+      "sha256": "b22bf0f7cf22190cb401f66bf41de58d2681b451777f8a226bdfc37bb4b2ad9e",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/voyage-navigator/threatened.png",
+      "bytes": 2085473,
+      "sha256": "2793a6bf8b502b16187ee439b3067750243cab7ec884d348b1ae925e84554f46",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/voyage-navigator/unconscious-reclined.png",
+      "bytes": 2102116,
+      "sha256": "24f9c2f45d65c5aaddbb92ec591892d640f605c9ba438426920417deaf19a52c",
+      "mediaType": "image/png"
     },
     {
       "path": "tap.png",

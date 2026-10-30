@@ -102,6 +102,41 @@ it("preserves disabled sound, ducking and visibility restoration for package mus
   player.duck(false); expect(find("blob:character").volume).toBeCloseTo(0.18);
 });
 
+it("applies the saved music level to lobby and package tracks, preserving ducking and pause/resume", async () => {
+  player.setMusicVolume(.45); player.unlock(); await vi.runAllTimersAsync();
+  const lobby = find(LOBBY_BGM_URL);
+  expect(lobby.volume).toBeCloseTo(.45);
+  const calls = lobby.play.mock.calls.length;
+  player.setMusicVolume(.63); expect(lobby.volume).toBeCloseTo(.63);
+  expect(lobby.play).toHaveBeenCalledTimes(calls);
+  player.setMatchMusic(["blob:custom"]); player.setBgmScene("match"); await vi.runAllTimersAsync();
+  const custom = find("blob:custom"); expect(custom.volume).toBeCloseTo(.63);
+  player.duck(true); expect(custom.volume).toBeCloseTo(.28);
+  player.setMusicVolume(.45); expect(custom.volume).toBeCloseTo(.2);
+  player.pauseBgm(); player.restoreBgm(); await vi.runAllTimersAsync();
+  expect(custom.volume).toBeCloseTo(.2);
+  player.duck(false); expect(custom.volume).toBeCloseTo(.45);
+  player.configure(false); player.setMusicVolume(.27); expect(custom.paused).toBe(true);
+  player.configure(true); await vi.runAllTimersAsync(); expect(custom.volume).toBeCloseTo(.27);
+});
+
+it("scales both sides of an active crossfade immediately, including mute and unmute", async () => {
+  player.unlock(); await vi.runAllTimersAsync();
+  player.setBgmScene("match"); await vi.advanceTimersByTimeAsync(400);
+  const lobby = find(LOBBY_BGM_URL), match = find(TABLE_BGM_URL);
+  expect(lobby.volume).toBeCloseTo(.09); expect(match.volume).toBeCloseTo(.09);
+  player.setMusicVolume(.6);
+  expect(lobby.volume).toBeCloseTo(.3); expect(match.volume).toBeCloseTo(.3);
+  player.setMusicVolume(0);
+  expect(lobby.volume).toBe(0); expect(match.volume).toBe(0);
+  await vi.advanceTimersByTimeAsync(80);
+  expect(lobby.volume).toBe(0); expect(match.volume).toBe(0);
+  player.setMusicVolume(1); await vi.runAllTimersAsync();
+  expect(lobby.paused).toBe(true); expect(match.volume).toBe(1);
+  for (const invalid of [-1, 2, NaN, Infinity]) player.setMusicVolume(invalid);
+  expect(match.volume).toBe(1);
+});
+
 it("ignores stale errors and late playback after source replacement or disposal", async () => {
   player.setMatchMusic(["blob:old"]); player.setBgmScene("match"); player.preloadMatch();
   const old = find("blob:old");

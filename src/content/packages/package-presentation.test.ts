@@ -36,7 +36,7 @@ const characterBody = {
 
 describe("package presentation", () => {
   it("shows a declared cover for a non-character package without reading resource data", async () => {
-    const base = manifest([{ id: "skill", type: "game.player-skill", apiVersion: 2, entry: "resources/match.json", requires: [] }]);
+    const base = manifest([{ id: "skill", type: "game.player-skill", apiVersion: 4, entry: "resources/match.json", requires: [] }]);
     const skillOnly = { ...base, metadata: { ...base.metadata, coverImage: "cover.png" } };
     expect(HocpkgManifestSchema.safeParse(skillOnly).success).toBe(true);
     const readJson = vi.fn();
@@ -57,9 +57,9 @@ describe("package presentation", () => {
     const value = await loadPackagePresentation({
       manifest: manifest([
         { id: "match", type: "game.character-match", apiVersion: 4, entry: "resources/match.json", requires: [] },
-        { id: "reward", type: "game.player-skill", apiVersion: 2, entry: "resources/match.json", requires: [] },
-        { id: "talent", type: "game.talent", apiVersion: 2, entry: "resources/match.json", requires: [] },
-        { id: "ai", type: "game.ai-skill", apiVersion: 2, entry: "resources/match.json", requires: [] },
+        { id: "reward", type: "game.player-skill", apiVersion: 4, entry: "resources/match.json", requires: [] },
+        { id: "talent", type: "game.talent", apiVersion: 4, entry: "resources/match.json", requires: [] },
+        { id: "ai", type: "game.ai-skill", apiVersion: 4, entry: "resources/match.json", requires: [] },
         { id: "status", type: "game.status", apiVersion: 1, entry: "resources/match.json", requires: [] }
       ]),
       readJson: async () => characterBody,
@@ -76,7 +76,7 @@ describe("package presentation", () => {
   });
 
   it("keeps skill-only and malformed character packages on the fallback path", async () => {
-    const skillOnly = manifest([{ id: "skill", type: "game.player-skill", apiVersion: 2, entry: "resources/match.json", requires: [] }]);
+    const skillOnly = manifest([{ id: "skill", type: "game.player-skill", apiVersion: 4, entry: "resources/match.json", requires: [] }]);
     const readJson = vi.fn(async () => characterBody);
     const resolveAsset = vi.fn(async () => ({ url: "blob:unused" }));
 

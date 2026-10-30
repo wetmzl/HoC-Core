@@ -1,7 +1,8 @@
+import { resolveAbilityLevel } from "./levels";
 import { AbilityDefinitionSchema, StatusDefinitionSchema, validateBinding } from "./schema";
 import type { AbilityBinding, AbilityDefinition, AbilityInstance, AbilitySourceKind, AiSkillAbilityDefinition, PlayerSkillAbilityDefinition, StatusDefinition, TalentAbilityDefinition } from "./types";
 
-export const ABILITY_CATALOG_VERSION = "abilities-v42" as const;
+export const ABILITY_CATALOG_VERSION = "abilities-v50" as const;
 function deepFreeze<T>(value: T): T {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
     for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child);
@@ -11,6 +12,13 @@ function deepFreeze<T>(value: T): T {
 }
 
 function validateRuleReferences(definition: AbilityDefinition | StatusDefinition, abilityIds: ReadonlySet<string>, statusIds: ReadonlySet<string>): void {
+  const visitFilters = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    const record = node as Record<string, unknown>;
+    if (Array.isArray(record.definitionIds)) for (const id of record.definitionIds) if (typeof id === "string" && !abilityIds.has(id)) throw new Error(`Unknown filter ability ${id} in ${definition.id}`);
+    for (const [key, value] of Object.entries(record)) if (key !== "parameters") visitFilters(value);
+  };
+  visitFilters(definition);
   const rules = definition.rules;
   const ids = new Set<string>();
   for (const [index, rule] of rules.entries()) {
@@ -20,6 +28,7 @@ function validateRuleReferences(definition: AbilityDefinition | StatusDefinition
       if (!value || typeof value !== "object") return;
       const record = value as Record<string, unknown>;
       if (record.type === "parameter" && typeof record.key === "string" && !(definition as AbilityDefinition).parameters?.[record.key]) throw new Error(`Unknown parameter ${record.key} in ${definition.id}.${rule.id}`);
+      if (record.type === "definition" && typeof record.definitionId === "string" && !abilityIds.has(record.definitionId)) throw new Error(`Unknown skill selection ${record.definitionId}`);
       if (record.type === "owner-has-card" && typeof record.abilityId === "string" && !abilityIds.has(record.abilityId)) throw new Error(`Unknown ability ${record.abilityId} in ${definition.id}.${rule.id}`);
       if (typeof record.statusDefinitionId === "string" && !statusIds.has(record.statusDefinitionId)) throw new Error(`Unknown status ${record.statusDefinitionId} in ${definition.id}.${rule.id}`);
       if (typeof record.recordStatusDefinitionId === "string" && !statusIds.has(record.recordStatusDefinitionId)) throw new Error(`Unknown record status ${record.recordStatusDefinitionId}`);
@@ -63,7 +72,10 @@ function registryFrom(definitionValues: readonly unknown[], statusValues: readon
   if (new Set(parsedStatuses.map((definition) => definition.id)).size !== parsedStatuses.length) throw new Error("Duplicate status definition id");
   const abilityIds = new Set(parsedDefinitions.map((definition) => definition.id));
   const statusIds = new Set(parsedStatuses.map((status) => status.id));
-  for (const definition of [...parsedDefinitions, ...parsedStatuses]) validateRuleReferences(definition, abilityIds, statusIds);
+  for (const definition of [...parsedDefinitions, ...parsedStatuses]) {
+    validateRuleReferences(definition, abilityIds, statusIds);
+    if ("levels" in definition) for (const variant of definition.levels ?? []) validateRuleReferences(resolveAbilityLevel(definition, variant.level), abilityIds, statusIds);
+  }
   return Object.freeze({
     catalogVersion,
     definitions: Object.freeze(parsedDefinitions),
@@ -116,7 +128,11 @@ export function createStandaloneAbilityRegistry(definitions: readonly unknown[],
 }
 
 /** An explicitly supplied catalog is authoritative, including missing entries. */
-export function getAbilityDefinition(id: string, registry: AbilityRegistry = ABILITY_REGISTRY): AbilityDefinition | undefined { return registry.definitionsById[id]; }
+export function getAbilityDefinition(id: string, registry: AbilityRegistry = ABILITY_REGISTRY, level = 1): AbilityDefinition | undefined {
+  const definition = registry.definitionsById[id];
+  if (!definition) return undefined;
+  try { return resolveAbilityLevel(definition, level); } catch { return undefined; }
+}
 export function getStatusDefinition(id: string, registry: AbilityRegistry = ABILITY_REGISTRY): StatusDefinition | undefined { return registry.statusesById[id]; }
 
 export function supportsAbilitySourceKind(definition: AbilityDefinition, kind: AbilitySourceKind): boolean {
@@ -133,12 +149,12 @@ export function validateAbilityBinding(binding: unknown, registry?: AbilityRegis
 
 export function instantiateAbility(binding: AbilityBinding, owner: "player" | "opponent", instanceId: string, createdAtSequence: number, registry?: AbilityRegistry, sourceKind: AbilitySourceKind = "player-skill"): AbilityInstance {
   const valid = validateAbilityBinding(binding, registry);
-  const definition = getAbilityDefinition(valid.definitionId, registry);
+  const definition = getAbilityDefinition(valid.definitionId, registry, valid.level);
   if (!definition) throw new Error(`Unknown ability definition: ${valid.definitionId}`);
   if (!supportsAbilitySourceKind(definition, sourceKind)) throw new Error(`Ability definition ${definition.id} does not support ${sourceKind}`);
   const ttl = definition.ttl ? Object.freeze({ type: definition.ttl.type, remaining: definition.ttl.amount }) : undefined;
   const remainingUses = definition.activation.type === "action" && definition.activation.consume === "card" && (definition.activation.uses ?? 1) > 1
     ? definition.activation.uses
     : undefined;
-  return Object.freeze({ kind: sourceKind, definitionId: valid.definitionId, owner, instanceId, createdAtSequence, parameters: Object.freeze({ ...valid.parameters }), ...(ttl ? { ttl } : {}), ...(remainingUses ? { remainingUses } : {}) });
+  return Object.freeze({ kind: sourceKind, definitionId: valid.definitionId, level: valid.level ?? 1, owner, instanceId, createdAtSequence, parameters: Object.freeze({ ...valid.parameters }), ...(ttl ? { ttl } : {}), ...(remainingUses ? { remainingUses } : {}) });
 }

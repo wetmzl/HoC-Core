@@ -47,9 +47,12 @@ for (const mode of ['lossy', 'lossless', 'png']) test(`${mode}: valid package re
   const match = JSON.parse(pkg.files['match.json']);
   assert.equal(match.definition.assets.relaxed, path);
   assert.deepEqual(match.definition.tablePortrait, { anchorY: 1, images: [{ image: path, anchorY: .9 }] });
-  assert.equal(match.definition.assets.cover, 'cover.png');
+  const coverPath = mode === 'png' ? 'cover.png' : 'cover.webp';
+  assert.equal(match.definition.assets.cover, coverPath);
   assert.equal(match.description, 'The file assets/portrait.png is a source.');
-  assert.deepEqual(pkg.files['cover.png'], sourceImage);
+  assert.deepEqual(pkg.files[coverPath], pkg.files[path]);
+  assert.equal(pkg.manifest.files.find(file => file.path === coverPath).mediaType, mode === 'png' ? 'image/png' : 'image/webp');
+  assert.deepEqual(await readFile(join(root, 'sample/cover.png')), sourceImage);
   assert.equal(pkg.files['module.js'].toString(), `resolvePluginAsset("${path}"); const fallback = "/characters/sample/${path}";`);
   assert.ok(pkg.files['style.css'].toString().includes(`url(${path})`));
   const decoded = await sharp(pkg.files[path]).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -78,12 +81,60 @@ test('rewrites only complete asset references, not longer names or ordinary pros
   assert.equal(rewriteImageText('"/assets/example.png" url(/assets/example.png) "/assets/example.png.other"', paths), '"/assets/example.webp" url(/assets/example.webp) "/assets/example.png.other"');
 });
 
-test('quality changes lossy bytes and cache entries without affecting the PNG cover', async () => {
+test('quality changes lossy bytes and cache entries for portraits and covers', async () => {
   const build = quality => buildPackageTree(root, { mode: 'lossy', quality, cacheDir: join(root, 'cache') });
   const low = (await build(1)).packages[0], high = (await build(100)).packages[0];
   assert.notDeepEqual(low.files['assets/portrait.webp'], high.files['assets/portrait.webp']);
   assert.deepEqual((await build(1)).packages[0].files, low.files);
-  assert.deepEqual(low.files['cover.png'], high.files['cover.png']);
+  assert.notDeepEqual(low.files['cover.webp'], high.files['cover.webp']);
+});
+
+for (const mode of ['lossy', 'lossless', 'png']) test(`${mode}: encodes every skin cover reached through presentation refs`, async () => {
+  const project = await mkdtemp(join(tmpdir(), 'hoc-skin-cover-build-'));
+  try {
+    await mkdir(join(project, 'sample/assets'), { recursive: true });
+    const match = { presentationResourceId: 'appearance', definition: { assets: { cover: { presentationRef: 'cover-record', path: '/image' }, relaxed: 'assets/portrait.png' } } };
+    const appearance = { skins: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], resources: {
+      'cover-record': { type: 'data', variants: [{ skinId: 'a', value: { image: { presentationRef: 'cover-a' } } }, { skinId: 'b', value: { image: { presentationRef: 'cover-b' } } }] },
+      'cover-a': { type: 'image', variants: [{ skinId: 'a', value: 'cover.png' }] },
+      'cover-b': { type: 'image', variants: [{ skinId: 'b', value: 'alternate-cover.png' }] }
+    } };
+    const inputs = { 'match.json': Buffer.from(JSON.stringify(match)), 'appearance.json': Buffer.from(JSON.stringify(appearance)),
+      'cover.png': sourceImage, 'alternate-cover.png': sourceImage, 'assets/portrait.png': sourceImage };
+    const manifest = { ...sourceManifest, resources: [
+      { id: 'match', type: 'game.character-match', apiVersion: 13, entry: 'match.json', requires: ['appearance'] },
+      { id: 'appearance', type: 'presentation.character', apiVersion: 1, entry: 'appearance.json', requires: [] }
+    ], files: Object.entries(inputs).map(([path, bytes]) => ({ path, bytes: bytes.length, sha256: hash(bytes), mediaType: path.endsWith('.png') ? 'image/png' : 'application/json' })) };
+    for (const [file, bytes] of Object.entries(inputs)) await writeFile(join(project, 'sample', file), bytes);
+    await writeFile(join(project, 'sample/hocpkg-info.json'), JSON.stringify(manifest));
+    await writeFile(join(project, 'packages.json'), await readFile(join(root, 'packages.json')));
+    const built = (await buildPackageTree(project, { mode, quality: 92 })).packages[0];
+    for (const cover of ['cover.png', 'alternate-cover.png']) {
+      const target = mode === 'png' ? cover : cover.replace('.png', '.webp');
+      assert.ok(built.files[target]);
+      assert.equal(built.manifest.files.find(file => file.path === target).mediaType, mode === 'png' ? 'image/png' : 'image/webp');
+      assert.deepEqual(await readFile(join(project, 'sample', cover)), sourceImage);
+      const record = built.images.find(image => image.source === cover);
+      assert.equal(record.output, target);
+      assert.equal(record.retainedPng, mode === 'png');
+      if (mode !== 'png') assert.ok(built.files[target].subarray(12).toString('latin1').includes(mode === 'lossy' ? 'VP8 ' : 'VP8L'));
+    }
+    assert.ok(built.files[mode === 'png' ? 'assets/portrait.png' : 'assets/portrait.webp']);
+    assert.deepEqual(JSON.parse(built.files['match.json']).definition.assets.cover, match.definition.assets.cover);
+    const expected = JSON.parse(JSON.stringify(appearance).replaceAll('cover.png', mode === 'png' ? 'cover.png' : 'cover.webp'));
+    assert.deepEqual(JSON.parse(built.files['appearance.json']), expected);
+  } finally { await rm(project, { recursive: true, force: true }); }
+});
+
+test('cold cache accepts identical images encoded by concurrent package builds', async () => {
+  const cacheDir = join(root, 'concurrent-cache');
+  const trees = await Promise.all(Array.from({ length: 8 }, () => buildPackageTree(root, { mode: 'lossy', quality: 92, cacheDir })));
+  const expected = trees[0].packages[0].files;
+  for (const tree of trees) assert.deepEqual(tree.packages[0].files, expected);
+  const entries = await readdir(cacheDir);
+  assert.equal(entries.length, 1);
+  assert.ok(entries[0].endsWith('.webp'));
+  assert.deepEqual(await readFile(join(cacheDir, entries[0])), expected['assets/portrait.webp']);
 });
 
 test('persistent build cache survives checkout cleanup and preserves encoded bytes', async () => {

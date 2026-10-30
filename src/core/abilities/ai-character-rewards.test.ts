@@ -64,7 +64,7 @@ describe("AI character victory rewards", () => {
     expect(after.history).toContainEqual({ type: "HAND_REDEALT", actor: "player", discardedCardIds: oldIds });
     expect(after.history.filter(e => e.type === "CARD_DEALT").map(e => "private" in e && e.private)).toEqual([false, true]);
     expect(JSON.stringify(state)).toBe(before);
-    expect(validateRuntimeSave(createRuntimeSave(after)).activeMatch.player.hand).toEqual(after.player.hand);
+    expect(validateRuntimeSave(createRuntimeSave(after)).activeMatch!.player.hand).toEqual(after.player.hand);
   });
   it.each([0, 1])("RESET is unavailable with %i cards remaining, without spending the skill", (count) => {
     const base = fixture([rewards.chatgpt]);
@@ -91,7 +91,7 @@ describe("AI character victory rewards", () => {
     expect(hit.round.currentActor).toBe("player");
     expect(gameReducer(hit, { type: "OPPONENT_HIT" })).toBe(hit);
     expect(gameReducer(after, { type: "PLAYER_STAND" }).round.phase).toBe("round-reveal");
-    expect(validateRuntimeSave(createRuntimeSave(after)).activeMatch.opponent.stood).toBe(true);
+    expect(validateRuntimeSave(createRuntimeSave(after)).activeMatch!.opponent.stood).toBe(true);
     expect(abilityTriggerNotice(after.history, "Claude", after).some(n => n.text.includes("封禁账号"))).toBe(true);
   });
   it("does not spend a second account-ban card once the target has stood", () => {
@@ -125,7 +125,7 @@ describe("AI character victory rewards", () => {
     expect(previewComparisonScores(after).scores).toEqual({ player: 12, opponent: 6 });
     expect(abilityTriggerNotice(after.history, "Llama", after).some(n => n.text.includes("玩家本回合点数优势 +2"))).toBe(true);
     expect(abilityTriggerNotice(after.history, "Llama", after).some(n => n.text.includes("对手本回合点数优势 −1"))).toBe(true);
-    const restored = validateRuntimeSave(createRuntimeSave(after)).activeMatch;
+    const restored = validateRuntimeSave(createRuntimeSave(after)).activeMatch!;
     expect(previewComparisonScores(restored)).toEqual(previewComparisonScores(after));
     const finished = gameReducer(gameReducer(after, { type: "PLAYER_STAND" }), { type: "OPPONENT_STAND" });
     expect(finished.round.outcome?.comparisonScores).toEqual({ player: 12, opponent: 6 });

@@ -12,14 +12,12 @@
 .character-intel-sheet { max-height: min(256px, calc(100cqh - 60px)); display: flex; flex-direction: column; min-height: 0; margin-top: -1px; border: 1px solid #879c9c80; border-left: 0; border-radius: 0 12px 12px 0; background: linear-gradient(150deg, #213741f5, #101e2af7); backdrop-filter: blur(16px); box-shadow: 0 16px 36px #020a13a0, inset 0 1px #e9dec510; overflow: hidden; pointer-events: auto; animation: character-intel-unfold .2s ease-out; transform-origin: top left; }
 .character-intel-scroll { overflow: auto; min-height: 0; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #8ca7aa66 transparent; padding: 3px 16px; }
 .character-intel-scroll:focus-visible { outline: 1px solid #92bdc5; outline-offset: -2px; }
-.character-intel-skill { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 9px; padding: 12px 0; }
+.character-intel-skill { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 9px; padding: 3px 0; }
 .character-intel-skill + .character-intel-skill { border-top: 1px solid #9aaead20; }
-.character-intel-index { padding-top: 3px; color: #a7906b; font-size: .58rem; font-variant-numeric: tabular-nums; }
-.character-intel-skill h3 { margin: 0 0 7px; color: #eee3cd; font-size: .81rem; line-height: 1.4; font-weight: 600; }
-.character-intel-skill p, .character-intel-empty { margin: 0; color: #c0cdd2; font-size: .73rem; line-height: 1.75; overflow-wrap: anywhere; white-space: pre-wrap; }
+.character-intel-index { padding-top: 12px; color: #a7906b; font-size: .58rem; font-variant-numeric: tabular-nums; }
 .character-intel-empty { padding: 18px 0; }
-.character-intel-skill .skill-rules { margin: 8px 0 0; }
-.character-intel-skill .skill-rules summary { color: #93b9c1; font-size: .62rem; min-height: 32px; padding-block: 7px; cursor: pointer; }
-.character-intel-skill .skill-rules p { color: #a4b9c2; font-size: .68rem; }
 @keyframes character-intel-unfold { from { opacity: 0; transform: translateY(-7px) scaleY(.96); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .character-intel-sheet { animation: none; } .character-intel-chevron { transition: none; } }
+
+.character-intel-skill > .skill-sheet { min-width: 0; border-bottom: 0; }
+.character-intel-empty { margin: 0; color: #c0cdd2; font-size: .73rem; line-height: 1.75; }

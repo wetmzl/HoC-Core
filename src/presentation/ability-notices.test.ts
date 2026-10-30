@@ -7,6 +7,8 @@ import { abilityExpiredNotices, abilityTriggerNotice, pendingTriggerAbilityNotic
 
 const originalRegistry = ABILITY_REGISTRY;
 const rules: AbilityRule[] = [
+  { id: "protection", trigger: "before-defeat", effects: [{ type: "prevent-pending-defeat", target: "owner" }, { type: "add-gun-bullets", target: "owner", amount: 2 }] },
+  { id: "reload", trigger: "after-defeat-prevented", effects: [{ type: "add-gun-bullets", target: "rival", amount: 2 }] },
   { id: "first", trigger: "on-round-start", triggerNotice: "获得点数优势。", effects: [{ type: "add-skill-draws", target: "owner", amount: 1 }] },
   { id: "repeat", trigger: "on-round-start", triggerNotice: "获得点数优势。", effects: [{ type: "add-skill-draws", target: "owner", amount: 1 }] },
   { id: "second", trigger: "on-round-start", triggerNotice: "下一次 Hit 被封锁。", effects: [{ type: "force-stand", target: "rival" }] },
@@ -77,4 +79,11 @@ describe("concise ability notices", () => {
     ]);
     expect(JSON.stringify(preview)).toBe(snapshot);
   });
+});
+
+it("reports actual protection and reloads without inventing a cancelled trigger", () => {
+  const loaded = { type: "ABILITY_RESULT" as const, instanceId: "example-instance", definitionId: "example-skill", owner: "player" as const, result: { type: "gun-bullets-added" as const, actor: "opponent" as const, amount: 2, bullets: 3 } };
+  expect(abilityTriggerNotice([trigger("reload"), loaded], "对手")[0].text).toBe("策展人 · 示例技能：为对手装填2发子弹，当前弹巢共有3发");
+  const protectedEvents: GameEvent[] = [trigger("protection"), loaded, { type: "DEFEAT_PREVENTED", actor: "player", sourceInstanceId: "example-instance" }];
+  expect(abilityTriggerNotice(protectedEvents, "对手")[0].text).toBe("策展人 · 示例技能：抵御了致命一击，对局继续");
 });

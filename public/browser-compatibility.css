@@ -1,0 +1,32 @@
+/* Keep this screen usable before modern CSS and the game bundle can load. */
+#compatibility-notice {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 470px;
+  margin: 24px auto;
+  padding: 24px;
+  border: 1px solid #527087;
+  border-radius: 16px;
+  background: #171e2a;
+  color: #f4efe5;
+  font: 16px/1.7 system-ui, -apple-system, sans-serif;
+  overflow-wrap: break-word;
+}
+#compatibility-notice h1 { margin: 0 0 16px; font-size: 24px; line-height: 1.4; }
+#compatibility-notice p { margin: 12px 0; }
+#compatibility-help { white-space: pre-line; }
+#compatibility-diagnostics { margin: 16px 0; }
+#compatibility-diagnostics summary { cursor: pointer; color: #bed2e3; }
+#compatibility-diagnostics summary:focus { outline: 2px solid #f2c46b; outline-offset: 3px; }
+#compatibility-detail { color: #bed2e3; font-size: 14px; white-space: pre-line; }
+#compatibility-retry, #compatibility-continue {
+  margin: 0 8px 8px 0;
+  padding: 10px 20px;
+  border: 1px solid #91c5db;
+  border-radius: 8px;
+  background: #24475b;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+#compatibility-retry:focus, #compatibility-continue:focus { outline: 2px solid #f2c46b; outline-offset: 3px; }

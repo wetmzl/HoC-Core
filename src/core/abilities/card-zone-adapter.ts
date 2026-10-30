@@ -1,5 +1,5 @@
 import { addCard, createHand, handValue, handValueAtLimit } from "../blackjack/hand";
-import { cardRank, cardValue, createCard, createDerivedCard, createDerivedCardId, isDerivedCard, isPhysicalCard } from "../blackjack/card";
+import { cardRank, cardSuit, cardValue, createCard, createDerivedCard, createDerivedCardId, isDerivedCard, isPhysicalCard } from "../blackjack/card";
 import { RANKS, SUITS, type Card, type Hand, type PhysicalCard, type ShoeState } from "../blackjack/types";
 import type { SeededRng } from "../rng/seeded";
 
@@ -13,6 +13,19 @@ export interface CardCandidateResult { readonly card: PhysicalCard; readonly ind
 export function handCardCount(hand: Hand): number { return hand.cards.length; }
 export function handTotal(hand: Hand): number { return handValue(hand); }
 export function fixedCardValue(card: Card): number { return cardValue(cardRank(card)); }
+
+/** Returns a held physical card to the remaining pile without duplicating its
+ * identity in the shoe's consumed-card ledger or drawing a replacement. */
+export function moveHandCardToDrawPile(shoe: ShoeState, hand: Hand, cardIndex: number, position: "top" | "bottom"): { readonly hand: Hand; readonly shoe: ShoeState; readonly card: PhysicalCard } | undefined {
+  const card = hand.cards[cardIndex];
+  if (!card || !isPhysicalCard(card)) return undefined;
+  const ledgerIndex = shoe.cards.findIndex(entry => entry.id === card.id);
+  if (ledgerIndex < 0 || ledgerIndex >= shoe.cursor || shoe.cards.filter(entry => entry.id === card.id).length !== 1) return undefined;
+  const cards = shoe.cards.filter((_, index) => index !== ledgerIndex);
+  const cursor = shoe.cursor - 1;
+  cards.splice(position === "top" ? cursor : cards.length, 0, card);
+  return { hand: createHand(hand.cards.filter((_, index) => index !== cardIndex)), shoe: { ...shoe, cards, cursor }, card };
+}
 
 export function swapLastHandCardWithDrawPileTop(shoe: ShoeState, hand: Hand): { readonly hand: Hand; readonly shoe: ShoeState } | undefined {
   if (hand.cards.length === 0 || shoe.cursor >= shoe.cards.length) return undefined;
@@ -28,38 +41,34 @@ export function swapLastHandCardWithDrawPileTop(shoe: ShoeState, hand: Hand): { 
   return { hand: createHand(cards), shoe: { ...shoe, cards: shoeCards } };
 }
 
-/** Moves one existing physical card between hands without cloning it or
- * changing the shoe ledger that owns its discard/reshuffle lifecycle. */
-export function transferLastPhysicalHandCard(source: Hand, target: Hand): { readonly source: Hand; readonly target: Hand; readonly card: PhysicalCard } | undefined {
-  const card = source.cards.at(-1);
-  if (!card || !isPhysicalCard(card)) return undefined;
-  return {
-    source: createHand(source.cards.slice(0, -1)),
-    target: createHand([...target.cards, card]),
-    card
+/** Canonical unordered rank partitions keep sampling stable for a given policy. */
+export function rankPartitions(total: number, count: number): readonly (readonly import("../blackjack/types").Rank[])[] {
+  if (!Number.isInteger(count) || count < 1 || count > 6 || !Number.isFinite(total)) return [];
+  const result: import("../blackjack/types").Rank[][] = [];
+  const visit = (start: number, remaining: number, ranks: import("../blackjack/types").Rank[]): void => {
+    if (ranks.length === count) { if (remaining === 0) result.push(ranks); return; }
+    for (let i = start; i < RANKS.length; i++) {
+      const value = cardValue(RANKS[i]!);
+      if (value <= remaining) visit(i, remaining - value, [...ranks, RANKS[i]!]);
+    }
   };
+  visit(0, total, []);
+  return result;
 }
-
-const SPLIT_RANKS = RANKS.map((rank) => ({ rank, value: cardValue(rank) }));
-export function canSplitLastCard(hand: Hand): boolean {
-  const value = hand.cards.at(-1) ? fixedCardValue(hand.cards.at(-1)!) : 0;
-  return SPLIT_RANKS.some((left, index) => SPLIT_RANKS.some((right, rightIndex) => rightIndex >= index && left.value + right.value === value));
-}
-export function splitLastCardIntoDerived(hand: Hand, rng: SeededRng, generatedBy?: string): { readonly hand: Hand; readonly cards: readonly Card[] } | undefined {
-  const outgoing = hand.cards.at(-1);
-  if (!outgoing) return undefined;
-  const pairs = SPLIT_RANKS.flatMap((left, index) => SPLIT_RANKS.slice(index).filter((right) => left.value + right.value === fixedCardValue(outgoing)).map((right) => [left.rank, right.rank] as const));
-  if (pairs.length === 0) return undefined;
-  const [left, right] = pairs[rng.nextInt(pairs.length)]!;
-  const leftSuit = SUITS[rng.nextInt(SUITS.length)]!;
-  const matchingColorSuits = leftSuit === "hearts" || leftSuit === "diamonds"
-    ? (["hearts", "diamonds"] as const)
-    : (["spades", "clubs"] as const);
-  const cards = [
-    createDerivedCard(leftSuit, left, createDerivedCardId(rng), generatedBy),
-    createDerivedCard(matchingColorSuits[rng.nextInt(matchingColorSuits.length)]!, right, createDerivedCardId(rng), generatedBy)
-  ];
-  return { hand: createHand([...hand.cards.slice(0, -1), ...cards]), cards };
+export function transformHandCard(hand: Hand, cardIndex: number, count: number, total: number, suits: import("./types").CardTransform["suits"], rng: SeededRng, generatedBy?: string): { readonly hand: Hand; readonly cards: readonly Card[] } | undefined {
+  const source = hand.cards[cardIndex];
+  if (!source) return undefined;
+  const partitions = rankPartitions(total, count);
+  if (!partitions.length) return undefined;
+  const ranks = partitions[rng.nextInt(partitions.length)]!;
+  const firstSuit = suits === "source-suit" ? cardSuit(source) : SUITS[rng.nextInt(SUITS.length)]!;
+  const sameColor = SUITS.filter(suit => (suit === "hearts" || suit === "diamonds") === (firstSuit === "hearts" || firstSuit === "diamonds"));
+  const cards = ranks.map((rank, index) => {
+    const suit = index === 0 || suits === "same-suit" || suits === "source-suit" ? firstSuit
+      : suits === "same-color" ? sameColor[rng.nextInt(sameColor.length)]! : SUITS[rng.nextInt(SUITS.length)]!;
+    return createDerivedCard(suit, rank, createDerivedCardId(rng), generatedBy);
+  });
+  return { hand: createHand([...hand.cards.slice(0, cardIndex), ...cards, ...hand.cards.slice(cardIndex + 1)]), cards };
 }
 
 export function findCardCandidates(shoe: ShoeState, hand: Hand, target: "at-most" | "exactly", total: number): readonly CardCandidateResult[] {
@@ -99,14 +108,6 @@ export function replaceLastHandCard(shoe: ShoeState, hand: Hand, rng: SeededRng,
 
 export interface ExactDrawResult { readonly card: Card; readonly shoe: ShoeState; readonly derived: boolean; }
 
-/** Creates a temporary card that makes the hand's total exactly `total`.
- * This deliberately never consults or mutates the physical shoe. */
-export function createDerivedCardForExactTotal(hand: Hand, rng: SeededRng, total: number, generatedBy?: string, evaluationLimit = 21): Card | undefined {
-  const ranks = RANKS.filter((rank) => handValueAtLimit(addCard(hand, createCard("spades", rank)), evaluationLimit) === total);
-  if (ranks.length === 0) return undefined;
-  return createDerivedCard(SUITS[rng.nextInt(SUITS.length)]!, ranks[rng.nextInt(ranks.length)]!, createDerivedCardId(rng), generatedBy);
-}
-
 /** Resolve a guaranteed total without ever asking the RNG for an empty range. */
 export function drawExactResultingTotal(shoe: ShoeState, hand: Hand, rng: SeededRng, total: number, generatedBy?: string): ExactDrawResult | undefined {
   const candidates = findDrawCandidates(shoe, hand, "exactly", total);
@@ -123,13 +124,18 @@ export function drawExactResultingTotal(shoe: ShoeState, hand: Hand, rng: Seeded
   return { card: createDerivedCard(suit, rank, createDerivedCardId(rng), generatedBy), shoe, derived: true };
 }
 
-/** Consume exactly one physical card; never create a fallback card or repair a bust. */
-export function drawPhysicalCardForLimit(shoe: ShoeState, hand: Hand, limit: number): { readonly card: PhysicalCard; readonly shoe: ShoeState } | undefined {
-  const remaining = shoe.cards.slice(shoe.cursor).map((card, offset) => ({ card, index: shoe.cursor + offset }));
-  if (!remaining.length) return undefined;
+/** Select one physical entity without changing identity or sampling an empty set. */
+export function drawPhysicalCandidate(shoe: ShoeState, hand: Hand, candidate: { readonly operator: "at-most" | "exactly"; readonly value: number; readonly evaluationLimit: number } | undefined, pick: "first" | "lowest-value" | "uniform-ability-rng", rng?: SeededRng): { readonly card: PhysicalCard; readonly shoe: ShoeState } | undefined {
+  const candidates = shoe.cards.slice(shoe.cursor).map((card, offset) => ({ card, index: shoe.cursor + offset })).filter(({ card }) => {
+    if (!candidate) return true;
+    const total = handValueAtLimit(addCard(hand, card), candidate.evaluationLimit);
+    return candidate.operator === "at-most" ? total <= candidate.value : total === candidate.value;
+  });
+  if (!candidates.length) return undefined;
+  if (pick === "uniform-ability-rng" && !rng) throw new Error("Random selection requires its ability RNG");
   const minimum = (card: Card) => cardRank(card) === "A" ? 1 : fixedCardValue(card);
-  const selected = remaining.find(({ card }) => handValueAtLimit(addCard(hand, card), limit) === limit)
-    ?? remaining.reduce((best, next) => minimum(next.card) < minimum(best.card) ? next : best);
+  const selected = pick === "uniform-ability-rng" ? candidates[rng!.nextInt(candidates.length)]!
+    : pick === "lowest-value" ? candidates.reduce((a, b) => minimum(b.card) < minimum(a.card) ? b : a) : candidates[0]!;
   const cards = [...shoe.cards];
   [cards[shoe.cursor], cards[selected.index]] = [cards[selected.index]!, cards[shoe.cursor]!];
   return { card: selected.card, shoe: { ...shoe, cards, cursor: shoe.cursor + 1 } };

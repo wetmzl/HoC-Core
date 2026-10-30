@@ -64,3 +64,12 @@ it("forgets the redealt actor's old cards when recognizing a low push", () => {
   history.splice(1, 0, ...old.map((entry): GameEvent => ({ type: "CARD_DEALT", actor: "opponent", card: entry, private: true })), { type: "HAND_REDEALT", actor: "opponent", discardedCardIds: old.map(c => c.id) });
   expect(selectedPool({ ...state, history })).toBe("SPECIAL_LOW_PUSH");
 });
+
+it("forgets discarded cards in the round-result hand snapshot", () => {
+  const state = contextualState([card("10"), card("3")], [card("8"), card("5")], push);
+  const discarded = card("K", "clubs");
+  const history = [...state.history];
+  history.splice(-1, 0, { type: "CARD_DEALT", actor: "opponent", card: discarded, private: true },
+    { type: "HAND_CARD_DISCARDED", actor: "opponent", cardId: discarded.id });
+  expect(selectedPool({ ...state, history })).toBe("SPECIAL_LOW_PUSH");
+});

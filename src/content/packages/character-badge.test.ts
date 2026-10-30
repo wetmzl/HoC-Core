@@ -9,6 +9,8 @@ import { ABILITY_CATALOG_VERSION } from "../../core/abilities/registry";
 
 function fixture() {
   const draft = createCharacterDraft("sample", "测试与会者");
+  // This fixture deliberately exercises resource APIs predating encounter policies.
+  Reflect.deleteProperty(draft.match.metadata, "encounter");
   for (const pool of Object.values(draft.dialogue.pools)) (pool as string[]).push("测试对白");
   const match = { ...draft.match, metadata: { ...draft.match.metadata, badge: { image: "badge.png", label: "星辰公会" } } };
   const manifest = HocpkgManifestSchema.parse({
@@ -31,7 +33,10 @@ function fixture() {
 afterEach(clearCharacterCatalog);
 
 it("resolves package badges through the same source lifecycle as other images", async () => {
-  const { draft, match, manifest } = fixture();
+  const fixtureValue = fixture();
+  const { draft } = fixtureValue;
+  const match = { ...fixtureValue.match, metadata: { ...fixtureValue.match.metadata, previewFocus: { x: 0.48, y: 0.42 } } };
+  const manifest = { ...fixtureValue.manifest, resources: fixtureValue.manifest.resources.map(resource => resource.type === "game.character-match" ? { ...resource, apiVersion: 11 } : resource) };
   const release = vi.fn();
   const resolveAsset = vi.fn(async (path: string) => ({ url: `blob:sample/${path}`, release }));
   const source = { packages: async () => [{
@@ -41,10 +46,13 @@ it("resolves package badges through the same source lifecycle as other images", 
   const index: BuiltinPackageIndex = { format: "house-of-chances-builtin-package-index", formatVersion: 2, abilityCatalogVersion: ABILITY_CATALOG_VERSION, defaultCharacterId: "sample", playerSkillOrder: [], packages: [], releaseDigest: "0".repeat(64) };
   const content = await loadContent(source, index);
   const runtime = prepareContentRuntime(content);
+  expect(runtime.catalog[0].previewFocus).toEqual({ x: 0.48, y: 0.42 });
+  expect(runtime.characters[0].previewFocus).toEqual(runtime.catalog[0].previewFocus);
   expect(runtime.catalog[0].badge).toEqual({ label: "星辰公会", image: "blob:sample/badge.png" });
   expect(runtime.characters[0].badge).toEqual(runtime.catalog[0].badge);
   installCharacterCatalog(runtime.catalog, "sample");
   expect(Object.isFrozen(CHARACTER_CATALOG[0].badge)).toBe(true);
+  expect(Object.isFrozen(CHARACTER_CATALOG[0].previewFocus)).toBe(true);
   content.release();
   expect(release).toHaveBeenCalledTimes(resolveAsset.mock.calls.length);
   expect(resolveAsset.mock.calls.filter(([path]) => path === "badge.png")).toHaveLength(1);
@@ -76,4 +84,17 @@ it("renders an accessible escaped badge in the portrait frame without scaling it
   expect(markup).toContain('class="character-badge" data-badge-label="&lt;Guild &quot;A&quot;&gt;" data-tier="B" aria-label="&lt;Guild &quot;A&quot;&gt;，B级"');
   expect(markup).toContain('src="blob:badge" alt=""');
   expect(characterCardMarkup({ ...character, badge: undefined })).not.toContain('class="character-badge"');
+});
+
+
+it("validates normalized preview focus and gates it on API 11 while preserving older packages", async () => {
+  const { draft, context } = fixture();
+  const handler = createCharacterMatchResourceHandler();
+  const focused = { ...draft.match, metadata: { ...draft.match.metadata, previewFocus: { x: 0.48, y: 0.42 } } };
+  await expect(handler.parse(draft.match, context)).resolves.toBeDefined();
+  await expect(handler.parse(focused, { ...context, descriptor: { ...context.descriptor, apiVersion: 10 } })).rejects.toThrow("API 11");
+  await expect(handler.parse(focused, { ...context, descriptor: { ...context.descriptor, apiVersion: 11 } })).resolves.toMatchObject(focused);
+  for (const previewFocus of [{ x: -0.1, y: 0.4 }, { x: 0.5, y: 1.1 }, { x: NaN, y: 0.4 }, { x: 0.5 }, { x: 0.5, y: 0.4, extra: true }]) {
+    expect(CharacterMatchResourceSchema.safeParse({ ...focused, metadata: { ...focused.metadata, previewFocus } }).success).toBe(false);
+  }
 });

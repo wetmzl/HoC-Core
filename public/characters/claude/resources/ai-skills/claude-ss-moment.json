@@ -1,0 +1,87 @@
+{
+  "id": "claude-ss-moment",
+  "name": "克劳德时刻",
+  "description": "Claude 每次 Hit，都会提高本轮公共爆牌上限。",
+  "usage": "Claude 每次 Hit 后，本轮公共爆牌上限增加 1 点，双方共用；下轮重置。",
+  "profileLore": "震惊瘫坐，仿佛看到原子弹爆炸",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "gambler",
+  "tags": [
+    "ai-skill",
+    "blackjack",
+    "bust-limit"
+  ],
+  "parameters": {
+    "stage": {
+      "type": "enum",
+      "values": [
+        "full",
+        "weakened"
+      ],
+      "default": "full"
+    }
+  },
+  "activation": {
+    "type": "automatic"
+  },
+  "rules": [
+    {
+      "id": "raise-limit-on-owner-hit",
+      "trigger": "after-card-draw",
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "owner"
+        }
+      ],
+      "effects": [
+        {
+          "type": "add-status",
+          "target": "owner",
+          "statusDefinitionId": "claude-moment-limit"
+        }
+      ]
+    }
+  ],
+  "levels": [
+    {
+      "level": 2,
+      "usage": "Claude 每次 Hit 后，按此时手牌张数 n，将本轮公共爆牌上限增加 ⌊n/2⌋ 点（向下取整）。增量逐次累积，双方共用；下轮重置。",
+      "rules": [
+        {
+          "id": "raise-limit-on-owner-hit",
+          "trigger": "after-card-draw",
+          "conditions": [
+            {
+              "type": "actor-is",
+              "actor": "owner"
+            }
+          ],
+          "effects": [
+            {
+              "type": "set-status-stacks",
+              "target": "owner",
+              "statusDefinitionId": "claude-moment-limit",
+              "amount": {
+                "type": "add",
+                "left": {
+                  "type": "status-stacks",
+                  "target": "owner",
+                  "statusDefinitionId": "claude-moment-limit"
+                },
+                "right": {
+                  "type": "multiply",
+                  "left": {
+                    "type": "hand-card-count",
+                    "target": "owner"
+                  },
+                  "right": 0.5
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

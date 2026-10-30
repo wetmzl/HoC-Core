@@ -31,6 +31,8 @@ import { createPersistenceService } from "./persistence/factory";
 import { PluginSettingsSession } from "./content/packages/plugin-settings";
 import { collectPluginCredits } from "./content/packages/plugin-credits";
 import { ensureLongTermSaveReady } from "./persistence/long-term-recovery";
+import { releaseImportFile, type ImportFile } from "./content/storage/import-file";
+import { checkCancelled } from "./content/storage/file-operations";
 
 export type ApplicationControllerState = "idle" | "starting" | "running" | "stopping";
 
@@ -112,6 +114,9 @@ export class ApplicationController {
       // Keep resource management available so a collision or damaged legacy package can be removed.
       this.startupWarnings.add(`内嵌包作者迁移未完成：${error instanceof Error ? error.message : "请在资源管理中检查旧包。"}`);
     }
+    await new EmbeddedContentSeeder(repository, this.embedded).upgradeInstalled({
+      onProgress: progress => this.options.onProgress?.({ phase: "seeding", ...progress })
+    });
     this.repository = repository;
     this.manager = new ContentPackageManager(repository, this.embedded);
     this.fileSystem = host.fileSystem;
@@ -210,6 +215,10 @@ export class ApplicationController {
     this.beginIdleOperation();
     try { await this.ensureInitialized(); return await this.fileSystem?.pickFile?.(options) ?? null; }
     finally { this.idleOperationRunning = false; }
+  }
+
+  async releaseImportFile(file: ImportFile): Promise<void> {
+    await releaseImportFile(this.fileSystem, file);
   }
 
   async stagePackageFile(file: File | ContentImportFile, options?: ContentOperationOptions): Promise<ImportSession> {
@@ -325,9 +334,15 @@ export class ApplicationController {
     } finally { this.idleOperationRunning = false; }
   }
 
-  async importPlaylistFile(file: File): Promise<{ readonly document: PlaylistDocument; readonly missing: readonly string[]; readonly versionMismatch: readonly string[] }> {
-    await this.ensureInitialized();
-    const document = await decodePlaylistFile(file, await this.installedPluginOrder());
+  async importPlaylistFile(file: ImportFile, options?: ContentOperationOptions & Pick<ContentInstallOptions, "onCommit">): Promise<{ readonly document: PlaylistDocument; readonly missing: readonly string[]; readonly versionMismatch: readonly string[] }> {
+    this.beginIdleOperation();
+    let document: PlaylistDocument;
+    try {
+      await this.ensureInitialized();
+      document = await decodePlaylistFile(file, await this.installedPluginOrder(), this.fileSystem, options);
+    } finally { this.idleOperationRunning = false; }
+    checkCancelled(options);
+    options?.onCommit?.();
     const [saved] = await this.importStagedPlaylists([document]);
     return { document: saved!.document, ...await this.selectPlaylist(saved!.id) };
   }
@@ -419,32 +434,69 @@ export class ApplicationController {
           return false;
         }
       }
-      const pluginSettings = new PluginSettingsSession((await persistence.loadLongTerm())?.settings.pluginSettings ?? {});
+      const longTerm = await persistence.loadLongTerm();
+      const pluginSettings = new PluginSettingsSession(longTerm?.settings.pluginSettings ?? {});
       plugins = await loadPluginModules(activeSource, pluginSettings);
       content = await loadContent(
         activeSource,
         index,
-        { handlers: plugins.handlers, dialogueRegistry: plugins.dialogueRegistry }
+        { handlers: plugins.handlers, dialogueRegistry: plugins.dialogueRegistry, characterSkins: longTerm?.settings.characterSkins, characterSkinUnlocks: longTerm?.characterSkinUnlocks }
       );
-      const prepared = prepareContentRuntime(content);
+      let activeContent = content;
+      const loadedPlugins = plugins;
       const savedOrder = this.embeddedOnly ? [] : await this.repository!.listPluginOrder();
-      const contributions = plugins.registrations.map(({ packageId, registration }) => ({ packageId, contribution: registration.createRuntime(prepared.extensions) }));
-      const artOrder = [...contributions].sort((left, right) => {
-        const leftRank = savedOrder.indexOf(left.packageId);
-        const rightRank = savedOrder.indexOf(right.packageId);
-        return (rightRank < 0 ? Number.MAX_SAFE_INTEGER : rightRank) - (leftRank < 0 ? Number.MAX_SAFE_INTEGER : leftRank);
-      });
-      const skillArchetypeArt = mergeSkillArchetypeArt(artOrder.map(({ contribution }) => contribution.skillArchetypeArt ?? {}));
+      const createPresentation = (loaded: LoadedContent) => {
+        const prepared = prepareContentRuntime(loaded);
+        const contributions = loadedPlugins.registrations.map(({ packageId, registration }) => ({ packageId, contribution: registration.createRuntime(prepared.extensions) }));
+        const artOrder = [...contributions].sort((left, right) => {
+          const leftRank = savedOrder.indexOf(left.packageId), rightRank = savedOrder.indexOf(right.packageId);
+          return (rightRank < 0 ? Number.MAX_SAFE_INTEGER : rightRank) - (leftRank < 0 ? Number.MAX_SAFE_INTEGER : leftRank);
+        });
+        const skillArchetypeArt = mergeSkillArchetypeArt(artOrder.map(({ contribution }) => contribution.skillArchetypeArt ?? {}));
+        return { prepared, contributions: [...contributions.map(({ contribution }) => contribution), { skillArchetypeArt }] };
+      };
+      let activePresentation = createPresentation(content);
+      const preparePresentation: NonNullable<import("./runtime-host").MountGameRuntimeOptions["preparePresentation"]> = async (preferences, unlocks) => {
+        const candidate = await loadContent(activeSource, index, { handlers: loadedPlugins.handlers, dialogueRegistry: loadedPlugins.dialogueRegistry, characterSkins: preferences, characterSkinUnlocks: unlocks });
+        try {
+          const next = createPresentation(candidate), previous = activeContent, previousPresentation = activePresentation;
+          let activated = false, disposed = false;
+          return {
+            characters: next.prepared.characters, contributions: next.contributions,
+            activate: () => {
+              activateContentRuntime(next.prepared);
+              activeContent = candidate; activePresentation = next; this.loadedContent = candidate; activated = true;
+            },
+            rollback: () => {
+              if (!activated) return;
+              activateContentRuntime(previousPresentation.prepared);
+              activeContent = previous; activePresentation = previousPresentation; this.loadedContent = previous; activated = false;
+            },
+            retirePrevious: () => { if (activated) previous.release(); },
+            dispose: () => { if (!activated && !disposed) { disposed = true; candidate.release(); } }
+          };
+        } catch (error) { candidate.release(); throw error; }
+      };
+      const { loadSkinPreviews } = await import("./content/packages/skin-previews");
       installDialogueRegistry(plugins.dialogueRegistry);
       installDialogueEvents(plugins.eventRegistry);
-      activateContentRuntime(prepared);
+      activateContentRuntime(activePresentation.prepared);
       const mountRuntime = this.options.mountRuntime ?? (async (mountOptions) => {
         const module = await import("./app");
         return module.mountGameRuntime(mountOptions);
       });
       this.runtime = await mountRuntime({
         root,
-        contributions: [...contributions.map(({ contribution }) => contribution), { skillArchetypeArt }],
+        telemetryPackages: Object.fromEntries(content.packages.flatMap(pkg => pkg.resources.flatMap(resource => {
+          if (resource.descriptor.type !== "game.character-match" || resource.state !== "active") return [];
+          const character = resource.value as import("./content/packages/resources").CharacterMatchResource;
+          return [[character.metadata.id, { package_id: `${pkg.manifest.identity.authorId}/${pkg.manifest.identity.packageName}`, package_version: pkg.manifest.identity.version }]];
+        }))),
+        contributions: activePresentation.contributions,
+        preparePresentation,
+        loadSkinPreviews: (key, signal) => loadSkinPreviews(activeSource, key, signal),
+        characterSkins: longTerm?.settings.characterSkins,
+        characterSkinUnlocks: longTerm?.characterSkinUnlocks,
         pluginSettings,
         pluginCredits: collectPluginCredits(plugins.registrations, savedOrder),
         onExitRequest: async () => {
@@ -452,7 +504,7 @@ export class ApplicationController {
           await this.options.onRuntimeStopped?.();
         }
       });
-      this.loadedContent = content;
+      this.loadedContent = activeContent;
       this.loadedPlugins = plugins;
       this.currentState = "running";
       return true;

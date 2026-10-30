@@ -5,6 +5,7 @@ import { checkCancelled } from "../storage/file-operations";
 import { unzip, zip, type Unzipped, type Zippable } from "fflate";
 import { HocpkgManifestSchema, getHocpkgPackageId, type HocpkgManifest } from "../packages";
 import type { ContentArchive, ContentAssetResolver, ResolvedContentAsset, ContentFileEntry, ContentFileSource, ContentFileSystem, ContentImportFile, ContentOperationOptions, ContentRepository } from "../storage/contracts";
+import { CharacterPresentationSchema, resolvePresentation } from "../packages/character-presentation";
 import { decodeText, encodeText } from "../storage/encoding";
 import { getContentRevision } from "../storage/repository";
 import { decodePlaylistArchiveFiles, MAX_PLAYLIST_FILE } from "../playlists/transfer";
@@ -85,6 +86,23 @@ function displayBundlePath(path: string): string {
 
 function isPng(bytes: Uint8Array): boolean {
   return PNG_SIGNATURE.every((byte, index) => bytes[index] === byte);
+}
+
+/** Rasterize only the PNG card carrier; installed package bytes retain their codec. */
+async function imageToPng(bytes: Uint8Array, mediaType: string): Promise<Uint8Array> {
+  const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: mediaType }));
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("无法创建封面图片。");
+    context.drawImage(image, 0, 0);
+    const png = await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("无法导出封面 PNG。")), "image/png"));
+    return new Uint8Array(await png.arrayBuffer());
+  } finally { URL.revokeObjectURL(url); }
 }
 
 function crc32(bytes: Uint8Array): number {
@@ -397,11 +415,18 @@ export class HocpkgTransfer {
     const manifest = await this.repository.readManifest(packageId);
     const descriptor = manifest.resources.find((entry) => entry.type === "game.character-match");
     if (!descriptor) throw new Error("这个内容包没有角色封面。");
-    const body = JSON.parse(decodeText(await this.repository.readFile(packageId, descriptor.entry))) as { definition?: { assets?: { cover?: string } } };
+    let body = JSON.parse(decodeText(await this.repository.readFile(packageId, descriptor.entry))) as { presentationResourceId?: string; definition?: { assets?: { cover?: unknown } } };
+    if (body.presentationResourceId) {
+      const presentation = manifest.resources.find(resource => resource.id === body.presentationResourceId && resource.type === "presentation.character");
+      if (!presentation) throw new Error("角色包缺少封面表现资源。");
+      body = resolvePresentation(body, CharacterPresentationSchema.parse(JSON.parse(decodeText(await this.repository.readFile(packageId, presentation.entry))))) as typeof body;
+    }
     const coverPath = body.definition?.assets?.cover;
-    if (!coverPath || !manifest.files.some((entry) => entry.path === coverPath && entry.mediaType === "image/png")) throw new Error("角色包没有 PNG 封面。");
+    const file = manifest.files.find(entry => entry.path === coverPath && entry.mediaType.startsWith("image/"));
+    if (typeof coverPath !== "string" || !file) throw new Error("角色包没有可用的封面图片。");
     const cover = await this.repository.readFile(packageId, coverPath);
-    return embedHocpkgInPng(cover, await this.exportPackage(packageId));
+    const png = isPng(cover) ? cover : await imageToPng(cover, file.mediaType);
+    return embedHocpkgInPng(png, await this.exportPackage(packageId));
   }
 
 

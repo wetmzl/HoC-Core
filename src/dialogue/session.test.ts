@@ -28,6 +28,64 @@ function fixture(attachments: unknown[] = []) {
   return { events, registry, source, state, driver, store };
 }
 afterEach(() => { clearDialogueEvents(); vi.restoreAllMocks(); });
+it("shows thinking after ordinary dialogue without resampling, but preserves skill and interaction portraits", async () => {
+  const f = fixture(), selected = vi.fn(), changed = vi.fn();
+  const state = { ...f.state, round: { ...f.state.round, phase: "turns" as const, currentActor: "opponent" as const } };
+  // A shared rule proves priority follows the actual selecting event, not its on-list.
+  const rules = [{ id: "shared", on: ["core.action", "core.ability-played", `${pkg}#tap`].map(type => ({ type, apiVersion: 1 })),
+    when: atom("core.phase", { eq: "turns" }), poolId: "action", portrait: { image: "gesture.png" } }];
+  const session = new DialogueSession(new DialogueEngine({ ...program, rules }, "chatgpt", f.registry), state, f.store, undefined, changed, selected);
+  await session.start([], false);
+  const action = (id: string): DialogueEvent => ({ id, type: "core.action", apiVersion: 1, data: { actor: "player", action: "stand" } });
+  await session.deliver(action("stand"));
+  const selection = session.peek(), before = selected.mock.calls.length;
+  expect(session.beginThinking()).toBe(true);
+  expect(session.isThinking).toBe(true);
+  expect(session.peek()).toBe(selection);
+  expect(selected).toHaveBeenCalledTimes(before);
+  const renders = changed.mock.calls.length;
+  session.beginThinking(); session.transition(state);
+  expect(changed).toHaveBeenCalledTimes(renders);
+  expect(session.isThinking).toBe(true);
+  await session.deliver({ id: "ability", type: "core.ability-played", apiVersion: 1, data: { actor: "player", definitionId: "test", instanceId: "test" } });
+  expect(session.isThinking).toBe(false);
+  expect(session.beginThinking()).toBe(false);
+  await session.deliver({ id: "unmatched", type: "core.round-start", apiVersion: 1, data: { roundIndex: 0 } });
+  expect(session.beginThinking()).toBe(false);
+  await session.deliver(tapEvent("tap"));
+  expect(session.beginThinking()).toBe(false);
+  await session.deliver(action("next-action"));
+  expect(session.beginThinking()).toBe(true);
+  session.transition({ ...state, round: { ...state.round, phase: "roulette-trigger" } });
+  expect(session.isThinking).toBe(false);
+  expect(session.beginThinking()).toBe(false);
+  await session.dispose();
+  expect(session.beginThinking()).toBe(false);
+});
+it("restores the ordinary-event thinking window and keeps it until the next portrait is committed", async () => {
+  const f = fixture();
+  const state = { ...f.state, history: [...f.state.history, { type: "PLAYER_HIT" as const, value: 12 }], round: { ...f.state.round, phase: "turns" as const, currentActor: "opponent" as const } };
+  let finish: ((available: boolean) => void) | undefined;
+  const rules = [{ ...program.rules[1], portrait: { image: "action.png" } },
+    { id: "result", on: [{ type: "core.round-result", apiVersion: 1 }], when: atom("core.phase", { eq: "round-reveal" }), poolId: "bad", portrait: { image: "result.png" } }];
+  const session = new DialogueSession(new DialogueEngine({ ...program, rules }, "chatgpt", f.registry), state, f.store, () => finish ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(true));
+  await session.start([], true);
+  await vi.waitFor(() => expect(session.peek().poolId).toBe("action"));
+  expect(session.beginThinking()).toBe(true);
+  finish = () => {};
+  const pending = session.deliver({ id: "next", type: "core.action", apiVersion: 1, data: { actor: "opponent", action: "hit" } });
+  expect(session.isThinking).toBe(true);
+  finish!(true); await pending;
+  expect(session.isThinking).toBe(false);
+  expect(session.beginThinking()).toBe(true);
+  const outcome = { winner: "opponent" as const, reason: "comparison" as const, penaltyTarget: "player" as const, bulletsAdded: 1 };
+  session.transition({ ...state, history: [...state.history, { type: "ROUND_RESOLVED", outcome }], round: { ...state.round, phase: "round-reveal", currentActor: null, outcome } });
+  expect(session.isThinking).toBe(true);
+  finish!(true);
+  await vi.waitFor(() => expect(session.peek().poolId).toBe("bad"));
+  expect(session.isThinking).toBe(false);
+  await session.dispose();
+});
 it("presents only committed changed selections, marks restore, and cancels on leaving", async () => {
   const f = fixture(), selected = vi.fn();
   const session = new DialogueSession(new DialogueEngine(program, "chatgpt", f.registry), f.state, f.store, undefined, undefined, selected);

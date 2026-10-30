@@ -31,7 +31,7 @@ function returnedPlayerTurn(state = fixture({ autoSkipAfterStand: false })): Mat
 }
 const active = { id: "example-stand-active", name: "示例改牌", description: "添加一张中性衍生牌", sourceKind: "ai-skill", primaryDomain: "cheater", tags: ["example-active"],
   activation: { type: "action", windows: ["owner-turn"], consume: "none" },
-  rules: [{ id: "add", trigger: "on-ability-played", effects: [{ type: "add-derived-card", target: "owner", rank: { type: "static", rank: "2" }, suit: { type: "static", suit: "clubs" } }] }] };
+  rules: [{ id: "add", trigger: "on-ability-played", effects: [{ type: "acquire-card", target: "owner", reportResult: true, choices: [{ source: "derived", rank: { type: "static", rank: "2" }, suit: { type: "static", suit: "clubs" } }] }] }] };
 const onStand = { id: "example-stand-reward", name: "示例停牌", description: "停牌时增加一次抽取", sourceKind: "ai-skill", primaryDomain: "gambler", tags: ["example"], activation: { type: "automatic" },
   rules: [{ id: "reward", trigger: "after-stand", conditions: [{ type: "actor-is", actor: "owner" }], effects: [{ type: "add-skill-draws", target: "owner", amount: 1 }] }] };
 
@@ -178,13 +178,13 @@ describe("optional player turns after Stand", () => {
 
   it("preserves the match snapshot through runtime serialization and defaults missing legacy fields", async () => {
     const state = returnedPlayerTurn();
-    const restored = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch;
+    const restored = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch!;
     expect(restored.autoSkipAfterStand).toBe(false);
     expect(getLegalActions(restored)).toContainEqual({ type: "PLAYER_STAND" });
     expect(gameReducer(restored, { type: "PLAYER_HIT" })).toBe(restored);
     const legacy = fixture();
     delete (legacy as { autoSkipAfterStand?: boolean }).autoSkipAfterStand;
-    const old = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(legacy)))).activeMatch;
+    const old = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(legacy)))).activeMatch!;
     expect(old).not.toHaveProperty("autoSkipAfterStand");
     expect(returnedPlayerTurn(old).round.currentActor).toBe("opponent");
     const save = createDefaultSave();

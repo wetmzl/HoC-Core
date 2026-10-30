@@ -8,6 +8,19 @@ import { projectTableView } from "./table-view";
 import { displayedHandValueMarkup } from "../presentation/view-helpers";
 
 describe("pure table projection", () => {
+  it("keeps the thinking label across redraws and uses the base portrait scale", async () => {
+    const character = await loadDefaultCharacter(), initial = createMatch("thinking-view");
+    const state = { ...initial, round: { ...initial.round, phase: "turns" as const, currentActor: "opponent" as const } };
+    const selection = { ...new DialogueEngine(character.dialogue, character.id).peek(state), portrait: { image: "gesture.png", scale: 1.25 } };
+    const input = { state, character, dialogueSelection: selection, dialogueMarkup: "对白", portraitState: "relaxed",
+      portraitUrl: character.assets.conflicted, portraitAlt: character.name, thinking: true, skillDrawerOpen: false, debugMarkup: "" };
+    const thinking = projectTableView(input).html;
+    expect(thinking).toContain('data-step="shifted"');
+    expect(thinking).toContain("正在思考中");
+    expect(thinking).toContain(`--character-art-scale:${character.portraitScales.table}`);
+    expect(projectTableView({ ...input, thinking: false }).html).toContain("--character-art-scale:1.25");
+    expect(selection.portrait.image).toBe("gesture.png");
+  });
   it("marks natural hands only and keeps opponent feedback private until reveal", async () => {
     const character = await loadDefaultCharacter();
     const initial = createMatch("view-natural-blackjack");

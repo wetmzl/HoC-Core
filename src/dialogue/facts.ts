@@ -20,6 +20,7 @@ function collectHistory(state: DialoguePrimitiveContext["state"]) {
     const event = state.history[i];
     if (event.type === "ROUND_STARTED") { indices["round-start"] = i; indices["last-action"] = indices["last-player-action"] = indices["last-opponent-action"] = -1; actions.any = actions.player = actions.opponent = null; Object.keys(counts).forEach(k => counts[k] = 0); Object.keys(abilityPlays).forEach(k => delete abilityPlays[k]); abilityPlays.player = abilityPlays.opponent = 0; hands = { player: [], opponent: [] }; }
     if (event.type === "ABILITY_PLAYED") { abilityPlays[event.owner]++; const key = `${event.owner}:${event.definitionId}`; abilityPlays[key] = (abilityPlays[key] ?? 0) + 1; }
+    if (event.type === "HAND_CARD_DISCARDED") hands[event.actor] = hands[event.actor].filter(card => card.id !== event.cardId);
     if (event.type === "HAND_REDEALT") hands[event.actor] = [];
     if (event.type === "CARD_DEALT") hands[event.actor].push(event.card as Card);
     if (event.type === "ROUND_RESOLVED") { indices["round-result"] = i; resultHands = { player: [...hands.player], opponent: [...hands.opponent] }; }
@@ -50,6 +51,8 @@ export const CORE_DIALOGUE_PRIMITIVES: readonly DialoguePrimitive[] = Object.fre
   primitive("ability-play-count", "number", ["history"], { type: "object", properties: { actor, definitionId: { type: "string", minLength: 1 } }, required: ["actor"], additionalProperties: false }, (c, a) => historyFacts(c.state).abilityPlays[a.definitionId === undefined ? String(a.actor) : `${a.actor}:${a.definitionId}`] ?? 0),
   primitive("random", "number", ["event"], { type: "object", properties: { key: { type: "string", minLength: 1, maxLength: 128 } }, required: ["key"], additionalProperties: false }, (c, a) => c.event ? new SeededRng(c.state.rng.dialogue.seed).derive(JSON.stringify([c.characterId, c.event.id, a.key])).next() : undefined),
   primitive("phase", "string", ["phase"], empty, c => c.state.round.phase),
+  primitive("match-status", "string", ["match"], empty, c => c.state.status),
+  primitive("match-winner", "string", ["match"], empty, c => c.state.outcome?.winner ?? null),
   primitive("round-number", "number", ["round"], empty, c => c.state.roundIndex + 1),
   primitive("current-actor", "string", ["round"], empty, c => c.state.round.currentActor),
   primitive("penalty-target", "string", ["round"], empty, c => c.state.round.outcome?.penaltyTarget ?? null),
@@ -73,6 +76,12 @@ export const CORE_DIALOGUE_PRIMITIVES: readonly DialoguePrimitive[] = Object.fre
   }),
   primitive("trigger-actor", "string", ["history", "phase"], empty, c => { const event = c.state.history[historyFacts(c.state).indices["trigger-result"]]; return c.state.round.phase === "roulette-result" && event?.type === "TRIGGER_PULLED" ? event.actor : undefined; }),
   primitive("trigger-result", "string", ["history", "phase"], empty, c => { const event = c.state.history[historyFacts(c.state).indices["trigger-result"]]; return c.state.round.phase === "roulette-result" && event?.type === "TRIGGER_PULLED" ? event.result : undefined; }),
+  primitive("defeat-prevented", "boolean", ["history", "phase"], actorArgs, (c, a) => {
+    const index = historyFacts(c.state).indices["trigger-result"];
+    const event = c.state.history[index];
+    return c.state.round.phase === "roulette-result" && event?.type === "TRIGGER_PULLED" && event.actor === a.actor
+      && c.state.history.slice(index + 1).some(event => event.type === "DEFEAT_PREVENTED" && event.actor === a.actor);
+  }),
   primitive("status-present", "boolean", ["abilities"], { type: "object", properties: { actor, definitionId: { type: "string", minLength: 1 } }, required: ["actor", "definitionId"], additionalProperties: false }, (c, a) => c.state.abilities.statuses.some(s => s.owner === a.actor && s.statusDefinitionId === a.definitionId))
 ]);
 export function matchesTest(value: DialogueScalar, test: import("./types").DialogueTest): boolean {

@@ -37,11 +37,13 @@ export class MemorySaveRepository implements SaveRepository {
 
   async deleteRuntime(): Promise<void> { this.runtime = null; }
 
-  async commitMatchResult(save: LongTermSave): Promise<void> {
+  async commitMatchResult(save: LongTermSave, runtime: RuntimeSave | null = null): Promise<void> {
     const valid = copyLongTerm(save);
+    const nextRuntime = runtime === null ? null : copyRuntime(runtime);
     this.longTerm = valid;
-    this.runtime = null;
+    this.runtime = nextRuntime;
     this.longTermWrites.push(copyLongTerm(valid));
+    if (nextRuntime !== null) this.runtimeWrites.push(copyRuntime(nextRuntime));
     this.commits.push(copyLongTerm(valid));
   }
 

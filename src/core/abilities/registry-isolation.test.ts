@@ -44,7 +44,7 @@ describe("authoritative isolated ability catalogs", () => {
     expect(getAbilityDefinition(globalAction.id)).toBeDefined();
     expect(getAbilityDefinition(globalAction.id, empty)).toBeUndefined();
     expect(getStatusDefinition(globalStatus.id, empty)).toBeUndefined();
-    expect(validateAbilityBinding(binding)).toEqual(binding);
+    expect(validateAbilityBinding(binding)).toEqual({ ...binding, level: 1 });
     expect(() => validateAbilityBinding(binding, empty)).toThrow("Unknown ability definition");
     expect(() => instantiateAbility(binding, "player", "source", 1, empty)).toThrow("Unknown ability definition");
   });
@@ -71,8 +71,8 @@ describe("authoritative isolated ability catalogs", () => {
     { type: "record-random-rank", target: "owner", statusDefinitionId: globalStatus.id },
     { type: "add-status", target: "owner", statusDefinitionId: globalStatus.id },
     { type: "set-status-stacks", target: "owner", statusDefinitionId: globalStatus.id, amount: 1 },
-    { type: "set-status-suit-to-hand-majority", target: "owner", handTarget: "owner", statusDefinitionId: globalStatus.id },
-    { type: "remember-last-card", target: "owner", cardTarget: "owner", statusDefinitionId: globalStatus.id }
+    { type: "assign-status-values", target: "owner", statusDefinitionId: globalStatus.id, mode: "replace", stacks: 1, values: { suit: { type: "hand-dominant-suit", target: "owner", tieBreak: ["spades", "hearts", "diamonds", "clubs"] } } },
+    { type: "assign-status-values", target: "owner", statusDefinitionId: globalStatus.id, mode: "replace", stacks: 1, values: { rank: { type: "card-attribute", target: "owner", card: "last-card", attribute: "rank" }, suit: { type: "card-attribute", target: "owner", card: "last-card", attribute: "suit" }, source: { type: "card-attribute", target: "owner", card: "last-card", attribute: "source" }, cardId: { type: "card-attribute", target: "owner", card: "last-card", attribute: "id" } } }
   ];
   it.each(statusEffects)("cannot create a globally defined status through $type", effect => {
     const input = fixture();
@@ -82,11 +82,11 @@ describe("authoritative isolated ability catalogs", () => {
   });
 
   it("rejects dynamic card grants for a definition outside the selected catalog atomically", () => {
-    const local = createStandaloneAbilityRegistry([action("local-grant", [{ type: "grant-player-skill-card", target: "owner", source: "last-successful-player-skill", fallback: "self" }])], []);
+    const local = createStandaloneAbilityRegistry([action("local-grant", [{ type: "grant-skill-card", target: "owner", initialize: false, choices: [{ type: "last-successful-player-skill" }, { type: "self" }] }])], []);
     const input = fixture(local, "local-grant");
     input.runtime = { ...input.runtime, lastPlayedPlayerSkillDefinitionId: globalAction.id };
     const before = structuredClone(input);
-    expect(() => playAbility(input)).toThrow(`Cannot grant non-active Player Skill definition: ${globalAction.id}`);
+    expect(() => playAbility(input)).toThrow(`Cannot grant a non-player skill definition: ${globalAction.id}`);
     expect(input).toEqual(before);
   });
 

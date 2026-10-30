@@ -12,6 +12,8 @@ const index: BuiltinPackageIndex = { format: "house-of-chances-builtin-package-i
 function fixture() {
   const draft = createCharacterPackageDraft("sample", "测试与会者");
   const match = JSON.parse(draft.files["resources/character.json"]);
+  delete match.metadata.encounter;
+  draft.manifest.resources.find(resource => resource.type === "game.character-match")!.apiVersion = 8;
   match.metadata.faction = "example/factions#guild";
   match.metadata.matchMusic = "bgm/character.ogg";
   const dialogue = JSON.parse(draft.files["resources/dialogue.json"]);

@@ -40,7 +40,7 @@ for (const missingAny of [false, true]) {
       files: Object.entries(files).map(([path, bytes]) => ({ path, bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex"), mediaType: path.endsWith(".json") ? "application/json" : path.endsWith(".js") ? "text/javascript" : "text/css" })), extensions: {}
     };
     await page.goto("/");
-    expect(await page.evaluate(() => typeof AbortSignal.any)).toBe("function");
+    await expect.poll(() => page.evaluate(() => typeof AbortSignal.any)).toBe("function");
     if (!missingAny) expect(await page.evaluate(() => AbortSignal.any === (window as any).__anyBeforeBoot)).toBe(true);
 
     // The fallback must also accept native signals created in another window.

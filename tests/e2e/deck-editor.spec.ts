@@ -1,3 +1,4 @@
+import { expectSkillSheet } from "./skill-sheet-assertions";
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -61,6 +62,8 @@ test("八组真实截图：小卡、筛选、详情、排序、跨区、落位�
   await page.locator(".deck-filter summary").click();
   await page.locator(`[data-deck-id="${ids[0]}"]`).click();
   await expect(page.locator(".deck-detail")).toBeVisible();
+  await expectSkillSheet(page.locator(".deck-detail .skill-sheet"));
+  await page.locator(".deck-detail .skill-sheet summary").click();
   await shot("03-detail-390.png");
   await page.locator("[data-deck-detail-close]").click();
   await startDrag(page, ids[0]);

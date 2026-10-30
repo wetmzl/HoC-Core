@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function mountTable(page: Page, options: { motion?: boolean; safe?: boolean; audioProbe?: boolean } = {}) {
+async function mountTable(page: Page, options: { motion?: boolean; safe?: boolean; audioProbe?: boolean; hitBoundary?: boolean } = {}) {
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "开始游戏", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "开始游戏", exact: true })).toBeEnabled({ timeout: 120_000 });
   await page.evaluate(async options => {
     const load = (path: string): Promise<any> => import(/* @vite-ignore */ path);
     await load("/src/table-screen-module.ts");
@@ -22,7 +22,7 @@ async function mountTable(page: Page, options: { motion?: boolean; safe?: boolea
     const { createMatch, normalizeAbilityHands } = await load("/src/core/match/reducer.ts");
     const { createCard } = await load("/src/core/blackjack/card.ts");
     const base = createMatch("example-bust-table", { opponentId: neutral.id, opponentAiSkills: [{ definitionId: advantage.id, enabled: true, parameters: {} }] });
-    const ranks = options.safe ? [...Array(10).fill("A"), "5", "5"] : ["10", "2", ...Array(10).fill("A")];
+    const ranks = options.hitBoundary ? ["10", "10", "10", "10", "10", "10", "A"] : options.safe ? [...Array(10).fill("A"), "5", "5"] : ["10", "2", ...Array(10).fill("A")];
     const playerCards = ranks.map((rank, i) => createCard("spades", rank, `example-player-${i}`));
     const opponentCards = ["10", "2", ...Array(10).fill("A")].map((rank, i) => createCard("hearts", rank, `example-opponent-${i}`));
     const used = [...playerCards, ...opponentCards];
@@ -51,6 +51,24 @@ async function mountTable(page: Page, options: { motion?: boolean; safe?: boolea
 }
 
 for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 720 }, { width: 1280, height: 900 }]) {
+  test(`超过三倍爆牌上限后禁用 Hit，仍可 Stand ${viewport.width}`, async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize(viewport);
+    await mountTable(page, { hitBoundary: true });
+    const hit = page.getByRole("button", { name: "Hit 要牌", exact: true });
+    const score = page.locator(".player-zone .hand-score-base");
+    await expect(score).toHaveText("61");
+    await hit.click();
+    await expect(score).toHaveText("63");
+    await expect(hit).toBeEnabled();
+    await hit.click();
+    await expect(score).toHaveText("65");
+    await expect(hit).toBeDisabled();
+    await expect(page.locator("main.table-shell")).toHaveAttribute("data-phase", "turns");
+    await page.getByRole("button", { name: "Stand 停牌", exact: true }).click();
+    await expect(page.locator("main.table-shell")).toHaveAttribute("data-phase", "round-reveal");
+  });
+
   test(`基础点数特效与双方爆牌结算 ${viewport.width}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
     await mountTable(page, { motion: true });

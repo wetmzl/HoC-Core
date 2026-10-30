@@ -4,7 +4,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "debug-engine",
-    "version": "1.0.1"
+    "version": "1.0.3"
   },
   "metadata": {
     "title": "官方调试引擎",
@@ -41,7 +41,7 @@
     {
       "id": "skill:debug-control",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/debug-control.json",
       "requires": []
     }

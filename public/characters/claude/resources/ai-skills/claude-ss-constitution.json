@@ -1,0 +1,78 @@
+{
+  "id": "claude-ss-constitution",
+  "name": "安全宪法",
+  "description": "Claude 主动 Stand 后，玩家本轮无法使用技能。",
+  "usage": "Claude 主动 Stand 后，封锁玩家本轮的主动技能，包括左轮反应技能；玩家仍可 Hit。下轮解除。",
+  "profileLore": "她合上手里的条款，牌桌也随之安静下来。",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "cheater",
+  "tags": [
+    "ai-skill",
+    "blackjack",
+    "control"
+  ],
+  "parameters": {
+    "stage": {
+      "type": "enum",
+      "values": [
+        "full",
+        "weakened"
+      ],
+      "default": "full"
+    }
+  },
+  "activation": {
+    "type": "automatic"
+  },
+  "rules": [
+    {
+      "id": "seal-skills-on-owner-stand",
+      "trigger": "after-stand",
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "owner"
+        }
+      ],
+      "effects": [
+        {
+          "type": "set-status-stacks",
+          "target": "rival",
+          "statusDefinitionId": "claude-ss-skill-lock",
+          "amount": 1
+        }
+      ]
+    }
+  ],
+  "levels": [
+    {
+      "level": 2,
+      "description": "Claude 主动 Stand 时，强制玩家 Stand，并封锁玩家本轮技能。",
+      "usage": "Claude 主动 Stand 时，玩家立即被强制 Stand，且本轮不能使用主动技能，包括左轮反应技能。下轮解除；被其他技能强制 Stand 不会触发此效果。",
+      "rules": [
+        {
+          "id": "seal-skills-on-owner-stand",
+          "trigger": "after-stand",
+          "conditions": [
+            {
+              "type": "actor-is",
+              "actor": "owner"
+            }
+          ],
+          "effects": [
+            {
+              "type": "set-status-stacks",
+              "target": "rival",
+              "statusDefinitionId": "claude-ss-skill-lock",
+              "amount": 1
+            },
+            {
+              "type": "force-stand",
+              "target": "rival"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

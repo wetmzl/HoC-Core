@@ -2,11 +2,28 @@
 .skill-card b, .skill-card small { display: block; overflow: hidden; }
 .skill-card b { color: var(--amber); font-size: .65rem; line-height: 1.2; }
 .skill-card small { color: var(--muted); font-size: .66rem; line-height: 1.15; margin-top: 4px; }
+.skill-card .skill-card-meta { display: flex; flex-direction: column; gap: 1px; font-size: .58rem; }
+.skill-card-kind { display: flex; justify-content: space-between; align-items: center; gap: 1px; white-space: nowrap; }
+.skill-card-domain { flex-shrink: 0; }
 .skill-card:disabled, .skill-card[aria-disabled="true"] { opacity: .55; }
 .skill-card[aria-disabled="true"] { cursor: not-allowed; border-color: var(--pink); }
 .passive-card { border-color: #76a98d; background: #142d2b; color: #bde8d8; }
 .passive-card b { color: #bde8d8; }
 
-.skill-rules { margin: 8px 0; color: var(--muted); font-size: .76rem; line-height: 1.55; overflow-wrap: anywhere; }
-.skill-rules > summary { min-height: 44px; padding: 10px 0; cursor: pointer; color: var(--cyan); list-style-position: inside; }
-.skill-rules > p { margin: 0 0 10px; }
+.skill-card { position: relative; }
+.skill-card:has(.card-marker) { padding-bottom: 15px; }
+.skill-card .card-marker, .skill-card .card-markers { pointer-events: none; }
+
+.skill-card.skill-card-purple-glow {
+  border-color: #d0a0ff;
+  background: repeating-linear-gradient(135deg, #bb78ed14 0 5px, transparent 5px 10px), linear-gradient(155deg, #45305e, #241b3d);
+  box-shadow: 0 0 7px #c184ffb3, 0 0 16px #a458e65c, inset 0 0 8px #c184ff40;
+}
+.skill-card-purple-glow::after {
+  content: ""; position: absolute; inset: -2px; border: 1px solid #e1baff; border-radius: inherit;
+  box-shadow: 0 0 11px #c184ffb3, inset 0 0 7px #c184ff66;
+  pointer-events: none; animation: skill-card-purple-pulse 1.8s ease-in-out infinite; opacity: .6;
+}
+@keyframes skill-card-purple-pulse { 0%, 100% { opacity: .35; } 50% { opacity: .95; } }
+.reduced-motion .skill-card-purple-glow::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .skill-card-purple-glow::after { animation: none; } }

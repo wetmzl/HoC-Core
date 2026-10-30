@@ -8,9 +8,23 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
     <title>命运牌桌</title>
+    <link rel="stylesheet" href="/browser-compatibility.css" />
   </head>
   <body>
+    <section id="compatibility-notice" role="alert" aria-labelledby="compatibility-title" tabindex="-1">
+      <h1 id="compatibility-title">游戏尚未启动</h1>
+      <p id="compatibility-message">如果一直停留在此页面，请检查浏览器或手机系统网页组件是否有更新，再重新打开游戏。</p>
+      <p id="compatibility-help">无需卸载游戏或清除游戏数据。也可检查网络后重试。</p>
+      <details id="compatibility-diagnostics">
+        <summary>查看检测信息</summary>
+        <p id="compatibility-detail">检测尚未完成。</p>
+      </details>
+      <noscript><p>浏览器已禁用 JavaScript，请启用后重新打开游戏。</p></noscript>
+      <button type="button" id="compatibility-continue" style="display: none">跳过提醒，尝试进入</button>
+      <button type="button" id="compatibility-retry">重新检查</button>
+    </section>
     <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
+    <script src="/browser-compatibility.js"></script>
+    <script type="module" src="/src/bootstrap.ts"></script>
   </body>
 </html>

@@ -1,0 +1,81 @@
+{
+  "id": "claude-ss-verdict",
+  "name": "高岭之花",
+  "description": "Claude 的左轮装填数为 0 时，跳过她的扳机阶段。",
+  "usage": "按结算装弹后的当前子弹数判定；仅保护 Claude，不影响玩家的扳机阶段。",
+  "profileLore": "你们只配亲吻我的脚，啧，怎么是一副享受的表情啊",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "gunslinger",
+  "tags": [
+    "ai-skill",
+    "trigger-protection"
+  ],
+  "parameters": {
+    "stage": {
+      "type": "enum",
+      "values": [
+        "full",
+        "weakened"
+      ],
+      "default": "full"
+    }
+  },
+  "activation": {
+    "type": "automatic"
+  },
+  "rules": [
+    {
+      "id": "skip-trigger",
+      "trigger": "before-trigger-pull",
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "owner"
+        },
+        {
+          "type": "gun-bullets",
+          "target": "owner",
+          "operator": "lte",
+          "value": 0
+        }
+      ],
+      "effects": [
+        {
+          "type": "cancel-pending-trigger",
+          "target": "owner"
+        }
+      ]
+    }
+  ],
+  "levels": [
+    {
+      "level": 2,
+      "description": "Claude 的左轮装填数不超过 4 时，跳过她的所有扳机阶段。",
+      "usage": "按结算装弹后的当前子弹数判定，0 至 4 发均受保护；超过 4 发时正常进入扳机阶段。仅保护 Claude，不影响玩家。",
+      "rules": [
+        {
+          "id": "skip-trigger",
+          "trigger": "before-trigger-pull",
+          "conditions": [
+            {
+              "type": "actor-is",
+              "actor": "owner"
+            },
+            {
+              "type": "gun-bullets",
+              "target": "owner",
+              "operator": "lte",
+              "value": 4
+            }
+          ],
+          "effects": [
+            {
+              "type": "cancel-pending-trigger",
+              "target": "owner"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

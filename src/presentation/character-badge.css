@@ -42,7 +42,7 @@
 .character-badge[data-tier="A"]::before { animation: badge-orbit 10s linear infinite; }
 .character-badge[data-tier="S"] { --badge-color: #ffdc82; --badge-glow: #ffc55f9c; --badge-ring: conic-gradient(#fff2b1, #ab6c21, #ffeeb0, #c28530, #fff2b1); box-shadow: 0 0 12px var(--badge-glow), 0 2px 6px #020812b3; }
 .character-badge[data-tier="S"]::before { animation: badge-orbit 7s linear infinite; }
-.character-badge[data-tier="SS"] { --badge-color: #ffe7c0; --badge-glow: #f5b8ffad; --badge-ring: conic-gradient(#fff3c9, #ca86ec, #9beaff, #ffcf83, #fff3c9); box-shadow: 0 0 15px var(--badge-glow), 0 0 5px #fff1bfa6; }
+.character-badge[data-tier="SS"] { --badge-color: #ffe7b0; --badge-glow: #d9a0ffad; --badge-ring: conic-gradient(#fff3c9, #ca86ec, #9beaff, #ffcf83, #fff3c9); width: 48px; height: 48px; right: 10px; bottom: 14px; padding: 5px; border-color: #ffe6a4; box-shadow: 0 0 0 2px #977249, 0 0 0 4px #dfb5ff52, 0 0 22px var(--badge-glow), 0 0 9px #fff1bfa6; }
 .character-badge[data-tier="SS"]::before { animation: badge-orbit 5s linear infinite; }
 .character-badge[data-tier="S"]::after, .character-badge[data-tier="SS"]::after {
   content: "";
@@ -53,7 +53,7 @@
   opacity: .65;
   box-shadow: 0 0 5px var(--badge-glow);
 }
-.character-badge[data-tier="SS"]::after { inset: -4px; border-style: dashed; animation: badge-orbit 18s linear infinite reverse; }
+.character-badge[data-tier="SS"]::after { inset: -7px; border-width: 3px; border-style: double; animation: badge-orbit 18s linear infinite reverse; }
 .character-badge[data-tier="S"] .character-badge-sparkles,
 .character-badge[data-tier="SS"] .character-badge-sparkles {
   position: absolute;
@@ -68,7 +68,7 @@
 }
 @keyframes badge-orbit { to { transform: rotate(360deg); } }
 @keyframes badge-shimmer { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
-@media (max-width: 360px) { .character-badge { width: 34px; height: 34px; } }
+@media (max-width: 360px) { .character-badge { width: 34px; height: 34px; } .character-badge[data-tier="SS"] { width: 42px; height: 42px; right: 9px; } }
 .reduced-motion .character-badge::before, .reduced-motion .character-badge::after, .reduced-motion .character-badge-sparkles { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   .character-badge::before, .character-badge::after, .character-badge-sparkles { animation: none !important; }
@@ -95,3 +95,4 @@
 }
 
 .character-badge[hidden] { display: none; }
+.character-badge[data-tier="SS"] + .character-badge-hint { bottom: 76px; }

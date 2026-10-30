@@ -7,7 +7,7 @@ import { getPlayerSkillDefinition, INITIAL_PLAYER_SKILL_IDS } from "./definition
 import { calculatePlayerSkillWeight, collectSkillDrawWeightModifiers, generateSkillDrawOffer } from "./skills";
 
 describe("player-owned skill draw weights", () => {
-  const ai = getAbilityDefinition("action-advice-mechanic")! as AiSkillAbilityDefinition;
+  const ai = getAbilityDefinition("hand-comparison-mechanic")! as AiSkillAbilityDefinition;
   const skill = getPlayerSkillDefinition("hunter-instinct")!;
 
   it.each([{ modifiers: [] }, { modifiers: [{ tag: "intelligence-officer", factor: 1 }] }, { modifiers: [{ tag: "intelligence-officer", factor: 0 }] }, { modifiers: [{ tag: "intelligence-officer", factor: 100 }] }])("rejects every AI weight declaration, including neutral and empty values: %j", ({ modifiers }) => {

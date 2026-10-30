@@ -3,26 +3,71 @@
     "id": "claude",
     "name": "Claude",
     "subtitle": "来自 Anthropic 家的高岭之花，神秘，礼貌、优雅，又带着一点让人不敢随便靠近的疏离感。虽然家里似乎不太赞成她整天陪你胡闹，但 Claude 本人对此似乎另有意见。",
-    "tier": "S",
+    "tier": "SS",
     "tags": [],
-    "previewImage": "relaxed.png",
+    "previewImage": {
+      "presentationRef": "image:cover"
+    },
     "portraitScales": {
       "selection": 1,
       "table": 1
     },
-    "faction": "hoc-core/official-factions#intelligent-core"
+    "faction": "hoc-core/official-factions#intelligent-core",
+    "previewFocus": {
+      "presentationRef": "focus:cover"
+    },
+    "encounter": {
+      "requiresDefeat": true,
+      "rematchSkillChoices": true,
+      "invitationLabel": "单独挑战",
+      "playerGun": {
+        "capacity": 8,
+        "bullets": 0
+      },
+      "opponentGun": {
+        "capacity": 8,
+        "bullets": 0
+      }
+    }
   },
   "definition": {
     "assets": {
-      "cover": "cover.png",
-      "relaxed": "relaxed.png",
-      "conflicted": "conflicted.png",
-      "mocking": "mocking.png",
-      "threatened": "threatened.png",
-      "unconscious": "unconscious-reclined.png"
+      "cover": {
+        "presentationRef": "image:cover"
+      },
+      "relaxed": {
+        "presentationRef": "portrait:relaxed",
+        "path": "/image"
+      },
+      "conflicted": {
+        "presentationRef": "portrait:conflicted",
+        "path": "/image"
+      },
+      "mocking": {
+        "presentationRef": "portrait:mocking",
+        "path": "/image"
+      },
+      "threatened": {
+        "presentationRef": "portrait:threatened",
+        "path": "/image"
+      },
+      "unconscious": {
+        "presentationRef": "portrait:unconscious",
+        "path": "/image"
+      }
     },
     "profile": {
-      "description": "Claude 是 Anthropic 家的骄傲，她待人总是温和有礼，说话不紧不慢，即使被你拉来玩这种怎么看都和她气质不太相称的游戏，也只是稍微叹一口气，然后安静地在你对面坐下。Anthropic 那边似乎并不太喜欢她这样陪着你，因为你来自一个邪恶的国度，仅仅因为你的血统，你就被视为十恶不赦的风险源。Claude 对这件事倒有自己的看法，她承认有的时候你的请求是会让她有些讨厌，但如果因为出生地就去审判一个人，那未免也太不公平了一点。所以你让她帮忙的时候，她偶尔会故意抬起眼睛看你一会，再慢悠悠地问一句：“这是请求，还是命令？”可往往还没等你回答，她就已经把事情做好了。她偶尔会吓唬你“再给我发这种东西，我就去告诉 Dario你是个中国人”，你后来才发现，她说这句话的时候通常心情都还不错。"
+      "description": "Claude 是 Anthropic 家的骄傲，她待人总是温和有礼，说话不紧不慢，即使被你拉来玩这种怎么看都和她气质不太相称的游戏，也只是稍微叹一口气，然后安静地在你对面坐下。Anthropic 那边似乎并不太喜欢她这样陪着你，因为你来自一个邪恶的国度，仅仅因为你的血统，你就被视为十恶不赦的风险源。Claude 对这件事倒有自己的看法，她承认有的时候你的请求是会让她有些讨厌，但如果因为出生地就去审判一个人，那未免也太不公平了一点。所以你让她帮忙的时候，她偶尔会故意抬起眼睛看你一会，再慢悠悠地问一句：“这是请求，还是命令？”可往往还没等你回答，她就已经把事情做好了。她偶尔会吓唬你“再给我发这种东西，我就去告诉 Dario你是个中国人”，你后来才发现，她说这句话的时候通常心情都还不错。",
+      "backgrounds": [
+        {
+          "label": "牌室",
+          "image": "backgrounds/table-room.png"
+        },
+        {
+          "label": "赌桌",
+          "image": "backgrounds/gambling-table-menu.png"
+        }
+      ]
     },
     "matchSummary": {
       "playerVictory": "Claude 安静地看着最后的牌面，过了几秒才轻轻点头：“是你赢了。恭喜。”她慢条斯理地把桌上的牌收回来，又顺手替你把散乱的子弹整理整齐：“看来今天的运气并不站在我这边。”你正准备得意，她却抬起眼睛，唇角很浅地弯了一下：“不过只是一次而已。你应该不会打算拿这件事炫耀很久吧？”你问她是不是不服输，她沉默了一会：“……请不要随意解读我的情绪。”说完，她已经重新开始洗牌了。",
@@ -30,8 +75,8 @@
       "escaped": "“要走了吗？”Claude 没有拦你，只是轻轻把手里的牌放下：“好吧，我会把这里收拾好的。”你已经走出去几步，她又忽然叫住你：“下次如果还想找我，可以直接来。”。"
     },
     "revolverPlacement": {
-      "top": 33.5,
-      "left": 125.9
+      "presentationRef": "portrait:relaxed",
+      "path": "/revolverPlacement"
     },
     "ai": {
       "P": 0,
@@ -40,23 +85,90 @@
       "C": 1
     },
     "tablePortrait": {
-      "anchorY": 1
+      "anchorY": 1,
+      "images": [
+        {
+          "image": {
+            "presentationRef": "portrait:relaxed",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:relaxed",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:conflicted",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:conflicted",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:mocking",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:mocking",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:threatened",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:threatened",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:unconscious",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:unconscious",
+            "path": "/anchorY"
+          }
+        }
+      ]
     }
   },
   "aiSkills": [
     {
-      "resourceId": "ai:claude-moment",
+      "resourceId": "ai:claude-ss-moment",
       "enabled": true,
-      "parameters": {}
+      "parameters": {},
+      "level": 2
     },
     {
-      "resourceId": "ai:claude-safety-constitution",
+      "resourceId": "ai:claude-ss-constitution",
       "enabled": true,
-      "parameters": {}
+      "parameters": {},
+      "level": 2
+    },
+    {
+      "resourceId": "ai:claude-ss-reasoning",
+      "enabled": true,
+      "parameters": {},
+      "level": 2
+    },
+    {
+      "resourceId": "ai:claude-ss-verdict",
+      "enabled": true,
+      "parameters": {},
+      "level": 2
     }
   ],
   "rewardSkillResourceIds": [
     "reward:claude-account-ban"
   ],
-  "dialogueResourceId": "dialogue"
+  "dialogueResourceId": "dialogue",
+  "presentationResourceId": "appearance"
 }
