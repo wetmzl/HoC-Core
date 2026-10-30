@@ -1,3 +1,4 @@
+import { skillSheetMarkup } from "../presentation/skill-sheet";
 import { skillMetadata } from "../presentation/skill-copy";
 import { TableLayers } from "../presentation/table-layers";
 import { mountCharacterIntel } from "../presentation/character-intel";
@@ -21,6 +22,8 @@ interface DevRevolverOffset {
     readonly left: number;
 }
 export interface TableScreenDependencies {
+    exitEncounter?: () => void;
+    readonly encounterPresentation?: import("../presentation/encounter-table").EncounterTablePresentation;
     dispatch: (action: import("../core/match/types").Action) => void;
     root: HTMLDivElement;
     currentCharacter: import("../content/characters/types").CharacterDefinition;
@@ -49,8 +52,9 @@ export class TableScreen {
     private tableSurface?: ReturnType<typeof mountTableSurface>;
     private thinkingTimer: number | undefined;
     showThinking = (): void => {
+        this.deps.dialogueSession?.beginThinking();
         const portrait = this.deps.root.querySelector<HTMLImageElement>(".character-portrait");
-        const override = this.deps.dialogueSession?.peek().portrait;
+        const override = this.deps.dialogueSession?.isThinking ? undefined : this.deps.dialogueSession?.peek().portrait;
         const character = this.deps.currentCharacter;
         if (portrait) {
             portrait.src = override?.image ?? character.assets.conflicted;
@@ -283,7 +287,8 @@ export class TableScreen {
         const portraitFocused = document.activeElement === this.deps.root.querySelector(".character-portrait");
         const previousIntel = this.deps.root.querySelector<HTMLDetailsElement>(".character-intel");
         const intelState = previousIntel ? { seed: previousIntel.dataset.matchSeed, open: previousIntel.open,
-            scroll: previousIntel.querySelector(".character-intel-scroll")?.scrollTop ?? 0 } : undefined;
+            scroll: previousIntel.querySelector(".character-intel-scroll")?.scrollTop ?? 0,
+            expandedSkills: Array.from(previousIntel.querySelectorAll<HTMLDetailsElement>("details.skill-sheet")).map(skill => skill.open) } : undefined;
         const previousDisplayPanel = this.deps.root.querySelector<HTMLElement>(".display-panel");
         const sameDisplayMatch = previousDisplayPanel?.dataset.matchSeed === state.seed;
         const displayScrollTop = sameDisplayMatch ? previousDisplayPanel.querySelector(".display-scroll")?.scrollTop ?? 0 : 0;
@@ -291,13 +296,21 @@ export class TableScreen {
         this.skillDrawer?.dispose();
         const { html, totalSkills, displays, shoeInfoDialog } = projectTableView({
             state, character, dialogueSelection: this.deps.dialogueSession!.peek(), dialogueMarkup: snapshot.markup,
+            thinking: this.deps.dialogueSession!.isThinking,
             portraitState: this.deps.portraitState(state), portraitUrl: this.deps.tablePortrait(state, character),
             portraitAlt: this.deps.portraitAlt(state, character), skillDrawerOpen: this.skillDrawerOpen,
+            encounter: this.deps.encounterPresentation,
             debugMarkup: this.devHud(state)
         });
         this.deps.root.innerHTML = html;
         mountCharacterIntel(this.deps.root, state.seed, intelState);
-        this.tableSurface = mountTableSurface(this.deps.root, character.tablePortrait);
+        const portraitOverride = this.deps.dialogueSession!.peek().portrait;
+        const tablePortrait = portraitOverride?.anchorY !== undefined ? {
+            ...character.tablePortrait,
+            anchorY: character.tablePortrait?.anchorY ?? 1,
+            images: [...(character.tablePortrait?.images ?? []).filter(entry => entry.image !== portraitOverride.image), { ...character.tablePortrait?.images?.find(entry => entry.image === portraitOverride.image), image: portraitOverride.image, anchorY: portraitOverride.anchorY }]
+        } : character.tablePortrait;
+        this.tableSurface = mountTableSurface(this.deps.root, tablePortrait);
         this.layers.mount(this.deps.root, state.seed, key);
         const portraitImage = this.deps.root.querySelector<HTMLImageElement>("img.character-portrait");
         if (portraitImage) {
@@ -347,31 +360,23 @@ export class TableScreen {
         this.deps.attachFullscreenListener();
         this.deps.syncFullscreenButton();
         this.deps.syncAbilityNoticePosition();
+        this.deps.root.querySelector<HTMLButtonElement>("[data-exit-encounter]")?.addEventListener("click", () => this.deps.exitEncounter?.());
         this.deps.root.querySelector<HTMLButtonElement>("[data-fullscreen]")?.addEventListener("click", this.deps.toggleFullscreen);
         this.skillDrawer = mountSkillDrawer(this.deps.root, skillPosition, totalSkills, open => { this.skillDrawerOpen = open; });
         this.deps.root.querySelectorAll<HTMLButtonElement>("[data-skill-info]").forEach((button) => button.addEventListener("click", () => {
-            const skill = getPlayerSkillDefinition(button.dataset.skillInfo ?? "");
+            const skill = getPlayerSkillDefinition(button.dataset.skillInfo ?? "", state.abilities.instances.find(instance => instance.instanceId === button.dataset.skillInfoInstance)?.level);
             const dialog = this.deps.root.querySelector<HTMLDialogElement>("#skill-info-dialog");
             if (!skill || !dialog)
                 return;
             const kind = this.deps.root.querySelector("#skill-info-kind");
-            const title = this.deps.root.querySelector("#skill-info-title");
-            const description = this.deps.root.querySelector("#skill-info-description");
-            const lore = this.deps.root.querySelector("#skill-info-lore");
-            const usage = this.deps.root.querySelector("#skill-info-usage");
+            const body = dialog.querySelector("[data-skill-info-body]");
             const status = this.deps.root.querySelector("#skill-info-status");
-            if (kind)
-                kind.textContent = skillMetadata(skill);
-            if (title)
-                title.textContent = skill.name;
-            if (description)
-                description.textContent = skill.description;
-            if (lore)
-                lore.textContent = skill.profileLore;
-            if (usage)
-                usage.textContent = skill.usage;
-            const rules = dialog.querySelector<HTMLDetailsElement>("#skill-info-rules");
-            if (rules) { rules.open = false; rules.hidden = !skill.usage || skill.usage === skill.description; }
+            if (kind) kind.textContent = skillMetadata(skill);
+            if (body) {
+                const source = skill.unlock ? getCharacterMetadata(skill.unlock.opponentId) : undefined;
+                body.innerHTML = skillSheetMarkup(skill, { titleId: "skill-info-title" })
+                    + (source ? `<p class="skill-info-source">来自 ${escapeHtml(source.name)}</p>` : "");
+            }
             if (status) {
                 const selectedInstance = state.abilities.instances.find((instance) => instance.instanceId === button.dataset.skillInfoInstance)
                     ?? state.abilities.instances.find((instance) => instance.definitionId === skill.id && instance.owner === "player");
@@ -383,9 +388,6 @@ export class TableScreen {
                     ? skill.uses > 1 ? `主动技能牌：剩余 ${remainingUses} 次发动；归零后消耗此实例` : "主动技能牌：使用后消耗此实例"
                     : `被动技能牌：占用牌库位置并持续生效${ttlText}`;
             }
-            const details = dialog.querySelector<HTMLDetailsElement>(".profile-ability");
-            if (details)
-                details.open = false;
             dialog.showModal();
         }));
         this.deps.root.querySelector<HTMLButtonElement>("[data-skill-close]")?.addEventListener("click", () => this.deps.root.querySelector<HTMLDialogElement>("#skill-info-dialog")?.close());

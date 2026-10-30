@@ -5,7 +5,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "official-built-in-talents",
-    "version": "1.1.0"
+    "version": "1.1.2"
   },
   "metadata": {
     "title": "官方内嵌天赋包",
@@ -29,28 +29,28 @@
     {
       "id": "talent:early-preparation",
       "type": "game.talent",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/talents/early-preparation.json",
       "requires": []
     },
     {
       "id": "talent:resilient-spirit",
       "type": "game.talent",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/talents/resilient-spirit.json",
       "requires": []
     },
     {
       "id": "talent:second-chance",
       "type": "game.talent",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/talents/second-chance.json",
       "requires": []
     },
     {
       "id": "talent:well-prepared",
       "type": "game.talent",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/talents/well-prepared.json",
       "requires": []
     }

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>命运牌桌 · 运行环境提示</title>
+    <link rel="stylesheet" href="./browser-compatibility.css" />
+  </head>
+  <body data-native-error="true">
+    <section id="compatibility-notice" role="alert" aria-labelledby="compatibility-title" tabindex="-1">
+      <h1 id="compatibility-title">游戏页面未能加载</h1>
+      <p id="compatibility-message">请尝试重新打开游戏；若仍无法启动，请在手机设置中检查系统更新，并在手机自带的应用市场检查系统网页组件更新。</p>
+      <p id="compatibility-help">仅更新游戏或浏览器，不一定会更新系统网页组件（WebView）。无需卸载游戏或清除游戏数据。</p>
+      <details id="compatibility-diagnostics">
+        <summary>查看检测信息</summary>
+        <p id="compatibility-detail">检测尚未完成。</p>
+      </details>
+      <button type="button" id="compatibility-continue" style="display: none">跳过提醒，尝试进入</button>
+      <button type="button" id="compatibility-retry">重新检查</button>
+    </section>
+    <script src="./browser-compatibility.js"></script>
+  </body>
+</html>

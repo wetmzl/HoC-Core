@@ -42,26 +42,32 @@
         ],
         "effects": [
           {
-            "type": "add-derived-card",
+            "type": "acquire-card",
             "target": "owner",
-            "rank": {
-              "type": "scalar",
-              "value": {
-                "type": "power",
-                "left": 2,
-                "right": {
-                  "type": "subtract",
-                  "left": {
-                    "type": "event-hand-card-count",
-                    "target": "owner"
-                  },
-                  "right": 2
+            "reportResult": true,
+            "choices": [
+              {
+                "source": "derived",
+                "rank": {
+                  "type": "scalar",
+                  "value": {
+                    "type": "power",
+                    "left": 2,
+                    "right": {
+                      "type": "subtract",
+                      "left": {
+                        "type": "event-hand-card-count",
+                        "target": "owner"
+                      },
+                      "right": 2
+                    }
+                  }
+                },
+                "suit": {
+                  "type": "uniform-ability-rng"
                 }
               }
-            },
-            "suit": {
-              "type": "uniform-ability-rng"
-            }
+            ]
           }
         ]
       },
@@ -107,16 +113,22 @@
             }
           },
           {
-            "type": "add-derived-card",
+            "type": "acquire-card",
             "target": "owner",
-            "rank": {
-              "type": "static",
-              "rank": "K"
-            },
-            "suit": {
-              "type": "static",
-              "suit": "spades"
-            }
+            "reportResult": true,
+            "choices": [
+              {
+                "source": "derived",
+                "rank": {
+                  "type": "static",
+                  "rank": "K"
+                },
+                "suit": {
+                  "type": "static",
+                  "suit": "spades"
+                }
+              }
+            ]
           }
         ]
       }

@@ -8,6 +8,7 @@ export type Tier = "D" | "C" | "B" | "A" | "S" | "SS";
 export type CharacterUnlockCondition =
   | { readonly type: "defeat-any" }
   | { readonly type: "defeat-count"; readonly count: number }
+  | { readonly type: "defeat-faction-count"; readonly faction: string; readonly count: number }
   | { readonly type: "defeat-any-tag"; readonly tag: string }
   | { readonly type: "defeat-character"; readonly characterId: string }
   | { readonly type: "defeat-tag-percentage"; readonly tag: string; readonly percentage: number };
@@ -24,15 +25,25 @@ export interface CharacterBadge {
 }
 
 /** Lightweight attendee data used to build the castle lobby and collection-history index. */
+export interface CharacterAppearance {
+  readonly key: string;
+  readonly skinId: string;
+  readonly skins: readonly { readonly id: string; readonly name: string; readonly unlock?: import("./skin-unlock").SkinUnlockCondition }[];
+}
 export interface CharacterMetadata {
+  readonly appearance?: CharacterAppearance;
   readonly id: string;
   readonly name: string;
   readonly subtitle: string;
   readonly tier: Tier;
+  readonly encounter?: import("./encounter-policy").CharacterEncounterPolicy;
+  readonly runtime?: import("./runtime").CharacterRuntime;
   /** Custom discovery tags. The tier itself is also queryable as `tier:s`, `tier:a`, etc. */
   readonly tags: readonly string[];
   readonly unlock?: CharacterUnlockCondition;
   readonly previewImage: string;
+  /** Eye midpoint in previewImage, normalized from the top-left corner. */
+  readonly previewFocus?: { readonly x: number; readonly y: number };
   /** Optional affiliation; retained even when its content package is unavailable. */
   readonly faction?: string;
   readonly badge?: CharacterBadge;
@@ -40,7 +51,7 @@ export interface CharacterMetadata {
 }
 
 export interface CharacterAssets {
-  /** Opaque 512x512 character-package cover reserved for the lobby UI. */
+  /** Opaque square cover, resolved for the selected skin and shared by catalog/profile/flow previews. */
   readonly cover: string;
   readonly relaxed: string;
   readonly conflicted: string;
@@ -57,6 +68,7 @@ export interface RevolverPlacement {
 }
 
 export interface CharacterProfile {
+  readonly backgrounds?: readonly { readonly label: string; readonly image: string }[];
   readonly description: string;
 }
 
@@ -87,6 +99,8 @@ export interface CharacterData {
 }
 
 export interface CharacterDefinition extends CharacterMetadata, CharacterData {
+  /** Validated package-local runtime declaration, resolved before a flow starts. */
+  readonly program?: import("../../core/flow/program").ProgramDefinition;
   /** Resolved presentation URLs, in character then faction fallback order. Never saved. */
   readonly matchMusicSources?: readonly string[];
 }

@@ -56,6 +56,8 @@ export class DialoguePresenter {
     currentDialogue = (): string => { return this.deps.dialogueSession!.peek().line; };
     dialogueKey = (): string => { return this.deps.dialogueSession!.peek().key; };
     tablePortrait = (state: MatchState, character: CharacterDefinition): string => {
+        if (this.deps.dialogueSession?.isThinking)
+            return character.assets.conflicted;
         const override = this.deps.dialogueSession?.peek().portrait;
         if (override)
             return override.image;
@@ -77,6 +79,8 @@ export class DialoguePresenter {
         return "relaxed";
     };
     portraitAlt = (state: MatchState, character: CharacterDefinition): string => {
+        if (this.deps.dialogueSession?.isThinking)
+            return character.name + " 正在思考中……";
         const override = this.deps.dialogueSession?.peek().portrait;
         if (override)
             return override.alt ?? `${character.name} 角色立绘`;

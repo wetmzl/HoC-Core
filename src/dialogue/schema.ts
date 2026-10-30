@@ -23,20 +23,21 @@ export const DialogueConditionSchema = z.preprocess((value, ctx) => {
   }
   return value;
 }, recursive);
-export const DialoguePortraitSchema = z.object({ image: HocpkgPortablePathSchema.refine(v => /\.(png|webp|jpe?g)$/i.test(v), "立绘必须是图片路径"), alt: z.string().min(1).optional(), scale: z.number().finite().min(0.75).max(1.5).optional(), revolverPlacement: z.object({ top: z.number().finite(), left: z.number().finite() }).strict().optional() }).strict();
+export const DialoguePortraitSchema = z.object({ anchorY: z.number().finite().min(0).max(1).optional(), image: HocpkgPortablePathSchema.refine(v => /\.(png|webp|jpe?g)$/i.test(v), "立绘必须是图片路径"), alt: z.string().min(1).optional(), scale: z.number().finite().min(0.75).max(1.5).optional(), revolverPlacement: z.object({ top: z.number().finite(), left: z.number().finite() }).strict().optional() }).strict();
 /** Runtime URLs have already passed package-path validation. */
 const runtimePortrait = DialoguePortraitSchema.extend({ image: z.string().min(1) });
 const lines = z.array(z.string().min(1)).min(1);
 const extensions = z.record(z.string().regex(/^[a-z0-9_-]+\/[a-z0-9_-]+$/), z.record(z.string(), z.unknown()));
 const pool = z.union([lines, z.object({ lines, extensions: extensions.optional() }).strict()]);
 function program(portrait: z.ZodType<DialoguePortrait, unknown>) {
-  return z.object({ pools: z.record(id, pool), poolExtensions: z.record(id, extensions).optional(), rules: z.array(z.object({ id, on: z.array(z.object({ type: z.string().regex(/^(?:core\.[a-z][a-z0-9-]*|[a-z0-9_-]+\/[a-z0-9_-]+#[a-z][a-z0-9-]*)$/), apiVersion: z.number().int().positive() }).strict()).min(1), when: DialogueConditionSchema, poolId: id, anchor: z.enum(["dialogue-event", "round-start", "last-action", "last-player-action", "last-opponent-action", "round-result", "round-acknowledged", "trigger-result"]).optional(), portrait: portrait.optional() }).strict()).max(10000), fallbackPoolId: id }).strict().superRefine((v, ctx) => {
+  return z.object({ pools: z.record(id, pool), poolPortraits: z.record(id, portrait).optional(), poolExtensions: z.record(id, extensions).optional(), rules: z.array(z.object({ id, on: z.array(z.object({ type: z.string().regex(/^(?:core\.[a-z][a-z0-9-]*|[a-z0-9_-]+\/[a-z0-9_-]+#[a-z][a-z0-9-]*)$/), apiVersion: z.number().int().positive() }).strict()).min(1), when: DialogueConditionSchema, poolId: id, anchor: z.enum(["dialogue-event", "round-start", "last-action", "last-player-action", "last-opponent-action", "round-result", "round-acknowledged", "trigger-result"]).optional(), portrait: portrait.optional() }).strict()).max(10000), fallbackPoolId: id }).strict().superRefine((v, ctx) => {
     if (!Object.hasOwn(v.pools, v.fallbackPoolId)) ctx.addIssue({ code: "custom", path: ["fallbackPoolId"], message: "必须存在 fallback 对白池" });
     for (const poolId of Object.keys(v.poolExtensions ?? {})) {
       if (!Object.hasOwn(v.pools, poolId)) ctx.addIssue({ code: "custom", path: ["poolExtensions", poolId], message: "扩展必须对应已存在的对白池" });
       const entry = v.pools[poolId];
       if (entry && !Array.isArray(entry) && entry.extensions) ctx.addIssue({ code: "custom", path: ["pools", poolId], message: "对白池扩展不得重复声明" });
     }
+    for (const poolId of Object.keys(v.poolPortraits ?? {})) if (!Object.hasOwn(v.pools, poolId)) ctx.addIssue({ code: "custom", path: ["poolPortraits", poolId], message: "立绘必须对应已存在的对白池" });
     const seen = new Set<string>();
     v.rules.forEach((r, i) => {
       if (seen.has(r.id)) ctx.addIssue({ code: "custom", path: ["rules", i, "id"], message: "规则 ID 重复" });

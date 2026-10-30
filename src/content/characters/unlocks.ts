@@ -1,19 +1,22 @@
 import type { CharacterDefeatRecord } from "../../core/progression/defeats";
 import { CHARACTER_CATALOG, characterHasTag, getCharacterMetadata } from "./catalog";
 import type { CharacterMetadata, CharacterUnlockCondition } from "./types";
+import { characterEncounterCapabilities } from "./encounter-capabilities";
 
 /** Character IDs recorded by the durable first-defeat collection. */
 export function defeatedCharacterIds(defeats: readonly CharacterDefeatRecord[]): ReadonlySet<string> {
   return new Set(defeats.map((record) => record.opponentId));
 }
 
-function conditionMet(condition: CharacterUnlockCondition, defeats: readonly CharacterDefeatRecord[]): boolean {
+function conditionMet(condition: CharacterUnlockCondition, defeats: readonly CharacterDefeatRecord[], characterId: string): boolean {
   const defeated = defeatedCharacterIds(defeats);
   switch (condition.type) {
     case "defeat-any":
       return defeated.size > 0;
     case "defeat-count":
       return defeated.size >= condition.count;
+    case "defeat-faction-count":
+      return CHARACTER_CATALOG.filter(character => character.id !== characterId && character.faction === condition.faction && defeated.has(character.id)).length >= condition.count;
     case "defeat-character":
       return defeated.has(condition.characterId);
     case "defeat-any-tag":
@@ -28,7 +31,8 @@ function conditionMet(condition: CharacterUnlockCondition, defeats: readonly Cha
 }
 
 export function isCharacterUnlocked(character: CharacterMetadata, defeats: readonly CharacterDefeatRecord[]): boolean {
-  return !character.unlock || conditionMet(character.unlock, defeats);
+  if (characterEncounterCapabilities(character).requiresDefeat) return defeatedCharacterIds(defeats).has(character.id);
+  return !character.unlock || conditionMet(character.unlock, defeats, character.id);
 }
 
 /** Computes the canonical set of unlocked attendees from durable defeat facts. */

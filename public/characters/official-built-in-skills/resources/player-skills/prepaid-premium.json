@@ -59,7 +59,10 @@
       "enabled": true,
       "baseWeight": 1
     },
-    "stackable": false
+    "stackable": false,
+    "metadataLabels": [
+      "满弹不可用"
+    ]
   },
   "acquisition": {
     "type": "installed"

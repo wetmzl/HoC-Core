@@ -13,6 +13,8 @@ export interface MainMenuAction {
   readonly attributes?: Readonly<Record<string, string>>;
   readonly iconMarkup?: string;
   readonly className?: string;
+  /** A portrait with unlock progress projected by the host; plugins cannot supply this view. */
+  readonly portraitEntry?: { readonly character: import("../content/characters").CharacterMetadata; readonly current: number; readonly required: number; readonly unlocked: boolean; readonly label?: string; readonly subtitle?: string };
   activate(): void | Promise<void>;
 }
 

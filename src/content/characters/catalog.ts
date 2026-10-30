@@ -1,6 +1,11 @@
 import type { CharacterMetadata } from "./types";
 import { CharacterCatalogSchema } from "./schema";
 
+function freezeTree<T>(value: T): T {
+  if (value && typeof value === "object") { Object.values(value).forEach(freezeTree); Object.freeze(value); }
+  return value;
+}
+
 export let DEFAULT_CHARACTER_ID = "chatgpt";
 
 function createCatalog(entries: readonly CharacterMetadata[]): readonly CharacterMetadata[] {
@@ -12,7 +17,9 @@ function createCatalog(entries: readonly CharacterMetadata[]): readonly Characte
   return Object.freeze(entries.map((entry) => Object.freeze({
     ...entry,
     tags: Object.freeze([...entry.tags]),
+    ...(entry.appearance ? { appearance: Object.freeze({ ...entry.appearance, skins: Object.freeze(entry.appearance.skins.map(skin => freezeTree(structuredClone(skin)))) }) } : {}),
     badge: entry.badge ? Object.freeze({ ...entry.badge }) : undefined,
+    previewFocus: entry.previewFocus ? Object.freeze({ ...entry.previewFocus }) : undefined,
     unlock: entry.unlock ? Object.freeze({ ...entry.unlock }) : undefined,
     portraitScales: Object.freeze({ ...entry.portraitScales })
   })));

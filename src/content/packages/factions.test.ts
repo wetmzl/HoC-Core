@@ -19,6 +19,8 @@ function access(name: string, resources: unknown[], bodies: Record<string, unkno
 }
 function fixture(reference = "example/factions#guild") {
   const draft = createCharacterDraft("sample", "测试与会者");
+  // This fixture deliberately exercises resource APIs predating encounter policies.
+  Reflect.deleteProperty(draft.match.metadata, "encounter");
   for (const pool of Object.values(draft.dialogue.pools)) (pool as string[]).push("测试对白");
   const match = { ...draft.match, metadata: { ...draft.match.metadata, faction: reference } };
   const character = access("sample", [

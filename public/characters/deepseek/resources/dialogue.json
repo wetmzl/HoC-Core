@@ -107,6 +107,12 @@
     "CHARACTER_TAP_ROULETTE": [
       "老板，先别戳啦，我本来就有一点点紧张……只有一点点！等会儿还要赢你呢。",
       "等这一轮过去，我给你倒杯茶，咱们再慢慢较量。现在先把手收回去啦，好不好？"
+    ],
+    "PLAYER_DEFEAT_PREVENTED": [
+      "枪响了，但你仍能继续。下一轮开始吧。"
+    ],
+    "OPPONENT_DEFEAT_PREVENTED": [
+      "我还站在这里。对局继续。"
     ]
   },
   "rules": [
@@ -143,13 +149,24 @@
             "test": {
               "eq": "fired"
             }
+          },
+          {
+            "not": {
+              "primitive": "core.defeat-prevented",
+              "apiVersion": 1,
+              "args": {
+                "actor": "opponent"
+              },
+              "test": {
+                "eq": true
+              }
+            }
           }
         ]
       },
       "poolId": "CHARACTER_TAP_DEFEATED",
       "portrait": {
-        "image": "tap.png",
-        "alt": "DeepSeek 被戳后生气"
+        "presentationRef": "portrait:tap"
       }
     },
     {
@@ -202,8 +219,7 @@
       },
       "poolId": "CHARACTER_TAP",
       "portrait": {
-        "image": "tap.png",
-        "alt": "DeepSeek 被戳后生气"
+        "presentationRef": "portrait:tap"
       }
     },
     {
@@ -221,6 +237,39 @@
       "on": [
         {
           "type": "core.trigger-ready",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "PLAYER_DEFEAT_PREVENTED",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "roulette-result"
+            }
+          },
+          {
+            "primitive": "core.defeat-prevented",
+            "apiVersion": 1,
+            "args": {
+              "actor": "player"
+            },
+            "test": {
+              "eq": true
+            }
+          }
+        ]
+      },
+      "poolId": "PLAYER_DEFEAT_PREVENTED",
+      "anchor": "trigger-result",
+      "on": [
+        {
+          "type": "core.trigger-result",
           "apiVersion": 1
         }
       ]
@@ -251,6 +300,18 @@
             "args": {},
             "test": {
               "eq": "fired"
+            }
+          },
+          {
+            "not": {
+              "primitive": "core.defeat-prevented",
+              "apiVersion": 1,
+              "args": {
+                "actor": "player"
+              },
+              "test": {
+                "eq": true
+              }
             }
           }
         ]
@@ -325,6 +386,39 @@
       ]
     },
     {
+      "id": "OPPONENT_DEFEAT_PREVENTED",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "roulette-result"
+            }
+          },
+          {
+            "primitive": "core.defeat-prevented",
+            "apiVersion": 1,
+            "args": {
+              "actor": "opponent"
+            },
+            "test": {
+              "eq": true
+            }
+          }
+        ]
+      },
+      "poolId": "OPPONENT_DEFEAT_PREVENTED",
+      "anchor": "trigger-result",
+      "on": [
+        {
+          "type": "core.trigger-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
       "id": "OPPONENT_TRIGGER_HIT",
       "when": {
         "all": [
@@ -350,6 +444,18 @@
             "args": {},
             "test": {
               "eq": "fired"
+            }
+          },
+          {
+            "not": {
+              "primitive": "core.defeat-prevented",
+              "apiVersion": 1,
+              "args": {
+                "actor": "opponent"
+              },
+              "test": {
+                "eq": true
+              }
             }
           }
         ]
@@ -1151,5 +1257,10 @@
       ]
     }
   ],
-  "fallbackPoolId": "MATCH_START"
+  "fallbackPoolId": "MATCH_START",
+  "poolPortraits": {
+    "MATCH_START": {
+      "presentationRef": "portrait:relaxed"
+    }
+  }
 }

@@ -17,13 +17,14 @@ function productionTypeScript(directory: string): string {
 describe("ability architecture boundaries", () => {
   it("keeps concrete skill identifiers out of match orchestration and the generic interpreter", () => {
     const match = productionTypeScript(join(CORE_ROOT, "match"));
-    const interpreter = ["engine.ts", "conditions.ts", "effects.ts", "runtime.ts", "card-zone-adapter.ts", "roulette-adapter.ts"]
+    const interpreter = ["skill-card-selection.ts", "value-expressions.ts", "engine.ts", "conditions.ts", "effects.ts", "runtime.ts", "card-zone-adapter.ts", "roulette-adapter.ts"]
       .map((file) => readFileSync(join(CORE_ROOT, "abilities", file), "utf8")).join("\n");
     for (const { id } of ABILITY_DEFINITIONS) {
       expect(match, `match layer contains ${id}`).not.toContain(id);
       expect(interpreter, `generic interpreter contains ${id}`).not.toContain(id);
     }
-    expect(interpreter).not.toMatch(/(?:if|switch)\s*\([^)]*definitionId[^)]*\)/);
+    // Generic selectors compare definition IDs as data. Literal ID branches are forbidden.
+    expect(interpreter).not.toMatch(/(?:definitionId|abilityId|statusDefinitionId)\s*(?:===|!==|==|!=)\s*["'](?!string["'])[a-z0-9-]+["']/);
   });
 
   it("contains no character-id literal branch in core production code", () => {

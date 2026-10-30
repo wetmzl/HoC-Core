@@ -1,12 +1,13 @@
+import { publicHandCardIds } from "../match/card-visibility";
 import { handValue } from "../blackjack/hand";
 import { shoeRemaining } from "../blackjack/shoe";
 import type { Card } from "../blackjack/types";
 import type { MatchObservation, ObservedParticipant } from "./types";
 import type { MatchState, ParticipantState } from "../match/types";
 
-function observeParticipant(participant: ParticipantState, viewer: "player" | "opponent", owner: "player" | "opponent"): ObservedParticipant {
-  const cards: readonly (Card | null)[] = participant.hand.cards.map((card, index) => {
-    if (viewer === owner || index === 0) return card;
+function observeParticipant(participant: ParticipantState, viewer: "player" | "opponent", owner: "player" | "opponent", publicIds: ReadonlySet<string>): ObservedParticipant {
+  const cards: readonly (Card | null)[] = participant.hand.cards.map((card) => {
+    if (viewer === owner || publicIds.has(card.id)) return card;
     return null;
   });
   const knownCards = cards.filter((card): card is Card => card !== null);
@@ -20,13 +21,14 @@ function observeParticipant(participant: ParticipantState, viewer: "player" | "o
 
 /** The projection is the only supported input to AI; the shoe order is never exposed. */
 export function buildObservation(state: MatchState, viewer: "player" | "opponent"): MatchObservation {
+  const publicIds = publicHandCardIds(state);
   return {
     viewer,
     roundIndex: state.roundIndex,
     phase: state.round.phase,
     currentActor: state.round.currentActor,
-    player: observeParticipant(state.player, viewer, "player"),
-    opponent: observeParticipant(state.opponent, viewer, "opponent"),
+    player: observeParticipant(state.player, viewer, "player", publicIds),
+    opponent: observeParticipant(state.opponent, viewer, "opponent", publicIds),
     shoeRemaining: shoeRemaining(state.shoe),
     roulette: {
       playerBullets: state.roulette.player.bullets,

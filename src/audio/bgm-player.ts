@@ -1,6 +1,6 @@
 import { LOBBY_BGM_URL, TABLE_BGM_URL } from "../resources/cache-policy";
+import { DEFAULT_MUSIC_VOLUME } from "./music-volume";
 
-const BGM_VOLUME = 0.18;
 const DUCKED_BGM_VOLUME = 0.08;
 const BGM_FADE_DURATION_MS = 800;
 const BGM_FADE_STEP_MS = 40;
@@ -12,12 +12,15 @@ export class BgmPlayer {
   private enabled = true;
   private unlocked = false;
   private readonly bgm = new Map<string, HTMLAudioElement>();
+  private readonly bgmGains = new Map<string, number>();
   private readonly requestedBgmLoads = new Set<string>();
   private readonly failedSources = new Set<string>();
   private matchSources: readonly string[] = [TABLE_BGM_URL];
   private desiredBgmScene: BgmScene = "lobby";
   private activeBgmUrl?: string;
-  private bgmVolume = BGM_VOLUME;
+  private musicVolume = DEFAULT_MUSIC_VOLUME;
+  private ducked = false;
+  private bgmVolume = DEFAULT_MUSIC_VOLUME;
   private bgmFadeTimer?: ReturnType<typeof setInterval>;
   private bgmTransitionId = 0;
   private tableBgmPreloadTimer?: ReturnType<typeof globalThis.setTimeout>;
@@ -73,7 +76,12 @@ export class BgmPlayer {
   }
   unlock(): void { this.unlocked = true; if (this.enabled) this.playBgm(); }
   preloadMatch(): void { if (this.enabled) this.requestBgmLoad("match"); }
-  duck(active: boolean): void { this.setBgmVolume(active ? DUCKED_BGM_VOLUME : BGM_VOLUME); }
+  setMusicVolume(volume = DEFAULT_MUSIC_VOLUME): void {
+    if (!Number.isFinite(volume) || volume < 0 || volume > 1) return;
+    this.musicVolume = volume;
+    this.updateBgmVolume();
+  }
+  duck(active: boolean): void { this.ducked = active; this.updateBgmVolume(); }
 
   private source(scene: BgmScene): string | undefined {
     return (scene === "lobby" ? [LOBBY_BGM_URL] : this.matchSources).find(url => !this.failedSources.has(url));
@@ -88,6 +96,7 @@ export class BgmPlayer {
     bgm.volume = 0;
     bgm.onerror = () => this.failSource(url, bgm);
     this.bgm.set(url, bgm);
+    this.bgmGains.set(url, 0);
     return bgm;
   }
 
@@ -117,13 +126,13 @@ export class BgmPlayer {
     if (!url) { this.pauseBgm(); return; }
     const bgm = this.ensureBgm(url);
     if (!bgm.paused && this.activeBgmUrl === url) {
-      if (this.bgmFadeTimer === undefined) bgm.volume = this.bgmVolume;
+      if (this.bgmFadeTimer === undefined) this.setBgmGain(url, 1);
       return;
     }
     this.cancelBgmFade();
     const transitionId = this.bgmTransitionId;
     this.requestBgmLoad(this.desiredBgmScene);
-    if (bgm.paused) bgm.volume = 0;
+    if (bgm.paused) this.setBgmGain(url, 0);
     const failed = (error: unknown) => {
       // Autoplay policy requires a later user gesture, not a different song.
       if ((error as { name?: string } | null)?.name === "NotSupportedError") this.failSource(url, bgm);
@@ -142,24 +151,27 @@ export class BgmPlayer {
     }).catch(failed);
   }
 
-  private setBgmVolume(volume: number): void {
-    this.bgmVolume = volume;
-    const url = this.source(this.desiredBgmScene);
-    const active = url ? this.bgm.get(url) : undefined;
-    if (active && !active.paused && this.bgmFadeTimer === undefined) active.volume = volume;
+  private updateBgmVolume(): void {
+    this.bgmVolume = this.musicVolume * (this.ducked ? DUCKED_BGM_VOLUME / DEFAULT_MUSIC_VOLUME : 1);
+    for (const [url, bgm] of this.bgm) bgm.volume = this.bgmVolume * (this.bgmGains.get(url) ?? 0);
+  }
+
+  private setBgmGain(url: string, gain: number): void {
+    this.bgmGains.set(url, gain);
+    this.bgm.get(url)!.volume = this.bgmVolume * gain;
   }
 
   private fadeToBgm(url: string): void {
-    const next = this.ensureBgm(url);
+    this.ensureBgm(url);
     const previous = [...this.bgm.entries()].filter(([candidate, bgm]) => candidate !== url && !bgm.paused);
-    const nextStartVolume = next.volume;
-    const previousStartVolumes = previous.map(([, bgm]) => bgm.volume);
+    const nextStartGain = this.bgmGains.get(url) ?? 0;
+    const previousStartGains = previous.map(([candidate]) => this.bgmGains.get(candidate) ?? 0);
     let elapsed = 0;
     this.bgmFadeTimer = globalThis.setInterval(() => {
       elapsed += BGM_FADE_STEP_MS;
       const progress = Math.min(1, elapsed / BGM_FADE_DURATION_MS);
-      next.volume = nextStartVolume + (this.bgmVolume - nextStartVolume) * progress;
-      previous.forEach(([, bgm], index) => { bgm.volume = previousStartVolumes[index] * (1 - progress); });
+      this.setBgmGain(url, nextStartGain + (1 - nextStartGain) * progress);
+      previous.forEach(([candidate], index) => { this.setBgmGain(candidate, previousStartGains[index] * (1 - progress)); });
       if (progress < 1) return;
       this.cancelBgmFade();
       previous.forEach(([, bgm]) => bgm.pause());
@@ -180,6 +192,7 @@ export class BgmPlayer {
     bgm.removeAttribute("src");
     bgm.load();
     this.bgm.delete(url);
+    this.bgmGains.delete(url);
     this.requestedBgmLoads.delete(url);
     if (this.activeBgmUrl === url) this.activeBgmUrl = undefined;
   }
@@ -196,6 +209,6 @@ export class BgmPlayer {
     this.tableBgmPreloadTimer = undefined;
     for (const [url, bgm] of this.bgm) this.releaseBgm(url, bgm);
     this.failedSources.clear(); this.matchSources = [TABLE_BGM_URL];
-    this.desiredBgmScene = "lobby"; this.bgmVolume = BGM_VOLUME; this.unlocked = false;
+    this.desiredBgmScene = "lobby"; this.musicVolume = this.bgmVolume = DEFAULT_MUSIC_VOLUME; this.ducked = false; this.unlocked = false;
   }
 }

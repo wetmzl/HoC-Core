@@ -42,6 +42,14 @@ test('detects existing Opus by codec, preserving all bytes and names even in .og
   }
 });
 
+test('accepts a probe finishing before a large PCM input has drained', async () => {
+  const large = execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=20', '-ac', '2', '-ar', '48000', '-f', 'wav', 'pipe:1'], { maxBuffer: 8 * 1024 * 1024 });
+  assert.ok(large.length > 3 * 1024 * 1024);
+  const built = await buildAudio(large, 'bgm/large-neutral-tone.wav');
+  assert.equal(built.record.kbps, 80);
+  assert.ok(built.bytes.length > 0);
+});
+
 test('cold encodes and cached encodes are byte deterministic', async () => {
   const first = await buildAudio(wav, 'tone.wav');
   const second = await buildAudio(wav, 'tone.wav', {cacheDir: join(root, 'cache')});

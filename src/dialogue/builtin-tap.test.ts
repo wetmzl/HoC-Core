@@ -7,12 +7,13 @@ import { DialoguePrimitiveRegistry } from "./registry";
 import type { CharacterDialogue } from "./types";
 import { CharacterDialogueResourceSchema } from "./schema";
 import rouletteLines from "../test/fixtures/builtin-roulette-tap-dialogue.json";
+import { readCharacterResourceFixture } from "../test/character-fixtures";
 // @ts-expect-error The standalone plugin module is deliberately plain JavaScript.
 import { register } from "../../public/characters/character-tap/module.js";
 const pkg = "hoc-core/character-tap";
 const payload = JSON.parse(readFileSync("public/characters/character-tap/resources.json", "utf8"));
 it.each(Object.entries(rouletteLines))("%s uses the exact approved roulette pool without changing the roulette portrait", (id, lines) => {
-  const program = CharacterDialogueResourceSchema.parse(JSON.parse(readFileSync(`public/characters/${id}/resources/dialogue.json`, "utf8")));
+  const program = CharacterDialogueResourceSchema.parse(readCharacterResourceFixture(id, "resources/dialogue.json"));
   expect(program.pools.CHARACTER_TAP_ROULETTE).toEqual(lines);
   const rule = program.rules.find(rule => rule.id === "character-tap-roulette")!;
   expect(rule.portrait).toBeUndefined();
@@ -40,7 +41,7 @@ const defeatedLines = {
   llama: ["你赢了……就别再这样逗我啦。", "我没有不服气，只是你靠得太近了……", "知道啦，知道你厉害……可以不要一直戳这里吗？"]
 };
 it.each(Object.entries(defeatedLines))("%s uses the exact approved defeat pool with existing tap art only after the opponent loses", (id, lines) => {
-  const program = CharacterDialogueResourceSchema.parse(JSON.parse(readFileSync(`public/characters/${id}/resources/dialogue.json`, "utf8")));
+  const program = CharacterDialogueResourceSchema.parse(readCharacterResourceFixture(id, "resources/dialogue.json"));
   expect(program.pools.CHARACTER_TAP_DEFEATED).toEqual(lines);
   expect(program.rules[0].id).toBe("character-tap-defeated");
   const portrait = program.rules.find(rule => rule.id === "character-tap")!.portrait;
@@ -48,10 +49,10 @@ it.each(Object.entries(defeatedLines))("%s uses the exact approved defeat pool w
   const registry = new DialoguePrimitiveRegistry(); registry.registerPackage(pkg, payload.dialoguePrimitives, register().dialoguePrimitives);
   const events = new DialogueEventRegistry(); events.registerPackage(pkg, payload.dialogueEvents);
   const base = createMatch(`defeated-tap-${id}`, { opponentId: id });
-  for (const actor of ["opponent", "player"] as const) for (const result of ["fired", "empty-chamber"] as const) {
-    const state = { ...base, round: { ...base.round, phase: "roulette-result" as const, currentActor: null }, history: [...base.history, { type: "TRIGGER_PULLED" as const, actor, probability: 1, baseProbability: 1, misfireChance: 0, result, fired: result === "fired" }] };
+  for (const actor of ["opponent", "player"] as const) for (const result of ["fired", "empty-chamber"] as const) for (const prevented of result === "fired" ? [false, true] : [false]) {
+    const state = { ...base, round: { ...base.round, phase: "roulette-result" as const, currentActor: null }, history: [...base.history, { type: "TRIGGER_PULLED" as const, actor, probability: 1, baseProbability: 1, misfireChance: 0, result, fired: result === "fired" }, ...(prevented ? [{ type: "DEFEAT_PREVENTED" as const, actor, sourceInstanceId: "fixture" }] : [])] };
     const engine = new DialogueEngine(program, id, registry, events);
-    const lost = actor === "opponent" && result === "fired";
+    const lost = actor === "opponent" && result === "fired" && !prevented;
     for (let count = 1; count <= 3; count++) {
       const choice = engine.accept(state, { id: `tap-${count}`, type: `${pkg}#tap`, apiVersion: 1, data: { actor: "opponent", x: .5, y: .5, region: "full-portrait" } });
       expect(choice.poolId).toBe(lost ? "CHARACTER_TAP_DEFEATED" : "CHARACTER_TAP");
@@ -73,7 +74,7 @@ it("all built-in roles react to uncalibrated full-portrait with optional package
     const registry = new DialoguePrimitiveRegistry(); registry.registerPackage(pkg, payload.dialoguePrimitives, register().dialoguePrimitives);
     const events = new DialogueEventRegistry(); events.registerPackage(pkg, payload.dialogueEvents);
     for (const id of ["chatgpt", "claude", "gemini", "deepseek", "llama"]) {
-      const program: CharacterDialogue = JSON.parse(readFileSync(`public/characters/${id}/resources/dialogue.json`, "utf8"));
+      const program: CharacterDialogue = readCharacterResourceFixture(id, "resources/dialogue.json");
       const manifest = JSON.parse(readFileSync(`public/characters/${id}/hocpkg-info.json`, "utf8"));
       expect(manifest.resources.some((r: { type: string }) => r.type === "plugin.character-tap")).toBe(false);
       expect(manifest.resources.flatMap((r: { requires: string[] }) => r.requires).some((r: string) => r.includes(pkg))).toBe(false);

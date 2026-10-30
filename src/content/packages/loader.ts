@@ -1,6 +1,7 @@
 import type { HocpkgManifest, HocpkgResourceDescriptor } from "./schema";
 import type { HocpkgResourceHandler } from "./resources";
 import { assertContentJsonBudget } from "./json-budget";
+import { assertPresentationReferencesAllowed, createPresentationResolver, type CharacterPresentation, type PresentationContext } from "./character-presentation";
 
 export type HocpkgResourceState = "active" | "dormant" | "blocked" | "invalid";
 export type HocpkgResourceReason = "handler-missing" | "api-version-unsupported" | "dependency-unavailable" | "payload-invalid";
@@ -11,11 +12,15 @@ export interface HocpkgResourceResult {
   readonly reason?: HocpkgResourceReason;
   readonly value?: unknown;
   readonly error?: string;
+  readonly presentation?: PresentationContext;
 }
 
 export interface LoadHocpkgResourcesOptions {
+  /** Runtime access filter. Omit for authoring validation and previews of all variants. */
+  readonly skinUnlocks?: Readonly<Record<string, boolean>>;
   readonly handlers: readonly HocpkgResourceHandler[];
   readonly packageBaseUrl?: string;
+  readonly presentation?: PresentationContext;
   resolvePath?(path: string): string | Promise<string>;
   readJson(entry: string, descriptor: HocpkgResourceDescriptor): Promise<unknown>;
 }
@@ -67,14 +72,33 @@ export async function loadHocpkgResources(
       assertContentJsonBudget(payload);
       const dependenciesById = new Map(dependencies.map((dependency) => [dependency.descriptor.id, dependency.value]));
       const packageBaseUrl = options.packageBaseUrl ?? "/";
-      const value = await handler.parse(payload, {
+      const presentationDependencies = dependencies.filter(dependency => dependency.descriptor.type === "presentation.character");
+      if (presentationDependencies.length > 1) throw new Error("一项资源只能依赖一份角色表现声明");
+      const presentation = presentationDependencies[0]?.value as CharacterPresentation | undefined;
+      const resolvePath = options.resolvePath ?? ((path: string) => resolveHocpkgPath(packageBaseUrl, path));
+      const initialSkin = presentation?.skins[0].id;
+      const requestedSkin = options.presentation?.skinId;
+      const context = presentation ? { ...options.presentation, skinId: presentation.skins.find(skin => skin.id === requestedSkin
+        && (options.skinUnlocks === undefined || skin.id === initialSkin || options.skinUnlocks[skin.id] === true))?.id ?? initialSkin } : undefined;
+      if (descriptor.type !== "presentation.character") {
+        const references = assertPresentationReferencesAllowed(payload, descriptor.type, path => handler.presentationAllows?.(path, descriptor.apiVersion) ?? false);
+        if (references && !presentation) throw new Error("表现引用必须声明 presentation.character 依赖");
+      }
+      if (presentation && descriptor.type === "game.character-match" && descriptor.apiVersion < 13) throw new Error("皮肤角色需要 API 13");
+      if (presentation && descriptor.type === "game.character-dialogue" && descriptor.apiVersion < 4) throw new Error("皮肤对白需要 API 4");
+      const resolvedPayload = presentation ? await createPresentationResolver(presentation, context!, {
+        resolvePath, onFallback: (resourceId, skinId, error) => console.warn("皮肤资源不可用，已回退至首项", { resourceId, skinId, error })
+      })(payload) : payload;
+      assertContentJsonBudget(resolvedPayload);
+      const value = await handler.parse(resolvedPayload, {
         manifest,
         descriptor,
         packageBaseUrl,
         dependencies: dependenciesById,
-        resolvePath: options.resolvePath ?? ((path) => resolveHocpkgPath(packageBaseUrl, path))
+        presentation: context,
+        resolvePath
       });
-      const active: HocpkgResourceResult = { descriptor, state: "active", value };
+      const active: HocpkgResourceResult = { descriptor, state: "active", value, ...(context ? { presentation: context } : {}) };
       results.set(descriptor.id, active);
       return active;
     } catch (error) {

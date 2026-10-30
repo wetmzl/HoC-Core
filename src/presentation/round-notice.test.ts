@@ -45,3 +45,8 @@ describe("roulette result notice", () => {
     expect(triggerResultText(event)).toBe(expected);
   });
 });
+
+it("describes a surviving real gunshot without calling it an empty chamber", () => {
+  const event = { type: "TRIGGER_PULLED" as const, actor: "player" as const, probability: 1, baseProbability: 1, misfireChance: 0, result: "fired" as const, fired: true };
+  expect(triggerResultText(event, true)).toBe("砰！你抵御了致命一击，对局继续。");
+});

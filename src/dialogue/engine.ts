@@ -133,12 +133,12 @@ export class DialogueEngine {
     const source = rule.anchor && rule.anchor !== "dialogue-event" ? `${state.round.phase}:${anchorIndex(state, rule.anchor)}` : this.event!.id;
     const key = `${source}:${rule.id}:${rule.poolId}`;
     const lines = this.program.pools[rule.poolId];
-    return { ruleId: rule.id, poolId: rule.poolId, key, line: lines[SeededRng.fromSnapshot(state.rng.dialogue).derive(key).nextInt(lines.length)], portrait: rule.portrait };
+    return { ruleId: rule.id, poolId: rule.poolId, key, line: lines[SeededRng.fromSnapshot(state.rng.dialogue).derive(key).nextInt(lines.length)], portrait: rule.portrait ?? this.program.poolPortraits?.[rule.poolId] };
   }
   peek(state: MatchState): DialogueSelection {
     if (!this.selection) {
       const poolId = this.program.fallbackPoolId, lines = this.program.pools[poolId], key = `${state.id}:fallback:${poolId}`;
-      this.selection = { ruleId: null, poolId, key, line: lines[SeededRng.fromSnapshot(state.rng.dialogue).derive(key).nextInt(lines.length)] };
+      this.selection = { ruleId: null, poolId, key, line: lines[SeededRng.fromSnapshot(state.rng.dialogue).derive(key).nextInt(lines.length)], ...(this.program.poolPortraits?.[poolId] ? { portrait: this.program.poolPortraits[poolId] } : {}) };
     }
     return this.selection;
   }

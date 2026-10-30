@@ -1,0 +1,13 @@
+.skill-sheet { margin: 0; border: 0; border-bottom: 1px solid #3e586d; background: transparent; color: #b9c3d2; font-size: 12px; line-height: 1.65; }
+.skill-sheet > summary { display: list-item; min-height: 44px; cursor: pointer; padding: 9px 2px; list-style-position: inside; line-height: 1.55; overflow-wrap: anywhere; }
+.skill-sheet > summary:focus-visible { outline: 2px solid #cdb58c; outline-offset: 3px; }
+.skill-sheet-brief { display: inline; }
+.skill-sheet-brief strong { color: #f2c46b; font-weight: 700; }
+.skill-sheet p { margin: 0; overflow-wrap: anywhere; white-space: pre-line; }
+.skill-sheet-expanded { padding: 0 4px 12px 18px; }
+.skill-sheet .skill-sheet-lore { margin: 0 0 10px 12px; color: #939cab; font-size: 11px; line-height: 1.65; }
+.skill-sheet-lore em { font-style: italic; font-synthesis: style; }
+.skill-sheet-rules { margin-left: 0; color: #c3ccd9; font-size: 12px; line-height: 1.75; }
+.skill-sheet-static { padding: 9px 2px; }
+
+.skill-sheet .skill-sheet-rules p { color: inherit; font-size: inherit; line-height: inherit; }

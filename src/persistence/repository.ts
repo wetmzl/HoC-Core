@@ -7,8 +7,8 @@ export interface SaveRepository {
   loadRuntime(): Promise<RuntimeSave | null>;
   saveRuntime(save: RuntimeSave): Promise<void>;
   deleteRuntime(): Promise<void>;
-  /** Persists durable result data and removes the completed runtime match atomically. */
-  commitMatchResult(save: LongTermSave): Promise<void>;
+  /** Atomically persists durable results with the next flow snapshot, or clears a completed runtime. */
+  commitMatchResult(save: LongTermSave, runtime?: RuntimeSave | null): Promise<void>;
   /** Persists durable progress and removes any unfinished runtime before leaving the game shell. */
   closeGameRuntime(save: LongTermSave): Promise<void>;
 }

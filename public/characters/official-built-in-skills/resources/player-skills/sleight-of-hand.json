@@ -40,9 +40,10 @@
         ],
         "effects": [
           {
-            "type": "transfer-last-physical-hand-card",
+            "type": "transfer-hand-card",
             "from": "rival",
-            "target": "owner"
+            "target": "owner",
+            "card": "last-card"
           }
         ]
       }

@@ -97,7 +97,7 @@ function markerMarkup(marker: CardMarker): string {
   return `<span class="${base} ${escapeHtml(marker.visual.className)}" aria-label="${escapeHtml(marker.label)}"></span>`;
 }
 
-function markersMarkup(markers: readonly CardMarker[]): string {
+export function cardMarkersMarkup(markers: readonly CardMarker[]): string {
   const positions = [...new Set(markers.map((marker) => marker.position))];
   return positions.map((position) => {
     const entries = markers.filter((marker) => marker.position === position);
@@ -138,7 +138,7 @@ export function cardDisplayMarkup(display: CardDisplayDescription): string {
     suit ? "card-suit-visible" : "",
     cardHasDisplayTag(display, "derived") ? "card-derived" : ""
   ]).filter(Boolean).join(" ");
-  return `<span class="${classes}" data-card-id="${escapeHtml(display.cardId)}" data-card-source="${display.source}" data-card-surface="${display.surface}" aria-label="${escapeHtml(aria)}">${compact ? face : `<span class="card-surface" aria-hidden="true">${face}</span>`}${markersMarkup(display.markers)}</span>`;
+  return `<span class="${classes}" data-card-id="${escapeHtml(display.cardId)}" data-card-source="${display.source}" data-card-surface="${display.surface}" aria-label="${escapeHtml(aria)}">${compact ? face : `<span class="card-surface" aria-hidden="true">${face}</span>`}${cardMarkersMarkup(display.markers)}</span>`;
 }
 
 function cardHasDisplayTag(display: CardDisplayDescription, tag: string): boolean {

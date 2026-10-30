@@ -1,19 +1,22 @@
-import { skillDeckRequirement } from "../core/skills/deck";
-import { createMatch, previewPendingTrigger, reconcileMatchAbilities } from "../core/match/reducer";
+import type { EncounterPlan, MatchOwner } from "./match-owner";
+import { previewPendingTrigger, reconcileMatchAbilities, type CreateMatchOptions } from "../core/match/reducer";
+import { isIntrinsicAbility } from "../core/intrinsic-abilities";
+import { getAbilityDefinition } from "../core/abilities/registry";
+import { IncompleteSkillDeckError } from "../core/flow/initialization";
 import type { Action, GameEvent, MatchState } from "../core/match/types";
 import { unlockedPlayerSkillIdsForDefeats } from "../core/skills/skills";
 import { unlockedTalentIdsForDefeats } from "../core/talents/definitions";
 import { DialogueEngine } from "../dialogue/engine";
 import { DialogueSession } from "../dialogue/session";
 import { presentationStore } from "../persistence/presentation";
-import { defeatedCharacterIdsByFirstDefeat, getCharacterMetadata, isCharacterUnlocked, loadCharacter, type CharacterDefinition } from "../content/characters";
-import { createAutosaveController, type AutosaveController } from "../persistence/autosave";
+import { getCharacterMetadata, loadCharacter, type CharacterDefinition } from "../content/characters";
+import type { AutosaveController } from "../persistence/autosave";
 import { abilityTriggerNotice, pendingTriggerAbilityNotices } from "../presentation/ability-notices";
 import { presentMatchHapticsTransition } from "../presentation/haptics";
 import { gameAudio } from "../audio/game-audio";
 import { presentMatchAudioTransition, syncMatchAudioState } from "../audio/match-audio";
 import { characterResourcePlan, resourceLoader } from "../resources/resource-loader";
-import { secureSeed, legal } from "../presentation/view-helpers";
+import { legal } from "../presentation/view-helpers";
 import { createMatchTransition, type MatchTransition } from "./match-transition";
 export interface MatchSessionDependencies {
     enterMatch: () => Promise<void>;
@@ -32,20 +35,15 @@ export interface MatchSessionDependencies {
     detachFullscreenListener: () => void;
     save: import("../persistence/schema").LongTermSave;
     enqueueAbilityNotices: (notices: readonly import("../presentation/ability-notices").AbilityNotice[]) => void;
-    renderError: (error: unknown) => void;
     tablePortrait: (state: import("../core/match/types").MatchState, character: import("../content/characters/types").CharacterDefinition) => string;
     clearAiSchedule: () => void;
-    repository: import("../persistence/save-service").PersistenceService;
     notifyExtensions: () => void;
     resetDialogue: () => void;
     renderMatch: (state: import("../core/match/types").MatchState) => void;
     runtimeContributions: readonly import("../content/packages/plugin-contracts").PluginRuntimeContribution[];
-    renderSummary: (state: import("../core/match/types").MatchState) => void;
     offerTutorial: (cue: "skill-draw-available") => void;
     scheduleAiTurn: (state: import("../core/match/types").MatchState) => void;
     presentDelta: (transition: MatchTransition) => void;
-    showHistoryScreen: () => Promise<void>;
-    renderLobby: (layer?: import("../lobby-screen-module").LobbyLayer) => Promise<void>;
 }
 export class MatchSession {
     constructor(private readonly deps: MatchSessionDependencies) { }
@@ -59,6 +57,11 @@ export class MatchSession {
             for (const resume of this.resumeWaiters) resume();
             this.resumeWaiters.clear();
         }
+    };
+    pauseForNavigation = (): void => { this.setPaused(true); this.deps.clearAiSchedule(); };
+    resumeAfterNavigation = (): void => {
+        this.setPaused(false);
+        if (this.autosave && !this.disposed) this.deps.scheduleAiTurn(this.autosave.getState());
     };
     private waitForResume = async (): Promise<void> => {
         if (this.paused && !this.disposed) await new Promise<void>(resolve => this.resumeWaiters.add(resolve));
@@ -75,6 +78,7 @@ export class MatchSession {
         await this.autosave?.flush();
     };
     autosave: AutosaveController | null = null;
+    private owner: MatchOwner | undefined;
     currentCharacter!: CharacterDefinition;
     dialogueSession: DialogueSession | undefined;
     characterLoadInFlight: boolean = false;
@@ -86,6 +90,7 @@ export class MatchSession {
     clearActiveMatch = (): void => {
         this.leave();
         this.autosave = null;
+        this.owner = undefined;
         this.deps.notifyExtensions();
     };
     leave = (): void => {
@@ -101,27 +106,40 @@ export class MatchSession {
         this.pluginMatchController?.abort();
         this.pluginMatchController = undefined;
     };
-    startMatch = async (characterId = this.deps.selectedCharacterId): Promise<void> => {
+    startEncounter = (plan: EncounterPlan, owner: MatchOwner): Promise<boolean> => this.openMatch(plan, owner);
+    showInitializationError = (error: unknown): boolean => {
+        if (!(error instanceof IncompleteSkillDeckError)) return false;
+        this.deps.root.querySelector<HTMLDialogElement>("#profile")?.close();
+        this.deps.openSkillManagement(error.message);
+        return true;
+    };
+    /** Read profile defaults; the flow resolves and validates the final initialization plan. */
+    getMatchDefaults = async (character: CharacterDefinition): Promise<CreateMatchOptions> => {
+        const writer = this.deps.getDeckQueue();
+        await writer.flush();
+        const availableSkills = this.deps.currentAvailableDeckSkills().map(skill => skill.id);
+        return {
+            opponentId: character.id, aiProfile: character.ai,
+            autoSkipAfterStand: this.deps.save.settings.autoSkipAfterStand ?? true,
+            unlockedPlayerSkillIds: unlockedPlayerSkillIdsForDefeats(this.deps.save.defeats),
+            skillDeckIds: writer.get().carried.filter(id => availableSkills.includes(id)),
+            talentIds: unlockedTalentIdsForDefeats(this.deps.save.defeats),
+            intrinsicAbilities: this.deps.runtimeContributions.flatMap(contribution => contribution.initialAbilities?.() ?? []),
+            opponentAiSkills: character.aiSkills
+        };
+    };
+    private openMatch = async (encounter: EncounterPlan, owner: MatchOwner): Promise<boolean> => {
+        if (!encounter.match || encounter.match.opponentId !== encounter.opponentId || encounter.match.seed !== encounter.seed)
+            throw new Error("牌局必须先由流程编排器完成初始化");
+        const characterId = encounter.opponentId;
         if (this.disposed)
-            return;
+            return false;
         const generation = this.generation;
         this.tableModulePromise ??= import("../table-screen-module");
         await this.tableModulePromise;
         await this.waitForResume();
         if (this.disposed || generation !== this.generation || this.characterLoadInFlight)
-            return;
-        const writer = this.deps.getDeckQueue();
-        await writer.flush();
-        await this.waitForResume();
-        if (this.disposed || generation !== this.generation || this.characterLoadInFlight)
-            return;
-        const availableSkills = this.deps.currentAvailableDeckSkills().map((skill) => skill.id);
-        const requirement = skillDeckRequirement(writer.get(), availableSkills);
-        if (requirement.missing) {
-            this.deps.root.querySelector<HTMLDialogElement>("#profile")?.close();
-            this.deps.openSkillManagement(`还需加入 ${requirement.missing} 种技能才能开始新对局`);
-            return;
-        }
+            return false;
         this.deps.skillDrawerOpen = false;
         this.deps.clearAbilityNoticeQueue();
         this.deps.detachFullscreenListener();
@@ -134,42 +152,25 @@ export class MatchSession {
             const metadata = getCharacterMetadata(characterId);
             if (!metadata)
                 throw new Error("所选对手不可用。");
-            const defeated = defeatedCharacterIdsByFirstDefeat(this.deps.save.defeats).includes(metadata.id);
-            if (!defeated && !isCharacterUnlocked(metadata, this.deps.save.defeats))
-                throw new Error("该角色尚未解锁。");
             const character = await loadCharacter(metadata.id);
             await this.waitForResume();
             if (this.disposed || requestToken !== this.characterLoadToken)
-                return;
+                return false;
             this.deps.root.innerHTML = `<main class="loading-shell"><span class="mark">✦</span><p>正在布置牌桌……</p></main>`;
             this.currentCharacter = character;
             this.deps.selectedCharacterId = character.id;
             this.lastAction = null;
             this.lastDomainEvent = null;
-            const match = createMatch(secureSeed(), {
-                opponentId: character.id,
-                aiProfile: character.ai,
-                autoSkipAfterStand: this.deps.save.settings.autoSkipAfterStand ?? true,
-                unlockedPlayerSkillIds: unlockedPlayerSkillIdsForDefeats(this.deps.save.defeats),
-                skillDeckIds: writer.get().carried.filter((id) => availableSkills.includes(id)),
-                talentIds: unlockedTalentIdsForDefeats(this.deps.save.defeats),
-                intrinsicAbilities: this.deps.runtimeContributions.flatMap(contribution => contribution.initialAbilities?.() ?? []),
-                opponentAiSkills: character.aiSkills
-            });
-            await this.resumeMatch(match, character, false);
+            const match = encounter.match;
+            await this.resumeMatch(match, owner, character, false);
             if (!this.disposed && requestToken === this.characterLoadToken)
                 this.deps.enqueueAbilityNotices(abilityTriggerNotice(match.history, character.name, match));
+            return !this.disposed && requestToken === this.characterLoadToken;
         }
         catch (error) {
             if (this.disposed || requestToken !== this.characterLoadToken)
-                return;
-            if (error instanceof Error && /尚未解锁|已经败北/.test(error.message)) {
-                const status = this.deps.root.querySelector<HTMLParagraphElement>("#lobby-status");
-                if (status)
-                    status.textContent = error.message;
-            }
-            else
-                this.deps.renderError(error);
+                return false;
+            throw error;
         }
         finally {
             if (requestToken === this.characterLoadToken)
@@ -195,7 +196,7 @@ export class MatchSession {
         void resourceLoader.enqueue(plan.background, "background");
         await visible;
     };
-    resumeMatch = async (match: MatchState, loadedCharacter?: CharacterDefinition, restored = true): Promise<void> => {
+    resumeMatch = async (match: MatchState, owner: MatchOwner, loadedCharacter?: CharacterDefinition, restored = true): Promise<void> => {
         if (this.disposed)
             return;
         this.stopPluginMatch();
@@ -206,11 +207,13 @@ export class MatchSession {
         if (this.disposed || generation !== this.generation)
             return;
         this.deps.clearAiSchedule();
-        const character = loadedCharacter ?? await loadCharacter(match.opponentId);
+        const baseCharacter = loadedCharacter ?? await loadCharacter(match.opponentId);
+        const character = owner.character(baseCharacter, match);
         await this.waitForResume();
         if (this.disposed || generation !== this.generation)
             return;
         this.currentCharacter = character;
+        this.owner = owner;
         gameAudio.setMatchMusic(character.matchMusicSources);
         gameAudio.setBgmScene("match");
         gameAudio.preloadMatch();
@@ -219,9 +222,19 @@ export class MatchSession {
         if (this.disposed || generation !== this.generation)
             return;
         this.deps.selectedCharacterId = this.currentCharacter.id;
-        match = reconcileMatchAbilities(match, this.deps.runtimeContributions.flatMap(contribution => contribution.initialAbilities?.() ?? []));
-        this.autosave = createAutosaveController(this.deps.repository, this.deps.save, match);
-        const state = this.autosave.getState();
+        const source = match;
+        // A restored table owns its effective bindings; current plugin defaults must not
+        // delete flow/node bindings or rerun initialization after settings have changed.
+        match = reconcileMatchAbilities(match, match.abilities.instances.filter(instance => isIntrinsicAbility(instance)
+            && getAbilityDefinition(instance.definitionId, undefined, instance.level)).map(instance => ({
+            definitionId: instance.definitionId, level: instance.level ?? 1, enabled: true, parameters: instance.parameters
+        })));
+        const autosave = await owner.attach(match, source);
+        await this.waitForResume();
+        if (this.disposed || generation !== this.generation)
+            return;
+        this.autosave = autosave;
+        const state = autosave.getState();
         await this.deps.enterMatch();
         if (this.disposed || generation !== this.generation)
             return;
@@ -252,7 +265,7 @@ export class MatchSession {
         if (this.disposed || generation !== this.generation || this.dialogueSession !== session)
             return;
         if (state.view === "match-summary")
-            this.deps.renderSummary(state);
+            this.showSummary(state);
         else {
             this.deps.renderMatch(state);
             const triggerPreview = state.round.phase === "roulette-reaction" || state.round.phase === "roulette-trigger"
@@ -282,6 +295,9 @@ export class MatchSession {
             }
         }
     };
+    private showSummary = (match: MatchState): void => {
+        this.owner?.summary(match);
+    };
     dispatch = (action: Action): void => {
         if (this.disposed || this.paused || !this.autosave)
             return;
@@ -294,7 +310,7 @@ export class MatchSession {
         this.lastAction = action;
         this.lastDomainEvent = transition.events.at(-1)?.type ?? null;
         if (after.scene === "match" && after.view === "match-summary")
-            this.deps.renderSummary(after);
+            this.showSummary(after);
         else if (after.scene === "match")
             this.deps.renderMatch(after);
         this.deps.presentDelta(transition);
@@ -303,26 +319,5 @@ export class MatchSession {
         presentMatchHapticsTransition(transition, !this.deps.save.settings.reducedMotion);
         this.deps.notifyExtensions();
         this.deps.scheduleAiTurn(after);
-    };
-    completeMatch = async (destination: "history" | "rewind" | "lobby"): Promise<void> => {
-        if (!this.autosave)
-            return;
-        this.stopPluginMatch();
-        const generation = this.generation;
-        await this.autosave.flush();
-        if (this.disposed || generation !== this.generation)
-            return;
-        this.deps.save = this.autosave.getSave();
-        const match = this.autosave.getState();
-        const winner = match.outcome?.winner ?? null;
-        const escaped = match.outcome?.reason === "escaped";
-        const opponentId = match.opponentId;
-        this.autosave = null;
-        if (destination === "history" && winner === "player" && !escaped)
-            await this.deps.showHistoryScreen();
-        else if (destination === "rewind" && winner !== "player" && !escaped)
-            await this.startMatch(opponentId);
-        else
-            await this.deps.renderLobby();
     };
 }

@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: "命运牌桌",
   webDir: "dist",
   backgroundColor: "#171421",
-  loggingBehavior: "none"
+  loggingBehavior: "none",
+  server: { errorPath: "browser-update.html" }
 };
 
 export default config;

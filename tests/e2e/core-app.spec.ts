@@ -1,3 +1,4 @@
+import { expectSkillSheet } from "./skill-sheet-assertions";
 import { expect, test } from '@playwright/test';
 import builtinIndex from '../../public/characters/packages.json' with { type: 'json' };
 
@@ -10,6 +11,7 @@ test('Core starts with the indexed built-in packages and keeps the adult confirm
     await expect.poll(() => page.locator(selector).evaluateAll(cards => cards.map(card => card.getAttribute('data-package-id')).sort())).toEqual(expectedPackageIds);
   }
   await expect(page.locator('.package-card[data-package-id^="community/"]')).toHaveCount(0);
+  await expect(page.locator('.package-card[data-package-id="hoc-core/boss-challenge-dev"]')).toHaveCount(0);
   for (const card of await page.locator('.package-card').all()) {
     const packageId = await card.getAttribute('data-package-id');
     await card.getByRole('button', { name: '详情', exact: true }).click();
@@ -60,11 +62,10 @@ async function waitForInitialDeal(page: import('@playwright/test').Page): Promis
   await expect(page.locator('.skill-draw-modal')).toHaveCount(0);
 }
 
-test("五个 HoC art 角色可直接选择并逐个启动", async ({ page }, testInfo) => {
+test("四个普通 HoC art 角色可直接选择并逐个启动", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   const characters = [
     { id: "chatgpt", name: "ChatGPT", tier: "S" },
-    { id: "claude", name: "Claude", tier: "S" },
     { id: "gemini", name: "Gemini", tier: "A" },
     { id: "deepseek", name: "DeepSeek", tier: "A" },
     { id: "llama", name: "Llama", tier: "B" }
@@ -91,8 +92,9 @@ test("五个 HoC art 角色可直接选择并逐个启动", async ({ page }, tes
     await inviteCharacter(page, character.id);
     await expect(page.locator("#profile")).toContainText(`${character.name}`);
     await expect(page.locator("#profile")).toContainText(`${character.tier}级`);
-    await expect(page.locator("#profile .profile-ability")).toHaveCount(["chatgpt", "claude"].includes(character.id) ? 2 : ["deepseek", "gemini"].includes(character.id) ? 1 : 0);
+    await expect(page.locator("#profile .skill-sheet")).toHaveCount(character.id === "chatgpt" ? 2 : ["deepseek", "gemini"].includes(character.id) ? 1 : 0);
     if (character.id === "chatgpt") {
+      await expectSkillSheet(page.locator("#profile .skill-sheet").first());
       await expect(page.locator("#profile")).toContainText("扑克脸的执行者");
       await expect(page.locator("#profile")).toContainText("RESET！");
       for (const width of [320, 390]) {
@@ -100,9 +102,9 @@ test("五个 HoC art 角色可直接选择并逐个启动", async ({ page }, tes
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
         await page.locator("#profile").screenshot({ path: testInfo.outputPath(`chatgpt-profile-${width}.png`) });
       }
-      await page.locator("#profile .profile-ability").first().locator("summary").click();
+      await page.locator("#profile .skill-sheet").first().locator("summary").click();
       await expect(page.locator("#profile")).toContainText("能干你就多干点！");
-      await page.locator("#profile .profile-ability").last().locator("summary").click();
+      await page.locator("#profile .skill-sheet").last().locator("summary").click();
       await expect(page.locator("#profile")).toContainText("减半额度，给用户发一次全量重置，就能让他们感恩戴德。");
     }
     if (character.id === "llama") {
@@ -120,8 +122,8 @@ test("五个 HoC art 角色可直接选择并逐个启动", async ({ page }, tes
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
       await page.locator("#profile").screenshot({ path: testInfo.outputPath("gemini-profile-320.png") });
       await page.setViewportSize({ width: 390, height: 844 });
-      await expect(page.locator("#profile .profile-ability")).toContainText("世界知识");
-      await expect(page.locator("#profile .profile-ability")).toContainText("五彩斑斓的世界啊！");
+      await expect(page.locator("#profile .skill-sheet")).toContainText("世界知识");
+      await expect(page.locator("#profile .skill-sheet")).toContainText("五彩斑斓的世界啊！");
     }
     await page.locator("#profile [data-profile-start]").click();
     await expect(page.locator("main.table-shell")).toBeVisible({ timeout: 8_000 });

@@ -7,21 +7,52 @@
     "tags": [
       "placeholder"
     ],
-    "previewImage": "relaxed.png",
+    "previewImage": {
+      "presentationRef": "image:cover"
+    },
     "portraitScales": {
       "selection": 1,
       "table": 1
     },
-    "faction": "hoc-core/official-factions#intelligent-core"
+    "faction": "hoc-core/official-factions#intelligent-core",
+    "previewFocus": {
+      "presentationRef": "focus:cover"
+    },
+    "encounter": {
+      "requiresDefeat": false,
+      "rematchSkillChoices": false,
+      "invitationLabel": "邀请",
+      "playerGun": {
+        "capacity": 6,
+        "bullets": 0
+      }
+    }
   },
   "definition": {
     "assets": {
-      "cover": "cover.png",
-      "relaxed": "relaxed.png",
-      "conflicted": "conflicted.png",
-      "mocking": "mocking.png",
-      "threatened": "threatened.png",
-      "unconscious": "unconscious-reclined.png"
+      "cover": {
+        "presentationRef": "image:cover"
+      },
+      "relaxed": {
+        "presentationRef": "portrait:relaxed",
+        "path": "/image"
+      },
+      "conflicted": {
+        "presentationRef": "portrait:conflicted",
+        "path": "/image"
+      },
+      "mocking": {
+        "presentationRef": "portrait:mocking",
+        "path": "/image"
+      },
+      "threatened": {
+        "presentationRef": "portrait:threatened",
+        "path": "/image"
+      },
+      "unconscious": {
+        "presentationRef": "portrait:unconscious",
+        "path": "/image"
+      }
     },
     "profile": {
       "description": "DeepSeek 和你认识很久了，是你请来维护赌场的按小时计价的小女仆，虽然总有点呆呆的，还经常拿着工资在你的赌场里面开小差，玩游戏，让你时不时会骂她一顿，但反正她开价足够便宜。谁会讨厌这样一个有礼貌，可可爱爱，对你忠心不二，甚至每一个细胞都对你透明的小女仆呢？前提是你不要叫她蓝色大肥鱼，不要问为什么不建议这么干。"
@@ -32,8 +63,8 @@
       "escaped": "没关系，deepseek会永远会为你服务！平时让她干什么她都得打个折，但至少这种任务大肥鱼是很喜欢的。"
     },
     "revolverPlacement": {
-      "top": 39.5,
-      "left": 127.9
+      "presentationRef": "portrait:relaxed",
+      "path": "/revolverPlacement"
     },
     "ai": {
       "P": 0,
@@ -42,18 +73,72 @@
       "C": 1
     },
     "tablePortrait": {
-      "anchorY": 1
+      "anchorY": 1,
+      "images": [
+        {
+          "image": {
+            "presentationRef": "portrait:relaxed",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:relaxed",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:conflicted",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:conflicted",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:mocking",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:mocking",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:threatened",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:threatened",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:unconscious",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:unconscious",
+            "path": "/anchorY"
+          }
+        }
+      ]
     }
   },
   "aiSkills": [
     {
       "resourceId": "ai:deepseek-stealing-food",
       "enabled": true,
-      "parameters": {}
+      "parameters": {},
+      "level": 1
     }
   ],
   "rewardSkillResourceIds": [
     "reward:deepseek-stealing-food-player"
   ],
-  "dialogueResourceId": "dialogue"
+  "dialogueResourceId": "dialogue",
+  "presentationResourceId": "appearance"
 }

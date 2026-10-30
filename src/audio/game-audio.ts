@@ -10,7 +10,8 @@ export class GameAudio {
   private readonly music = new BgmPlayer();
   private readonly sounds = new SoundPlayer();
   createEffect(url: string, release: () => void): PluginSound { return this.sounds.createEffect(url, release); }
-  configure(enabled: boolean): void { this.sounds.configure(enabled); this.music.configure(enabled); if (!enabled) this.music.duck(false); }
+  configure(enabled: boolean, musicVolume?: number): void { if (musicVolume !== undefined) this.music.setMusicVolume(musicVolume); this.sounds.configure(enabled); this.music.configure(enabled); if (!enabled) this.music.duck(false); }
+  setMusicVolume(volume: number): void { this.music.setMusicVolume(volume); }
   preloadLobby(): void { this.music.preloadLobby(); }
   preloadMatch(): void { this.music.preloadMatch(); this.sounds.preloadMatch(); }
   setMatchMusic(sources: readonly string[] = []): void { this.music.setMatchMusic(sources); }

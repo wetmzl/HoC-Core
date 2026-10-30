@@ -34,10 +34,17 @@
         "trigger": "on-ability-played",
         "effects": [
           {
-            "type": "grant-player-skill-card",
+            "type": "grant-skill-card",
             "target": "owner",
-            "source": "last-successful-player-skill",
-            "fallback": "self"
+            "choices": [
+              {
+                "type": "last-successful-player-skill"
+              },
+              {
+                "type": "self"
+              }
+            ],
+            "initialize": false
           }
         ]
       }

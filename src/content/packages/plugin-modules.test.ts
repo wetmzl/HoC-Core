@@ -23,7 +23,7 @@ it("rejects legacy module activation before reading or executing its code", asyn
   const result = await loadPluginModules({ packages: async () => [access] });
   expect(result.registrations).toEqual([]);
   expect(access.readFile).not.toHaveBeenCalled();
-  expect(result.handlers[0].apiVersions).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  expect(result.handlers[0].apiVersions).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   expect(pluginCompatibilityError(access.manifest)).toContain("需要 API 2");
   result.release();
 });

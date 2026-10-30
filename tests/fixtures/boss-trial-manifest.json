@@ -1,0 +1,44 @@
+{
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "boss-challenge-dev",
+    "version": "0.6.1"
+  },
+  "metadata": {
+    "title": "Boss 挑战开发试验包",
+    "license": "CC0",
+    "description": "中性的 Boss 流程验证关卡，依赖五名内置智能核心角色。可单独停用。",
+    "tags": [
+      "challenge",
+      "development"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "trial",
+      "type": "game.encounter-flow",
+      "apiVersion": 1,
+      "entry": "challenge.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "challenge.json",
+      "bytes": 9781,
+      "sha256": "90e37785f401334a14c3eaab96e66ce3e12235f4e876553316750fb982b99996",
+      "mediaType": "application/json"
+    }
+  ],
+  "extensions": {}
+}

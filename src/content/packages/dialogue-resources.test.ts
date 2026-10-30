@@ -25,7 +25,8 @@ it("normalizes API3 pool objects and preserves opaque package data without chang
 });
 
 async function fixture() {
- const draft=createCharacterDraft("neutral","中性角色") as {match:unknown;dialogue:CharacterDialogue};
+ const draft=createCharacterDraft("neutral","中性角色");
+ Reflect.deleteProperty(draft.match.metadata, "encounter");
  for(const pool of Object.values(draft.dialogue.pools)) (pool as string[]).push("测试对白");
  const bodies:Record<string,Uint8Array>={"match.json":new TextEncoder().encode(JSON.stringify(draft.match)),"dialogue.json":new TextEncoder().encode(JSON.stringify(draft.dialogue))};
  for(const name of ["cover","relaxed","conflicted","mocking","threatened","unconscious"])bodies[`${name}.png`]=new Uint8Array([1]);

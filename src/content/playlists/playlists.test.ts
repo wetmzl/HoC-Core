@@ -1,10 +1,12 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MemoryContentHostProvider } from "../storage/memory-host";
 import { decodeText, encodeText, sha256Json } from "../storage/encoding";
 import { unzipChecked, zipFiles } from "../transfer/hocpkg";
 import { PlaylistDocumentSchema, PlaylistStore, playlistDocument } from "./store";
-import { decodePlaylistBytes, encodePlaylistHocpkg, encodePlaylistPng, playlistJson } from "./transfer";
+import { decodePlaylistBytes, decodePlaylistFile, encodePlaylistHocpkg, encodePlaylistPng, MAX_PLAYLIST_FILE, PlaylistArchiveError, playlistJson } from "./transfer";
+import type { ContentFileSystem, ContentImportFile } from "../storage/contracts";
+import { releaseImportFile } from "../storage/import-file";
 
 const sample = () => playlistDocument("夜场", [{ packageId: "author/hero", version: "1.1.0" }, { packageId: "author/plugin" }]);
 
@@ -103,6 +105,62 @@ describe("playlists", () => {
     await expect(decodePlaylistBytes(await zipFiles({ ...files, "extra.txt": encodeText("x") }))).rejects.toThrow();
     await expect(decodePlaylistBytes(encodeText("not json"))).rejects.toThrow();
     expect(JSON.parse(decodeText(files["playlist.json"]!))).toEqual(sample());
+  });
+
+  it("offers archive fallback only for failed ZIP or PNG decoding, including files above the playlist limit", async () => {
+    const archive = await zipFiles({ "content.hocpkg": encodeText("content") });
+    const oversized = new File([new Uint8Array(archive), new Uint8Array(MAX_PLAYLIST_FILE)], "bundle.zip");
+    const read = vi.spyOn(oversized, "arrayBuffer");
+    await expect(decodePlaylistFile(oversized)).rejects.toThrow(PlaylistArchiveError);
+    expect(read).not.toHaveBeenCalled();
+    await expect(decodePlaylistFile(new File([new Uint8Array(archive)], "bundle.zip"))).rejects.toThrow(PlaylistArchiveError);
+    const cover = readFileSync(new URL("../../../public/assets/package-cover-fallback.png", import.meta.url));
+    await expect(decodePlaylistFile(new File([cover], "cover.png"))).rejects.toThrow(PlaylistArchiveError);
+    await expect(decodePlaylistFile(new File(["not json"], "invalid.zip"))).rejects.not.toBeInstanceOf(PlaylistArchiveError);
+    const valid = await encodePlaylistHocpkg(sample(), crypto.randomUUID());
+    await expect(decodePlaylistFile(new File([new Uint8Array(valid)], "playlist.hocpkg"))).resolves.toEqual(sample());
+  });
+  it("reads native picker sources for JSON, hocpkg and PNG without browser File objects", async () => {
+    const cover = readFileSync(new URL("../../../public/assets/package-cover-fallback.png", import.meta.url));
+    for (const body of [encodeText(playlistJson(sample())), await encodePlaylistHocpkg(sample(), crypto.randomUUID()), await encodePlaylistPng(sample(), crypto.randomUUID(), cover)]) {
+      const host = new MemoryContentHostProvider();
+      const file: ContentImportFile = { name: "selected.input", size: body.length, source: { kind: "stored", path: "content/v1/import-inputs/selected.input" } };
+      await host.fileSystem.write(file.source.kind === "stored" ? file.source.path : "", body);
+      const readRange = vi.fn(async (_source, offset: number, length: number) => body.slice(offset, offset + length));
+      const fs: ContentFileSystem = { ...host.fileSystem, read: host.fileSystem.read.bind(host.fileSystem), write: host.fileSystem.write.bind(host.fileSystem), list: host.fileSystem.list.bind(host.fileSystem), remove: host.fileSystem.remove.bind(host.fileSystem), readRange };
+      await expect(decodePlaylistFile(file, [], fs)).resolves.toEqual(sample());
+      expect(readRange.mock.calls.map(call => call.slice(1, 3))).toEqual([[0, 8], [0, body.length]]);
+      expect(await host.fileSystem.read("content/v1/import-inputs/selected.input")).not.toBeNull();
+      await releaseImportFile(fs, file);
+      expect(await host.fileSystem.read("content/v1/import-inputs/selected.input")).toBeNull();
+    }
+  });
+  it("hands large managed archives to the bundle flow after only a signature read", async () => {
+    const host = new MemoryContentHostProvider();
+    const read = vi.spyOn(host.fileSystem, "read");
+    const readRange = vi.fn(async () => Uint8Array.of(0x50, 0x4b, 3, 4, 0, 0, 0, 0));
+    Object.assign(host.fileSystem, { readRange });
+    const file: ContentImportFile = { name: "bundle.zip", size: 175323611, source: { kind: "stored", path: "content/v1/import-inputs/bundle.input" } };
+    await expect(decodePlaylistFile(file, [], host.fileSystem)).rejects.toBeInstanceOf(PlaylistArchiveError);
+    expect(readRange).toHaveBeenCalledExactlyOnceWith(file.source, 0, 8, undefined);
+    expect(read).not.toHaveBeenCalled();
+  });
+  it("keeps read failures, truncated input and cancellation out of the archive fallback", async () => {
+    const host = new MemoryContentHostProvider();
+    const file: ContentImportFile = { name: "playlist.zip", size: 8, source: { kind: "stored", path: "content/v1/import-inputs/broken.input" } };
+    const readRange = vi.fn().mockResolvedValueOnce(Uint8Array.of(0x50, 0x4b, 3, 4, 0, 0, 0, 0)).mockRejectedValueOnce(new Error("ENOSPC"));
+    Object.assign(host.fileSystem, { readRange });
+    await expect(decodePlaylistFile(file, [], host.fileSystem)).rejects.toThrow("ENOSPC");
+    readRange.mockResolvedValue(new Uint8Array(0));
+    await expect(decodePlaylistFile(file, [], host.fileSystem)).rejects.toThrow("读取不完整");
+    const abort = new AbortController();
+    abort.abort();
+    readRange.mockClear();
+    await expect(decodePlaylistFile(file, [], host.fileSystem, { signal: abort.signal })).rejects.not.toBeInstanceOf(PlaylistArchiveError);
+    expect(readRange).not.toHaveBeenCalled();
+    await host.fileSystem.write("original.zip", Uint8Array.of(1));
+    await releaseImportFile(host.fileSystem, { ...file, source: { kind: "stored", path: "original.zip" } });
+    expect(await host.fileSystem.read("original.zip")).toEqual(Uint8Array.of(1));
   });
   it("migrates a v1 library without losing saved names and creates a current default", async () => {
     const host = new MemoryContentHostProvider();

@@ -49,6 +49,23 @@ describe("best effort durable saves", () => {
     expect(recoverLongTermSave(save).recovery).toBeUndefined();
   });
 
+  it("reads legacy music settings unchanged and roundtrips an explicit music volume", async () => {
+    expect(recoverLongTermSave(archived)).toEqual(archived);
+    expect(recoverLongTermSave(archived).settings.musicVolume).toBeUndefined();
+    const save = createDefaultSave(); save.settings.musicVolume = .37;
+    expect(await importSave(exportSaveJson(save))).toEqual(save);
+  });
+
+  it.each([-1, 1.01, NaN, "0.4"])("isolates an invalid music volume %s and preserves its original", value => {
+    const raw = createDefaultSave();
+    const input = { ...raw, settings: { ...raw.settings, soundEnabled: false, musicVolume: value } };
+    expect(() => validateLongTermSave(input)).toThrow();
+    const restored = recoverLongTermSave(input);
+    expect(restored.settings.musicVolume).toBe(.18);
+    expect(restored.settings.soundEnabled).toBe(false);
+    expect(restored.recovery?.originals).toEqual([input]);
+  });
+
   it("allows changed plugin declarations to use defaults without altering the preserved data", () => {
     const saved = { "changed/plugin": { version: 1, values: { amount: 30 } } };
     const session = new PluginSettingsSession(saved);

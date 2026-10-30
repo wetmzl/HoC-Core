@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { HocpkgManifest } from "../packages";
 import { CONTENT_CATALOG_PATHS, ContentCatalogCorruptionError, readCatalogSlots } from "./catalog";
 import type { ContentPackageSource } from "./contracts";
-import { encodeText, sha256, sha256Json, stableJson } from "./encoding";
+import { ContentDigestUnavailableError, encodeText, sha256, sha256Json, stableJson } from "./encoding";
 import { MemoryContentHostProvider } from "./memory-host";
 import { ContentPackageConflictError, ContentPackageIntegrityError, FileContentRepository } from "./repository";
 
@@ -270,6 +270,30 @@ describe("ContentRepository", () => {
 
     first.provider.fileSystem.entries.set(CONTENT_CATALOG_PATHS[1], encodeText("also-broken"));
     await expect(new FileContentRepository(first.provider.host).open()).rejects.toBeInstanceOf(ContentCatalogCorruptionError);
+  });
+
+  it.each(["missing", "rejected"] as const)("preserves a valid single catalog slot and its revisions when digest is %s", async (failure) => {
+    const { provider, repository } = setup();
+    await repository.install(await packageSource("existing"));
+    const beforePackages = await repository.listPackages();
+    provider.fileSystem.entries.delete(CONTENT_CATALOG_PATHS[1]);
+    const beforeFiles = new Map([...provider.fileSystem.entries].map(([path, bytes]) => [path, Uint8Array.from(bytes)]));
+    const read = vi.spyOn(provider.fileSystem, "read");
+    const digest = vi.spyOn(crypto.subtle, "digest");
+    if (failure === "missing") Object.defineProperty(crypto.subtle, "digest", { configurable: true, value: undefined });
+    else digest.mockRejectedValue(new DOMException("Digest is unavailable", "NotSupportedError"));
+    try {
+      const reopened = new FileContentRepository(provider.host);
+      await expect(reopened.open()).rejects.toBeInstanceOf(ContentDigestUnavailableError);
+      await expect(reopened.open()).rejects.toThrow("当前环境无法校验内容数据");
+      expect(provider.fileSystem.entries).toEqual(beforeFiles);
+      if (failure === "missing") expect(read).not.toHaveBeenCalled();
+    } finally {
+      digest.mockRestore();
+      read.mockRestore();
+    }
+    await expect(new FileContentRepository(provider.host).listPackages()).resolves.toEqual(beforePackages);
+    await expect(new FileContentRepository(provider.host).verifyPackage("test/existing")).resolves.toBeUndefined();
   });
 
   it("migrates both v1 catalog slots in place and keeps every package enabled", async () => {

@@ -1,9 +1,11 @@
+import { getAbilityDefinition } from "./registry";
 import { recordedRanks } from "./rank-record";
 import { resolveScalar } from "./conditions";
 import type { AbilityActor, AbilityDefinition, AbilityRuntimeState, AbilityWorld } from "./types";
 import type { AbilityRegistry } from "./registry";
-import type { AbilityDisplay, DisplayActor, DisplayInstance, DisplayValue } from "./display-types";
+import type { AbilityDisplay, DisplayActor, DisplayInstance, DisplayValue, SkillCardMarker } from "./display-types";
 import { RANKS, SUITS, type Rank, type Suit } from "../blackjack/types";
+import { selectSkillCards } from "./skill-card-selection";
 import { cardSuit } from "../blackjack/card";
 
 export function displayActor(selector: DisplayActor, owner: AbilityActor): AbilityActor {
@@ -13,6 +15,7 @@ export function displayKey(instance: Pick<DisplayInstance, "owner" | "definition
   return `${instance.owner}:${instance.definitionId}:${instance.displayId}`;
 }
 export type ResolvedDisplayNode =
+  | { readonly type: "meter"; readonly value: number | null; readonly max: number | null; readonly label: string }
   | { readonly type: "suit-record"; readonly suits: readonly Suit[] }
   | { readonly type: "rank-record"; readonly ranks: readonly Rank[]; readonly selected: Rank | null }
   | { readonly type: "text"; readonly text: string }
@@ -20,14 +23,17 @@ export type ResolvedDisplayNode =
   | { readonly type: "suit"; readonly value: Suit | null }
   | { readonly type: "card"; readonly rank: Rank | null; readonly suit: Suit | null; readonly format: "inline" | "compact" };
 export interface ResolvedDisplay {
+  readonly skillMarkers?: readonly (SkillCardMarker & { readonly instanceIds: readonly string[] })[];
   readonly key: string;
   readonly target: AbilityActor;
   readonly name: string;
   readonly description: string;
   readonly content: readonly ResolvedDisplayNode[];
+  readonly density?: "normal" | "compact";
   readonly markers: readonly { readonly targets: readonly AbilityActor[]; readonly suit: Suit; readonly type: string; readonly label: string }[];
 }
 export interface DisplayContext {
+  readonly registry?: AbilityRegistry;
   readonly world: AbilityWorld;
   readonly instance: DisplayInstance;
   readonly roundHitCounts?: Readonly<Record<AbilityActor, number>>;
@@ -47,16 +53,27 @@ export function resolveDisplayValue(value: DisplayValue, context: DisplayContext
     return card?.attributes[value.attribute] ?? null;
   }
   try { return resolveScalar(value, {
-    world: context.world,
-    ability: { kind: "player-skill", definitionId: context.instance.definitionId, owner: context.instance.owner, instanceId: displayKey(context.instance), parameters: context.instance.parameters, createdAtSequence: context.instance.registeredAtSequence },
+    world: context.world, registry: context.registry,
+    ability: { kind: "player-skill", definitionId: context.instance.definitionId, level: context.instance.level ?? 1, owner: context.instance.owner, instanceId: displayKey(context.instance), parameters: context.instance.parameters, createdAtSequence: context.instance.registeredAtSequence },
     event: { trigger: "before-turn", sourceEventId: "display-projection", roundHitCounts: context.roundHitCounts, roundOutcome: context.roundOutcome }
   }); } catch { return null; }
 }
 function suitValue(value: unknown): Suit | null { return typeof value === "string" && SUITS.includes(value as Suit) ? value as Suit : null; }
 function rankValue(value: unknown): Rank | null { return typeof value === "string" && RANKS.includes(value as Rank) ? value as Rank : null; }
+function activeValue(value: unknown): boolean { return value === true || (typeof value === "number" && Number.isFinite(value) && value > 0); }
 export function resolveDisplay(definition: AbilityDefinition, declaration: AbilityDisplay, context: DisplayContext): ResolvedDisplay {
   const content: ResolvedDisplayNode[] = declaration.content.map((node) => {
     if (node.type === "text") return node;
+    if (node.type === "text-list") {
+      const texts = [...new Set(node.items.filter(item => activeValue(resolveDisplayValue(item.active, context))).map(item => item.text))];
+      return { type: "text", text: texts.length ? texts.join(node.separator ?? "、") : node.emptyText ?? "—" };
+    }
+    if (node.type === "meter") {
+      const value = resolveDisplayValue(node.value, context);
+      const max = resolveDisplayValue(node.max, context);
+      return { type: "meter", value: typeof value === "number" && Number.isFinite(value) ? value : null,
+        max: typeof max === "number" && Number.isFinite(max) && max > 0 ? max : null, label: node.label ?? definition.name };
+    }
     if (node.type === "suit-record") {
       return { type: "suit-record", suits: SUITS.filter((suit) => {
         const value = resolveDisplayValue(node.values[suit], context);
@@ -73,7 +90,14 @@ export function resolveDisplay(definition: AbilityDefinition, declaration: Abili
     return { type: "number", value: typeof value === "number" && Number.isFinite(value) ? value : null, format: node.format ?? "number" };
   });
   return {
-    key: displayKey(context.instance), target: context.instance.target, name: definition.name, description: declaration.description, content,
+    key: displayKey(context.instance), target: context.instance.target, name: definition.name, description: definition.description, content,
+    ...(declaration.density ? { density: declaration.density } : {}),
+    ...(declaration.skillCardMarkers ? { skillMarkers: declaration.skillCardMarkers.flatMap(marker => {
+      const active = marker.active === undefined ? true : resolveDisplayValue(marker.active, context);
+      if (!activeValue(active)) return [];
+      const instanceIds = marker.targets.flatMap(target => selectSkillCards(context.world, displayActor(target, context.instance.owner), marker.filter, context.registry).map(card => card.instanceId));
+      return [{ instanceIds: [...new Set(instanceIds)], type: marker.type, label: marker.label, ...(marker.appearance ? { appearance: marker.appearance } : {}) }];
+    }) } : {}),
     markers: (declaration.cardMarkers ?? []).flatMap((marker) => {
       const suit = suitValue(resolveDisplayValue(marker.suit, context));
       return suit ? [{ ...marker, suit, targets: marker.targets.map((target) => displayActor(target, context.instance.owner)) }] : [];
@@ -82,10 +106,10 @@ export function resolveDisplay(definition: AbilityDefinition, declaration: Abili
 }
 export function resolveDisplays(runtime: AbilityRuntimeState, world: AbilityWorld, registry: AbilityRegistry, context: Omit<DisplayContext, "world" | "instance"> = {}): readonly ResolvedDisplay[] {
   return [...runtime.displays].sort((a, b) => a.registeredAtSequence - b.registeredAtSequence).map((instance) => {
-    const definition = registry.definitionsById[instance.definitionId];
+    const definition = getAbilityDefinition(instance.definitionId, registry, instance.level);
     const declaration = definition?.displays?.find((display) => display.id === instance.displayId);
     if (!definition || !declaration) throw new Error(`Unknown display: ${displayKey(instance)}`);
-    return resolveDisplay(definition, declaration, { ...context, world, instance });
+    return resolveDisplay(definition, declaration, { ...context, registry, world, instance });
   });
 }
 export function displayCardMarkers(displays: readonly ResolvedDisplay[], world: AbilityWorld): Readonly<Record<string, readonly { readonly type: string; readonly label: string }[]>> {
@@ -96,6 +120,16 @@ export function displayCardMarkers(displays: readonly ResolvedDisplay[], world: 
       const markers = result[card.id] ??= [];
       if (!markers.some((entry) => entry.type === marker.type && entry.label === marker.label)) markers.push({ type: marker.type, label: marker.label });
     }
+  }
+  return result;
+}
+
+/** Skill inventory identities are separate from playing-card entity identities. */
+export function displaySkillCardMarkers(displays: readonly ResolvedDisplay[]): Readonly<Record<string, readonly SkillCardMarker[]>> {
+  const result: Record<string, SkillCardMarker[]> = {};
+  for (const display of displays) for (const marker of display.skillMarkers ?? []) for (const id of marker.instanceIds) {
+    const markers = result[id] ??= [];
+    if (!markers.some(entry => entry.type === marker.type && entry.label === marker.label && (entry.appearance ?? "badge") === (marker.appearance ?? "badge"))) markers.push({ type: marker.type, label: marker.label, ...(marker.appearance ? { appearance: marker.appearance } : {}) });
   }
   return result;
 }

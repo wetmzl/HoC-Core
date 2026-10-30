@@ -12,7 +12,7 @@ function musicPackage(name: "chatgpt" | "official-factions", withMusic = true) {
   const files: Record<string, Uint8Array> = {};
   for (const file of manifest.files) files[file.path] = readFileSync(`${root}/${file.path}`);
   const descriptor = manifest.resources.find((r: { type: string }) => r.type === (name === "chatgpt" ? "game.character-match" : "presentation.faction"));
-  descriptor.apiVersion = name === "chatgpt" ? 8 : 2;
+  descriptor.apiVersion = Math.max(descriptor.apiVersion, name === "chatgpt" ? 8 : 2);
   const body = JSON.parse(Buffer.from(files[descriptor.entry]).toString());
   if (withMusic) {
     (name === "chatgpt" ? body.metadata : body).matchMusic = "bgm/test.wav";
@@ -38,7 +38,7 @@ async function playing(page: Page, kind: "character" | "faction" | "default") {
     const sources = character.matchMusicSources;
     const url = kind === "default" ? (await load("/src/resources/cache-policy.ts")).TABLE_BGM_URL : sources[0];
     const track = (window as any).__musicElements.findLast((audio: HTMLAudioElement) => audio.src.endsWith(url));
-    return (sources?.length ?? 0) === (kind === "character" ? 2 : kind === "faction" ? 1 : 0) && !!track && !track.paused && track.currentTime > 0 && track.volume > 0 && track.loop;
+    return (sources?.length ?? 0) === (kind === "character" ? 2 : kind === "faction" ? 1 : 0) && !!track && !track.paused && track.currentTime > 0 && Math.abs(track.volume - .32) < .001 && track.loop;
   }, kind)).toBe(true);
 }
 
@@ -60,7 +60,7 @@ test("imported character and faction music plays, resumes, and falls back after 
   await page.evaluate(async () => {
     const load = (p: string): Promise<any> => import(/* @vite-ignore */ p);
     const save = (await load("/src/persistence/boot.ts")).createDefaultSave();
-    save.skipTutorial = true; save.settings.soundEnabled = true;
+    save.skipTutorial = true; save.settings.soundEnabled = true; save.settings.musicVolume = .32;
     save.defeats = [{ opponentId: "chatgpt", timestamp: "2026-10-24T00:00:00.000Z" }];
     await (await load("/src/persistence/factory.ts")).createPersistenceService().saveLongTerm(save);
   });

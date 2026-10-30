@@ -2,7 +2,7 @@ import type { DialoguePrimitive, DialogueSelection } from "../../dialogue/types"
 import type { GameEvent } from "../../core/match/types";
 import type { PluginAudio, PluginSoundFactory } from "../../audio/plugin-audio";
 import type { HapticsApi } from "../../presentation/haptic-service";
-import type { CharacterDefinition, CharacterMetadata } from "../characters";
+import type { CharacterAppearance, CharacterDefinition, CharacterMetadata } from "../characters";
 import type { MatchHistoryRecord } from "../../core/match/history";
 import type { LongTermSave } from "../../persistence/schema";
 import type { ResourceLoader } from "../../resources/resource-loader";
@@ -21,13 +21,52 @@ export interface PluginHostApi {
   resolveAsset(path: string): Promise<string>;
 }
 
+/** Presentation preferences are independent of match state and plugin settings. */
+export interface PluginCharacterPresentationApi {
+  /** Returns a detached snapshot; missing characters or catalogs return undefined. */
+  get(characterId: string): CharacterAppearance | undefined;
+  /**
+   * Prepares and durably commits a skin, then rebuilds plugin contributions.
+   * Cancellation before activation rolls back. Activation may end the caller's
+   * runtime subscription without rejecting a committed selection. Existing
+   * contributed pages refresh themselves after resolution; their media remains
+   * available until signal ends. Active matches reject changes.
+   */
+  select(characterId: string, skinId: string, signal: AbortSignal): Promise<void>;
+}
+
 export interface PluginRuntimeContext {
+  /** Core-owned durable skin progress (API 12). Only the initial skin is unlocked by default. */
+  readonly characterSkinUnlocks?: PluginCharacterSkinUnlocksApi;
+  /** Available when this runtime can prepare character appearances (API 11). */
+  readonly characterPresentation?: PluginCharacterPresentationApi;
   readonly root: HTMLDivElement;
   readonly audio: PluginAudio;
   readonly resources: ResourceLoader;
   getSave(): LongTermSave;
   navigateToHistory(): Promise<void>;
   navigateToExtension(route: string): Promise<void>;
+}
+
+export interface PluginCharacterSkinUnlockState {
+  readonly id: string;
+  readonly name: string;
+  readonly unlocked: boolean;
+  readonly unlock?: import("../characters/skin-unlock").SkinUnlockCondition;
+}
+
+export interface PluginCharacterSkinUnlocksApi {
+  /** Detached catalog snapshot; unavailable characters return undefined. */
+  get(characterId: string): readonly PluginCharacterSkinUnlockState[] | undefined;
+  /** Unknown characters/skins return false. */
+  isUnlocked(characterId: string, skinId: string): boolean;
+  /** Atomic batch: unknown skins and locking the equipped skin reject without writing. */
+  setMany(characterId: string, changes: Readonly<Record<string, boolean>>): Promise<void>;
+  setUnlocked(characterId: string, skinId: string, unlocked: boolean): Promise<void>;
+  unlock(characterId: string, skinId: string): Promise<void>;
+  lock(characterId: string, skinId: string): Promise<void>;
+  /** Restore initial-skin-only access; switch to the initial skin first. */
+  reset(characterId: string): Promise<void>;
 }
 
 export interface PluginMatchEvents {

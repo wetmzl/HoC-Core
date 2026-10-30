@@ -78,7 +78,7 @@ describe("ChatGPT skills", () => {
       expect(charge(state)).toBe(round);
       expect(resetText(state)).toBe(`RESET ： ${round}`);
     }
-    const restored = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch;
+    const restored = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch!;
     expect(restored).toEqual(state);
     expect(charge(advanceRound(restored))).toBe(4);
   });
@@ -208,7 +208,7 @@ describe("ChatGPT skills", () => {
   it("bounds rescue chains even if other content makes each redealt hand bust again", () => {
     const definition = { id: "example-rescue-loop", name: "示例循环", description: "示例", sourceKind: "ai-skill", primaryDomain: "cheater", tags: ["example"], activation: { type: "automatic" }, rules: [
       { id: "redeal", trigger: "before-bust-resolution", conditions: [{ type: "actor-is", actor: "owner" }], effects: [{ type: "redeal-initial-hand", target: "owner" }] },
-      { id: "break-hand", trigger: "after-hand-changed", conditions: [{ type: "actor-is", actor: "owner" }], effects: [{ type: "add-derived-card", target: "owner", rank: { type: "static", rank: "K" }, suit: { type: "static", suit: "hearts" } }, { type: "add-derived-card", target: "owner", rank: { type: "static", rank: "K" }, suit: { type: "static", suit: "clubs" } }] }
+      { id: "break-hand", trigger: "after-hand-changed", conditions: [{ type: "actor-is", actor: "owner" }], effects: [{ type: "acquire-card", target: "owner", reportResult: true, choices: [{ source: "derived", rank: { type: "static", rank: "K" }, suit: { type: "static", suit: "hearts" } }] }, { type: "acquire-card", target: "owner", reportResult: true, choices: [{ source: "derived", rank: { type: "static", rank: "K" }, suit: { type: "static", suit: "clubs" } }] }] }
     ] };
     installAbilityRegistry([...originalRegistry.definitions, definition], originalRegistry.statuses, originalRegistry.catalogVersion);
     let state = fixture(["10", "8"], ["10", "9", "5"], Array(40).fill("2"));
@@ -254,7 +254,7 @@ describe("ChatGPT skills", () => {
     const state = fixture(["2", "3"], ["10", "9"], ["2", "K", "2", "3", "4"]);
     const next = gameReducer(gameReducer(state, { type: "PLAYER_HIT" }), { type: "AI_TURN" });
     expect(charge(next)).toBe(0);
-    const restored = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(next)))).activeMatch;
+    const restored = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(next)))).activeMatch!;
     expect(restored).toEqual(next);
     expect(gameReducer(restored, { type: "PLAYER_STAND" })).toEqual(gameReducer(next, { type: "PLAYER_STAND" }));
     expect(gameReducer(gameReducer(state, { type: "PLAYER_HIT" }), { type: "AI_TURN" })).toEqual(next);

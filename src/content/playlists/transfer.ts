@@ -4,9 +4,19 @@ import { embedHocpkgInPng, extractHocpkgFromPng, unzipChecked, zipFiles } from "
 import type { Unzipped } from "fflate";
 import { PlaylistDocumentSchema, type PlaylistDocument } from "./store";
 import { migratePlaylistDocument } from "./migrations";
+import type { ContentFileSystem, ContentOperationOptions } from "../storage/contracts";
+import { readImportRange, type ImportFile } from "../storage/import-file";
+import { checkCancelled } from "../storage/file-operations";
 
 const PNG_SIGNATURE = Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10);
 export const MAX_PLAYLIST_FILE = 2 * 1024 * 1024;
+
+export class PlaylistArchiveError extends Error {
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+    this.name = "PlaylistArchiveError";
+  }
+}
 
 export function playlistJson(document: PlaylistDocument): string {
   return `${JSON.stringify(PlaylistDocumentSchema.parse(document), null, 2)}\n`;
@@ -59,7 +69,22 @@ export async function decodePlaylistArchiveFiles(files: Unzipped, fallbackOrder:
   return PlaylistDocumentSchema.parse(migratePlaylistDocument(JSON.parse(decodeText(body)), fallbackOrder));
 }
 
-export async function decodePlaylistFile(file: File, fallbackOrder: readonly string[] = []): Promise<PlaylistDocument> {
-  if (file.size > MAX_PLAYLIST_FILE) throw new Error("播放集文件超过 2 MiB 限额。");
-  return decodePlaylistBytes(new Uint8Array(await file.arrayBuffer()), fallbackOrder);
+export async function decodePlaylistFile(file: ImportFile, fallbackOrder: readonly string[] = [], fs?: ContentFileSystem, options?: ContentOperationOptions): Promise<PlaylistDocument> {
+  const header = await readImportRange(fs, file, 0, PNG_SIGNATURE.length, options);
+  const archive = (header[0] === 0x50 && header[1] === 0x4b) || PNG_SIGNATURE.every((byte, index) => header[index] === byte);
+  if (file.size > MAX_PLAYLIST_FILE) {
+    const error = new Error("播放集文件超过 2 MiB 限额。");
+    throw archive ? new PlaylistArchiveError(error) : error;
+  }
+  // I/O failures and cancellation are not evidence that this is a content bundle.
+  const body = await readImportRange(fs, file, 0, file.size, options);
+  try {
+    const document = await decodePlaylistBytes(body, fallbackOrder);
+    checkCancelled(options);
+    return document;
+  } catch (error) {
+    checkCancelled(options);
+    if (archive) throw new PlaylistArchiveError(error);
+    throw error;
+  }
 }

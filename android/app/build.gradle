@@ -19,6 +19,13 @@ android {
         }
     }
     buildTypes {
+        bossdev {
+            initWith debug
+            applicationIdSuffix ".bossdev"
+            versionNameSuffix "-boss-dev"
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['debug']
+        }
         release {
             debuggable false
             minifyEnabled false

@@ -5,16 +5,16 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "claude",
-    "version": "1.1.9"
+    "version": "1.4.7"
   },
   "metadata": {
     "title": "Claude 角色包",
     "license": "CC-BY-NC-SA 4.0",
-    "description": "Claude 角色包，包含角色介绍、牌局结算文案、随机对白与克劳德时刻、安全宪法技能。",
+    "description": "Claude SS 角色包，克劳德时刻、安全宪法、禁止蒸馏与高岭之花均支持完整及削弱效果。",
     "tags": [
       "built-in",
       "character",
-      "tier:s"
+      "tier:ss"
     ],
     "creators": [
       {
@@ -23,24 +23,28 @@
           "maintainer"
         ]
       }
-    ]
+    ],
+    "coverImage": "cover.png"
   },
   "resources": [
     {
       "id": "match",
       "type": "game.character-match",
-      "apiVersion": 7,
+      "apiVersion": 13,
       "entry": "resources/character-match.json",
       "requires": [
-        "ai:claude-moment",
-        "ai:claude-safety-constitution",
-        "dialogue"
+        "dialogue",
+        "ai:claude-ss-moment",
+        "ai:claude-ss-constitution",
+        "ai:claude-ss-reasoning",
+        "ai:claude-ss-verdict",
+        "appearance"
       ]
     },
     {
       "id": "ai:claude-moment",
       "type": "game.ai-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/ai-skills/claude-moment.json",
       "requires": [
         "status:claude-moment-limit"
@@ -49,7 +53,7 @@
     {
       "id": "ai:claude-safety-constitution",
       "type": "game.ai-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/ai-skills/claude-safety-constitution.json",
       "requires": [
         "status:claude-safety-no-hit"
@@ -72,21 +76,94 @@
     {
       "id": "dialogue",
       "type": "game.character-dialogue",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/dialogue.json",
-      "requires": []
+      "requires": [
+        "appearance"
+      ]
     },
     {
       "id": "reward:claude-account-ban",
       "type": "game.player-skill",
-      "apiVersion": 2,
+      "apiVersion": 4,
       "entry": "resources/player-skills/claude-account-ban.json",
       "requires": [
         "match"
       ]
+    },
+    {
+      "id": "ai:claude-ss-moment",
+      "type": "game.ai-skill",
+      "apiVersion": 4,
+      "entry": "resources/ai-skills/claude-ss-moment.json",
+      "requires": [
+        "status:claude-moment-limit"
+      ]
+    },
+    {
+      "id": "ai:claude-ss-constitution",
+      "type": "game.ai-skill",
+      "apiVersion": 4,
+      "entry": "resources/ai-skills/claude-ss-constitution.json",
+      "requires": [
+        "status:claude-ss-skill-lock"
+      ]
+    },
+    {
+      "id": "ai:claude-ss-reasoning",
+      "type": "game.ai-skill",
+      "apiVersion": 4,
+      "entry": "resources/ai-skills/claude-ss-reasoning.json",
+      "requires": []
+    },
+    {
+      "id": "ai:claude-ss-verdict",
+      "type": "game.ai-skill",
+      "apiVersion": 4,
+      "entry": "resources/ai-skills/claude-ss-verdict.json",
+      "requires": []
+    },
+    {
+      "id": "status:claude-ss-skill-lock",
+      "type": "game.status",
+      "apiVersion": 1,
+      "entry": "resources/statuses/claude-ss-skill-lock.json",
+      "requires": []
+    },
+    {
+      "id": "appearance",
+      "type": "presentation.character",
+      "apiVersion": 2,
+      "entry": "resources/appearance.json",
+      "requires": []
+    },
+    {
+      "id": "trial",
+      "type": "game.encounter-flow",
+      "apiVersion": 2,
+      "entry": "resources/challenge.json",
+      "requires": []
     }
   ],
   "files": [
+    {
+      "path": "ART-CREDITS.md",
+      "bytes": 1047,
+      "sha256": "6d41aa6aa65e44b5afa2e17e0f79c2d039eae021075c41be552409eb73c0e9f4",
+      "mediaType": "text/markdown"
+    },
+    {
+      "path": "backgrounds/gambling-table-menu.png",
+      "bytes": 1934858,
+      "sha256": "58009e455dafbcd92f97ffa4732f73ef67b38cbcfed4c0d1e95b78d1c72be8fa",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "backgrounds/table-room.png",
+      "bytes": 1519594,
+      "sha256": "e6340f01de4a1575933c18bd6e6eb8e01bc7d6b54c8dad6fbf7c05886ad3d37d",
+      "mediaType": "image/png"
+    },
     {
       "path": "conflicted.png",
       "bytes": 1231551,
@@ -95,8 +172,8 @@
     },
     {
       "path": "cover.png",
-      "bytes": 525591,
-      "sha256": "a1dd716105d703f77e8927ae7a616b57d10078fc9e232841b8af0e5386b0ffda",
+      "bytes": 3200753,
+      "sha256": "f87678806edbfe5c37375f216d7a0a1cdf113835c3e5c690dfa7677703d45f63",
       "mediaType": "image/png"
     },
     {
@@ -124,15 +201,51 @@
       "mediaType": "application/json"
     },
     {
+      "path": "resources/ai-skills/claude-ss-constitution.json",
+      "bytes": 2023,
+      "sha256": "6faaacf1a66642aad29ddf91fc60bc978051319bb17c7129d8f3d2dafd6b9f24",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/ai-skills/claude-ss-moment.json",
+      "bytes": 2215,
+      "sha256": "bfad10c709fc218ee309db6dfb951db3dada8821a47604697952498163370529",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/ai-skills/claude-ss-reasoning.json",
+      "bytes": 2693,
+      "sha256": "b6e4ef4950efd96e218dd0435794943c3d1c7ddddb926681cc838861d7fce0e4",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/ai-skills/claude-ss-verdict.json",
+      "bytes": 1993,
+      "sha256": "568b5a6e8750cfa923cf13201e5ce3028efde5af3268c9ce71fea13ab188da32",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/appearance.json",
+      "bytes": 4782,
+      "sha256": "ea849f8132f8ab20557231c882a46ce143deed9e4977b63042f4bd1a2ece205f",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/challenge.json",
+      "bytes": 31417,
+      "sha256": "675ecbc1ecd1b94a54cd5d1b3e4526a5e4ba6523e4b143ec2a337dea0da6d3a1",
+      "mediaType": "application/json"
+    },
+    {
       "path": "resources/character-match.json",
-      "bytes": 3665,
-      "sha256": "35f4f6d206ff3316517b619a5b2b0380631e411107e5d8ba2f88d30ce42a3e1e",
+      "bytes": 6322,
+      "sha256": "ea1749eeadb65f33ec98355605e05bac0e7046a019c81ffbd1d639c80b15cea0",
       "mediaType": "application/json"
     },
     {
       "path": "resources/dialogue.json",
-      "bytes": 27777,
-      "sha256": "3a93e689656466addd982c4b63af2835740f192158e13b2f6cd4cc2bb8555d81",
+      "bytes": 30305,
+      "sha256": "b7a7a98dd3ebc6c287aa80f5a2803cb0b8dc611e3ba71fd6b2d3afa34932bbc4",
       "mediaType": "application/json"
     },
     {
@@ -152,6 +265,54 @@
       "bytes": 108,
       "sha256": "e7061b8a8e2d82bf341fb8e30743594756dd06038b4a2ce2a4d5dc29ab827a67",
       "mediaType": "application/json"
+    },
+    {
+      "path": "resources/statuses/claude-ss-skill-lock.json",
+      "bytes": 134,
+      "sha256": "2e0f582f5df0543fb2741089ba6524ec52e5f3f4e28eb6fbbb89a5955f4e6ae0",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "skins/autumn-correspondence/conflicted.png",
+      "bytes": 2338414,
+      "sha256": "eceeb9774eaef831590ea3de4976c06511914880ac6eaa9bebd54fcbcf56b3a6",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/autumn-correspondence/cover.png",
+      "bytes": 3150293,
+      "sha256": "3322cb85da49963ef0836ac4c28cc985c5ed0577ef37ad9e9a08e46451e3da37",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/autumn-correspondence/mocking.png",
+      "bytes": 2394461,
+      "sha256": "45636340c55b6a01f76934d673ae25517fa52293854688782f67ba6d0b390ec0",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/autumn-correspondence/relaxed.png",
+      "bytes": 2312647,
+      "sha256": "6b6ae074dc0b1251a2a1d1f77087cd1609893b119f471a15f05ff30c83422390",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/autumn-correspondence/tap.png",
+      "bytes": 2114026,
+      "sha256": "a9fa1736f306433a46463c71092085dbaca93fca377180149a5b2bf5f56862f8",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/autumn-correspondence/threatened.png",
+      "bytes": 2398312,
+      "sha256": "e39af4d8818aca6887896a527ba48d6459bf530d2202777314f6bef571f0c67c",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "skins/autumn-correspondence/unconscious-reclined.png",
+      "bytes": 2454860,
+      "sha256": "554a137611226042873ebda0237f8af00889e6732012dcba425fc3a9ee3d1cbe",
+      "mediaType": "image/png"
     },
     {
       "path": "tap.png",

@@ -50,7 +50,7 @@ describe("settlement priority: natural Blackjack, bust, then point comparison", 
         expect(result.playerSkills.drawCount - before.playerSkills.drawCount).toBe(actor === "player" ? 2 : 1);
         expect(result.history.filter(e => e.type === "BLACKJACK")).toEqual([{ type: "BLACKJACK", actor }]);
         expect(result.history.filter(e => e.type === "ROUND_RESOLVED")).toHaveLength(1);
-        expect(validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(result)))).activeMatch).toEqual(result);
+        expect(validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(result)))).activeMatch!).toEqual(result);
       }
     );
 
@@ -88,6 +88,54 @@ describe("settlement priority: natural Blackjack, bust, then point comparison", 
 });
 
 describe("busts remain playable until both participants Stand", () => {
+  it.each<{ ranks: Rank[]; allowed: boolean }>([
+    { ranks: ["10", "10", "10", "10", "10", "10", "A", "A"], allowed: true },
+    { ranks: ["10", "10", "10", "10", "10", "10", "3"], allowed: true },
+    { ranks: ["10", "10", "10", "10", "10", "10", "4"], allowed: false }
+  ])("limits player Hit only above three times the active bust limit: $ranks", ({ ranks, allowed }) => {
+    const state = normalizeAbilityHands(fixture(ranks));
+    const snapshot = structuredClone(state);
+    expect(getLegalActions(state).some(action => action.type === "PLAYER_HIT")).toBe(allowed);
+    expect(getLegalActions(state)).toContainEqual({ type: "PLAYER_STAND" });
+    const after = gameReducer(state, { type: "PLAYER_HIT" });
+    if (allowed) expect(after.player.hand.cards).toHaveLength(ranks.length + 1);
+    else expect(after).toBe(state);
+    expect(state).toEqual(snapshot);
+  });
+
+  it("rechecks a changed bust limit and keeps skills usable while Hit is blocked", () => {
+    install([{ id: "example-hit-limit", name: "示例上限", description: "提高当前上限", sourceKind: "ai-skill", primaryDomain: "cheater", tags: ["example"],
+      activation: { type: "action", windows: ["owner-turn"], consume: "none" },
+      rules: [{ id: "raise", trigger: "on-ability-played", effects: [{ type: "add-status", target: "owner", statusDefinitionId: "example-hit-limit-raised" }] }] }],
+    [{ id: "example-hit-limit-raised", defaultDuration: "round", rules: [{ id: "limit", trigger: "before-bust-check", conditions: [{ type: "actor-is", actor: "owner" }], effects: [{ type: "add-to-pending-bust-limit", target: "owner", amount: 10 }] }] }]);
+    const runtime = createMatch("hit-limit-runtime", { playerAiSkills: [{ definitionId: "example-hit-limit", enabled: true, parameters: {} }] }).abilities;
+    const state = normalizeAbilityHands({ ...fixture(["10", "10", "10", "10", "10", "10", "4"]), abilities: runtime });
+    const instanceId = runtime.instances.find(i => i.definitionId === "example-hit-limit")!.instanceId;
+    expect(getLegalActions(state)).not.toContainEqual({ type: "PLAYER_HIT" });
+    expect(getLegalActions(state)).toContainEqual({ type: "PLAY_ABILITY", instanceId });
+    const raised = gameReducer(state, { type: "PLAY_ABILITY", instanceId });
+    expect(getLegalActions(raised)).toContainEqual({ type: "PLAYER_HIT" });
+    expect(gameReducer(raised, { type: "PLAYER_HIT" }).player.hand.cards).toHaveLength(8);
+    const lowered = { ...raised, abilities: { ...raised.abilities, statuses: [] } };
+    expect(getLegalActions(lowered)).not.toContainEqual({ type: "PLAYER_HIT" });
+    expect(gameReducer(lowered, { type: "PLAYER_HIT" })).toBe(lowered);
+  });
+
+  it("re-enables Hit after the hand shrinks and ignores comparison advantages", () => {
+    const blocked = normalizeAbilityHands(fixture(["10", "10", "10", "10", "10", "10", "4"]));
+    const player = { ...blocked.player, hand: { cards: blocked.player.hand.cards.slice(0, 6) }, bustLimit: undefined };
+    const recovered = normalizeAbilityHands({ ...blocked, player, round: { ...blocked.round, player }, comparisonBonuses: { player: 100, opponent: 0 } });
+    expect(getLegalActions(recovered)).toContainEqual({ type: "PLAYER_HIT" });
+    expect(gameReducer(recovered, { type: "PLAYER_HIT" }).player.hand.cards).toHaveLength(7);
+  });
+
+  it("keeps opponent Hits available above three times the bust limit", () => {
+    const state = turn(normalizeAbilityHands(fixture(undefined, ["10", "10", "10", "10", "10", "10", "4"])), "opponent");
+    for (const type of ["OPPONENT_HIT", "AI_HIT"] as const) {
+      expect(gameReducer(state, { type }).opponent.hand.cards).toHaveLength(8);
+    }
+  });
+
   it("keeps both bust hands active and supports repeated Hits without extra bust events", () => {
     let state = fixture();
     for (const type of ["PLAYER_HIT", "OPPONENT_HIT", "PLAYER_HIT", "OPPONENT_HIT"] as const) state = gameReducer(state, { type });
@@ -127,7 +175,7 @@ describe("busts remain playable until both participants Stand", () => {
   it("offers legal actions to a busted player and roundtrips an unfinished bust save", () => {
     const state = turn(gameReducer(fixture(), { type: "PLAYER_HIT" }), "player");
     expect(getLegalActions(state)).toEqual(expect.arrayContaining([{ type: "PLAYER_HIT" }, { type: "PLAYER_STAND" }]));
-    const restored = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch;
+    const restored = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch!;
     expect(restored).toEqual(state);
     expect(gameReducer(restored, { type: "PLAYER_HIT" }).player.hand.cards).toHaveLength(4);
   });
@@ -156,6 +204,22 @@ describe("busts remain playable until both participants Stand", () => {
     expect(after.player).toMatchObject({ busted: false, stood: false, bustLimit: 31 });
     expect(settle(after).round.outcome?.reason).toBe("comparison");
     expect(abilityWorld(after).hands.player).toEqual(state.player.hand);
+  });
+
+  it("applies a stored comparison bonus across rounds without changing bust limits or natural priority", () => {
+    let state: MatchState = { ...fixture(["10", "10"], ["10", "9"]), comparisonBonuses: { player: 1, opponent: 0 } };
+    const original = JSON.stringify(state);
+    expect(previewComparisonScores(state)).toMatchObject({ baseScores: { player: 20, opponent: 19 }, scores: { player: 21, opponent: 19 } });
+    expect(JSON.stringify(state)).toBe(original);
+    const saved = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch!;
+    expect(settle(saved).round.outcome).toMatchObject({ winner: "player", comparisonScores: { player: 21, opponent: 19 } });
+    const next = gameReducer({ ...settle(saved), round: { ...settle(saved).round, outcome: { winner: null, reason: "push", penaltyTarget: null, bulletsAdded: 0 } } }, { type: "ACK_ROUND_RESULT" });
+    expect(next.comparisonBonuses).toEqual({ player: 1, opponent: 0 });
+    state = { ...fixture(["10", "10"], ["A", "K"]), comparisonBonuses: { player: 9, opponent: 0 } };
+    expect(settle(state).round.outcome).toMatchObject({ winner: "opponent", reason: "blackjack" });
+    state = normalizeAbilityHands({ ...fixture(["10", "10", "2"], ["10", "9"]), comparisonBonuses: { player: 9, opponent: 0 } });
+    expect(state.player.busted).toBe(true); expect(settle(state).round.outcome).toMatchObject({ reason: "bust", penaltyTarget: "player" });
+    expect(() => createMatch("invalid", { comparisonBonuses: { player: NaN, opponent: 0 } })).toThrow();
   });
 
   it("keeps point advantages outside the bust check", () => {

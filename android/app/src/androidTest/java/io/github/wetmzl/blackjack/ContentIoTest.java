@@ -9,6 +9,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @RunWith(AndroidJUnit4.class)
 public class ContentIoTest {
+    @Test public void reportsCorruptionMissingFilesAndFullDiskSeparately() {
+        assertTrue(ContentIoPlugin.operationError(new java.util.zip.ZipException("zip END header not found")).contains("压缩包已损坏"));
+        assertTrue(ContentIoPlugin.operationError(new EOFException()).contains("内容不完整"));
+        assertTrue(ContentIoPlugin.operationError(new FileNotFoundException("missing")).contains("重新选择"));
+        assertTrue(ContentIoPlugin.operationError(new IOException("write failed: ENOSPC")).contains("存储空间不足"));
+    }
+    @Test public void readsOnlyRequestedRangeAndRejectsUnboundedReads() throws Exception {
+        byte[] bytes = new byte[] {1, 2, 3, 4, 5};
+        assertArrayEquals(new byte[] {3, 4}, ContentIoPlugin.readRange(new ByteArrayInputStream(bytes), 2, 2, new AtomicBoolean()));
+        assertArrayEquals(new byte[] {5}, ContentIoPlugin.readRange(new ByteArrayInputStream(bytes), 4, 8, new AtomicBoolean()));
+        assertArrayEquals(new byte[0], ContentIoPlugin.readRange(new ByteArrayInputStream(bytes), 9, 8, new AtomicBoolean()));
+        try {
+            ContentIoPlugin.readRange(new ByteArrayInputStream(bytes), 0, 2 * 1024 * 1024 + 1, new AtomicBoolean());
+            fail("must reject unbounded read");
+        } catch (IOException expected) { assertTrue(expected.getMessage().contains("限额")); }
+        try {
+            ContentIoPlugin.readRange(new ByteArrayInputStream(bytes), 0, 8, new AtomicBoolean(true));
+            fail("must honor cancellation");
+        } catch (IOException expected) { assertTrue(expected.getMessage().contains("取消")); }
+    }
     @Test public void copiesAcrossBufferBoundariesAndReturnsKnownDigest() throws Exception {
         byte[] bytes = new byte[ContentIoPlugin.BUFFER_BYTES * 2 + 7];
         for (int i = 0; i < bytes.length; i++) bytes[i] = (byte)(i % 251);

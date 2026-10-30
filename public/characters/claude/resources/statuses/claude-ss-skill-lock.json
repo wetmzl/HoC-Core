@@ -1,0 +1,8 @@
+{
+  "id": "claude-ss-skill-lock",
+  "defaultDuration": "round",
+  "blocksAbilityTags": [
+    "active-skill-card"
+  ],
+  "rules": []
+}

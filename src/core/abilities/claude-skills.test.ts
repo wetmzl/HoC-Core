@@ -16,7 +16,7 @@ import type { AbilityBinding, DecisionAction, StatusDuration } from "./types";
 const originalRegistry = ABILITY_REGISTRY;
 afterEach(() => installAbilityRegistry(originalRegistry.definitions, originalRegistry.statuses, originalRegistry.catalogVersion));
 let bindings: readonly AbilityBinding[];
-beforeAll(async () => { bindings = (await loadCharacter("claude")).aiSkills; });
+beforeAll(async () => { bindings = ["claude-moment", "claude-safety-constitution"].map(definitionId => ({ definitionId, enabled: true, parameters: {} })); });
 
 function fixture(playerRanks: Rank[] = ["2", "3"], opponentRanks: Rank[] = ["10", "9"], remaining: Rank[] = ["2", "3", "2", "2", "K"], withSkills = true): MatchState {
   const base = createMatch("claude-skills", { opponentId: "claude", opponentAiSkills: withSkills ? bindings : [], aiProfile: { P: 0, A: 0, B: 0, C: 0 } });
@@ -116,7 +116,7 @@ describe("Claude skills", () => {
   it("restores both mechanics from a runtime save and clears them at the next round or escape", () => {
     let state = gameReducer(turn(fixture(["2", "3"], ["10", "10"], ["2"]), "opponent"), { type: "OPPONENT_HIT" });
     state = gameReducer(turn(state, "opponent"), { type: "OPPONENT_STAND" });
-    const saved = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch;
+    const saved = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch!;
     expect(getActiveBustLimit(saved, "player")).toBe(22);
     expect(gameReducer(saved, { type: "PLAYER_HIT" })).toBe(saved);
     const next = nextRound(saved);

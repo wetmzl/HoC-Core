@@ -1,3 +1,5 @@
+import type { EncounterFlowResource } from "../encounter-flows/catalog";
+import type { ChallengeDefinition } from "../../core/challenge/schema";
 import type { AbilityDefinition, AiSkillAbilityDefinition, StatusDefinition, TalentAbilityDefinition } from "../../core/abilities/types";
 import type { HocpkgResourceResult } from "./loader";
 import type { CharacterMatchResource, ContentDiagnostic, ExtensionResource, PlayerSkillResource } from "./resources";
@@ -11,6 +13,8 @@ export interface LoadedHocpkgPackage {
 }
 
 export interface ContentRegistry {
+  readonly encounterFlows: readonly EncounterFlowResource[];
+  readonly challenges: readonly ChallengeDefinition[];
   readonly characters: readonly CharacterMatchResource[];
   readonly playerSkills: readonly PlayerSkillResource[];
   readonly aiSkills: readonly AiSkillAbilityDefinition[];
@@ -30,6 +34,8 @@ function definitionId(type: string, value: unknown): string | undefined {
 }
 
 export function buildContentRegistry(packages: readonly LoadedHocpkgPackage[]): ContentRegistry {
+  const encounterFlows: EncounterFlowResource[] = [];
+  const challenges: ChallengeDefinition[] = [];
   const characters: CharacterMatchResource[] = [];
   const playerSkills: PlayerSkillResource[] = [];
   const aiSkills: AiSkillAbilityDefinition[] = [];
@@ -55,6 +61,8 @@ export function buildContentRegistry(packages: readonly LoadedHocpkgPackage[]): 
         }
         const value = result.value;
         switch (result.descriptor.type) {
+          case "game.encounter-flow": encounterFlows.push(value as EncounterFlowResource); break;
+          case "game.boss-challenge": challenges.push(value as ChallengeDefinition); break;
           case "game.character-dialogue": break;
           case "game.character-match": characters.push(value as CharacterMatchResource); break;
           case "game.player-skill": playerSkills.push(value as PlayerSkillResource); break;
@@ -85,6 +93,7 @@ export function buildContentRegistry(packages: readonly LoadedHocpkgPackage[]): 
             packageId,
             descriptor: result.descriptor,
             value: result.value,
+            ...(result.presentation ? { presentation: result.presentation } : {}),
             packageManifest: loaded.manifest,
             resolvePath: (path: string) => loaded.resolvePath(path)
           }));
@@ -104,6 +113,8 @@ export function buildContentRegistry(packages: readonly LoadedHocpkgPackage[]): 
   );
 
   return Object.freeze({
+    encounterFlows: Object.freeze(encounterFlows),
+    challenges: Object.freeze(challenges),
     characters: Object.freeze(characters),
     playerSkills: Object.freeze(playerSkills),
     aiSkills: Object.freeze(aiSkills),

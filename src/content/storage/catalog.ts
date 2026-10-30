@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ContentFileSystem } from "./contracts";
-import { decodeText, encodeText, sha256Json, stableJson } from "./encoding";
+import { assertContentDigestAvailable, ContentDigestUnavailableError, decodeText, encodeText, sha256Json, stableJson } from "./encoding";
 
 export const CONTENT_STORAGE_VERSION = 3 as const;
 export const CONTENT_ROOT = "content/v1";
@@ -77,7 +77,8 @@ async function parseEnvelope(bytes: Uint8Array): Promise<CatalogEnvelope | null>
     const parsed = envelopeSchema.parse(JSON.parse(decodeText(bytes)));
     const { checksum, ...body } = parsed;
     if (await sha256Json(body) === checksum) return parsed;
-  } catch {
+  } catch (error) {
+    if (error instanceof ContentDigestUnavailableError) throw error;
     // Try older catalog shapes below.
   }
   try {
@@ -85,7 +86,8 @@ async function parseEnvelope(bytes: Uint8Array): Promise<CatalogEnvelope | null>
     const { checksum, ...body } = parsed;
     if (await sha256Json(body) !== checksum) return null;
     return { ...parsed, storageVersion: CONTENT_STORAGE_VERSION, catalog: { ...parsed.catalog, pluginOrder: [] } };
-  } catch {
+  } catch (error) {
+    if (error instanceof ContentDigestUnavailableError) throw error;
     // Try the v1 shape below.
   }
   try {
@@ -103,7 +105,8 @@ async function parseEnvelope(bytes: Uint8Array): Promise<CatalogEnvelope | null>
       },
       checksum
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof ContentDigestUnavailableError) throw error;
     return null;
   }
 }
@@ -121,6 +124,9 @@ export async function readCatalogSlots(fileSystem: ContentFileSystem): Promise<{
   readonly committed: readonly LoadedCatalogSlot[];
   readonly occupied: readonly string[];
 }> {
+  // A missing checksum API must never make a valid slot look like an empty
+  // repository: opening that state would clean up its existing revisions.
+  assertContentDigestAvailable();
   const committed: LoadedCatalogSlot[] = [];
   const occupied: string[] = [];
   for (const path of CONTENT_CATALOG_PATHS) {

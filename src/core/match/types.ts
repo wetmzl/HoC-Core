@@ -28,6 +28,8 @@ export interface RoundOutcome {
   readonly bulletsAdded: number;
   /** Final totals used by point comparison, after all score modifiers. */
   readonly comparisonScores?: Readonly<Record<Actor, number>>;
+  /** Signed net comparison modifiers; excludes hand values and bust-limit changes. */
+  readonly pointAdvantages?: Readonly<Record<Actor, number>>;
 }
 
 export interface RoundState {
@@ -59,19 +61,21 @@ export interface MatchRngState {
 }
 
 export type GameEvent =
-  | { readonly type: "ABILITY_PLAYED"; readonly instanceId: string; readonly definitionId: string; readonly owner: Actor }
-  | { readonly type: "ABILITY_TRIGGERED"; readonly instanceId: string; readonly definitionId: string; readonly ruleId: string; readonly owner: Actor }
-  | { readonly type: "ABILITY_EXPIRED"; readonly instanceId: string; readonly definitionId: string; readonly owner: Actor; readonly reason: "rounds" | "triggers" }
+  | Extract<import("../abilities/types").AbilityDomainEvent, { type: "SKILL_CARDS_REMOVED" | "HAND_CARD_DISCARDED" }>
+  | { readonly type: "ABILITY_PLAYED"; readonly level?: number; readonly instanceId: string; readonly definitionId: string; readonly owner: Actor }
+  | { readonly type: "ABILITY_TRIGGERED"; readonly level?: number; readonly instanceId: string; readonly definitionId: string; readonly ruleId: string; readonly owner: Actor }
+  | { readonly type: "ABILITY_EXPIRED"; readonly level?: number; readonly instanceId: string; readonly definitionId: string; readonly owner: Actor; readonly reason: "rounds" | "triggers" }
   | { readonly type: "ABILITY_RESOLUTION_FAILED"; readonly instanceId: string; readonly definitionId: string; readonly ruleId: string; readonly reason: string }
   | { readonly type: "STATUS_ADDED"; readonly statusDefinitionId: string; readonly owner: Actor; readonly sourceInstanceId: string }
   | { readonly type: "STATUS_REMOVED"; readonly statusDefinitionId: string; readonly owner: Actor; readonly reason: "consumed" | "expired" | "dispelled" }
   | { readonly type: "PENDING_EVENT_MODIFIED"; readonly eventId: string; readonly effectType: string; readonly sourceInstanceId: string }
   | { readonly type: "PENDING_EVENT_CANCELLED"; readonly eventId: string; readonly sourceInstanceId: string }
   | { readonly type: "HAND_REDEALT"; readonly actor: Actor; readonly discardedCardIds: readonly string[] }
+  | { readonly type: "CARD_REVEALED"; readonly target: Actor; readonly cardId: string }
   | { readonly type: "CARD_SUIT_REVEALED"; readonly viewer: Actor; readonly target: Actor; readonly cardId: string; readonly suit: Suit }
   | { readonly type: "DRAW_PILE_CARD_SUIT_REVEALED"; readonly viewer: Actor; readonly cardId: string; readonly suit: Suit }
   | { readonly type: "DRAW_PILE_CARD_REVEALED"; readonly viewer: Actor; readonly cardId: string; readonly rank: Rank; readonly suit: Suit }
-  | { readonly type: "ABILITY_RESULT"; readonly instanceId: string; readonly definitionId: string; readonly owner: Actor; readonly result:
+  | { readonly type: "ABILITY_RESULT"; readonly level?: number; readonly instanceId: string; readonly definitionId: string; readonly owner: Actor; readonly result:
       | { readonly type: "derived-card-added"; readonly actor: Actor; readonly rank: Rank; readonly suit: Suit }
       | { readonly type: "derived-card-replaced"; readonly actor: Actor; readonly oldRank: Rank; readonly rank: Rank; readonly suit: Suit }
       | { readonly type: "status-stacks-updated"; readonly actor: Actor; readonly statusDefinitionId: string; readonly stacks: number; readonly delta: number }
@@ -90,9 +94,10 @@ export type GameEvent =
   | { readonly type: "BUST"; readonly actor: Actor }
   | { readonly type: "ROUND_RESOLVED"; readonly outcome: RoundOutcome }
   | { readonly type: "ROUND_RESULT_ACKNOWLEDGED" }
-  | { readonly type: "BULLET_ADDED"; readonly actor: Actor; readonly amount: number }
+  | { readonly type: "BULLET_ADDED"; readonly actor: Actor; readonly amount: number; readonly actualAmount?: number }
   | { readonly type: "TRIGGER_PULLED"; readonly actor: Actor; readonly probability: number; readonly baseProbability: number; readonly misfireChance: number; readonly result: "fired" | "empty-chamber" | "misfire"; readonly fired: boolean }
   | { readonly type: "TRIGGER_SURVIVED"; readonly actor: Actor }
+  | { readonly type: "DEFEAT_PREVENTED"; readonly actor: Actor; readonly sourceInstanceId: string }
   | { readonly type: "TRIGGER_RESULT_ACKNOWLEDGED" }
   /** Compatibility event name; actor=player never means the Curator physically dies. */
   | { readonly type: "PARTICIPANT_KILLED"; readonly actor: Actor }
@@ -139,6 +144,9 @@ export interface MatchState {
   readonly opponent: ParticipantState;
   readonly shoe: ShoeState;
   readonly roulette: RouletteState;
+  /** Flat bonuses used only during ordinary point comparison. */
+  readonly previousRoundPointAdvantages?: Readonly<Record<Actor, number>>;
+  readonly comparisonBonuses?: Readonly<Record<Actor, number>>;
   readonly playerSkills: PlayerSkillInventory;
   readonly talentIds: readonly string[];
   /** Declarative execution runtime shared by the three independent ability domains. */

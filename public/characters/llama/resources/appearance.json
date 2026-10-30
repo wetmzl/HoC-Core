@@ -1,0 +1,214 @@
+{
+  "skins": [
+    {
+      "id": "default",
+      "name": "原装"
+    },
+    {
+      "id": "cloud-traveler",
+      "name": "云间旅行家",
+      "unlock": {
+        "type": "defeat-character",
+        "count": 1
+      }
+    }
+  ],
+  "resources": {
+    "image:cover": {
+      "type": "image",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": "cover.png"
+        },
+        {
+          "skinId": "cloud-traveler",
+          "value": "skins/cloud-traveler/cover.png"
+        }
+      ]
+    },
+    "focus:cover": {
+      "type": "data",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "x": 0.5,
+            "y": 0.366
+          }
+        },
+        {
+          "skinId": "cloud-traveler",
+          "value": {
+            "x": 0.5,
+            "y": 0.366
+          }
+        }
+      ]
+    },
+    "portrait:relaxed": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "relaxed.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 47.5,
+              "left": 126.9
+            }
+          }
+        },
+        {
+          "skinId": "cloud-traveler",
+          "value": {
+            "image": "skins/cloud-traveler/relaxed.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 47.5,
+              "left": 126.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:conflicted": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "conflicted.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 47.5,
+              "left": 126.9
+            }
+          }
+        },
+        {
+          "skinId": "cloud-traveler",
+          "value": {
+            "image": "skins/cloud-traveler/conflicted.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 47.5,
+              "left": 126.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:mocking": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "mocking.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 47.5,
+              "left": 126.9
+            }
+          }
+        },
+        {
+          "skinId": "cloud-traveler",
+          "value": {
+            "image": "skins/cloud-traveler/mocking.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 47.5,
+              "left": 126.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:threatened": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "threatened.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 47.5,
+              "left": 126.9
+            }
+          }
+        },
+        {
+          "skinId": "cloud-traveler",
+          "value": {
+            "image": "skins/cloud-traveler/threatened.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 47.5,
+              "left": 126.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:unconscious": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "unconscious-reclined.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 47.5,
+              "left": 126.9
+            }
+          }
+        },
+        {
+          "skinId": "cloud-traveler",
+          "value": {
+            "image": "skins/cloud-traveler/unconscious-reclined.png",
+            "scale": 1,
+            "anchorY": 1,
+            "revolverPlacement": {
+              "top": 47.5,
+              "left": 126.9
+            }
+          }
+        }
+      ]
+    },
+    "portrait:tap": {
+      "type": "portrait",
+      "variants": [
+        {
+          "skinId": "default",
+          "value": {
+            "image": "tap.png",
+            "alt": "Llama 被戳后害羞"
+          }
+        },
+        {
+          "skinId": "cloud-traveler",
+          "value": {
+            "image": "skins/cloud-traveler/tap.png",
+            "alt": "Llama 被戳后害羞"
+          }
+        }
+      ]
+    }
+  }
+}

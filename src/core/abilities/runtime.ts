@@ -6,15 +6,15 @@ import type { AbilityRegistry } from "./registry";
 import { getAbilityDefinition } from "./registry";
 
 export function createAbilityRuntime(rng: RngSnapshot, catalogVersion: string = ABILITY_CATALOG_VERSION): AbilityRuntimeState {
-  return { displays: [], instances: [], statuses: [], counters: {}, sequence: 0, catalogVersion, rng, lastPlayedPlayerSkillDefinitionId: null };
+  return { displays: [], instances: [], statuses: [], counters: {}, sequence: 0, catalogVersion, rng, lastPlayedPlayerSkillDefinitionId: null, lastPlayedPlayerSkillLevel: 1 };
 }
 
 export function addAbilityInstance(runtime: AbilityRuntimeState, instance: AbilityInstance, registry?: AbilityRegistry): AbilityRuntimeState {
   if (runtime.instances.some((entry) => entry.instanceId === instance.instanceId)) return runtime;
-  const definition = getAbilityDefinition(instance.definitionId, registry);
+  const definition = getAbilityDefinition(instance.definitionId, registry, instance.level);
   const existing = new Set(runtime.displays.map(displayKey));
   const displays = (definition?.displays ?? []).map((display) => ({
-    definitionId: instance.definitionId, displayId: display.id, owner: instance.owner,
+    definitionId: instance.definitionId, level: instance.level ?? 1, displayId: display.id, owner: instance.owner,
     target: displayActor(display.target, instance.owner), parameters: { ...instance.parameters }, registeredAtSequence: instance.createdAtSequence
   })).filter((display) => !existing.has(displayKey(display)));
   return { ...runtime, displays: [...runtime.displays, ...displays], instances: [...runtime.instances, instance], sequence: Math.max(runtime.sequence, instance.createdAtSequence) };
@@ -40,7 +40,7 @@ function decrementAbilityTtl(
 ): TtlAdvanceResult {
   const instance = runtime.instances.find((candidate) => candidate.instanceId === instanceId);
   if (!instance) return { runtime, cards, expired: [], expiredStatuses: [] };
-  const definition = getAbilityDefinition(instance.definitionId, registry);
+  const definition = getAbilityDefinition(instance.definitionId, registry, instance.level);
   if (!definition?.ttl || definition.ttl.type !== type) return { runtime, cards, expired: [], expiredStatuses: [] };
   const current = instance.ttl ?? { type: definition.ttl.type, remaining: definition.ttl.amount };
   if (current.type !== definition.ttl.type) throw new Error(`Ability TTL kind mismatch: ${instance.definitionId}`);
@@ -125,7 +125,7 @@ export function garbageCollectAbilityInstances(runtime: AbilityRuntimeState, car
   const instances = runtime.instances.filter((instance) => {
     if (isAbilityInstanceExpired(instance)) return statusSources.has(instance.instanceId);
     if (cardIds.has(instance.instanceId) || statusSources.has(instance.instanceId)) return true;
-    const definition = getAbilityDefinition(instance.definitionId, registry);
+    const definition = getAbilityDefinition(instance.definitionId, registry, instance.level);
     if (!definition) return true;
     return definition.activation.type !== "action" || definition.activation.consume === "none";
   });

@@ -2,7 +2,7 @@ import { cardRank, cardSuit } from "../core/blackjack/card";
 import type { Card } from "../core/blackjack/types";
 import { getLegalActions } from "../core/match/reducer";
 import type { Action, GameEvent, MatchState } from "../core/match/types";
-import { getCharacterMetadata, type CharacterUnlockCondition } from "../content/characters";
+import { CHARACTER_CATALOG, getCharacterMetadata, type CharacterUnlockCondition } from "../content/characters";
 import { RESET_LONG_TERM_CONFIRM_MESSAGE } from "../persistence/long-term-recovery";
 import { suitPresentation } from "./cards";
 import { STAFF_REVOLVER_URL } from "../resources/cache-policy";
@@ -89,15 +89,15 @@ export const ACTION_LABELS: Readonly<Record<Action["type"], string>> = {
 export const EVENT_LABELS: Readonly<Record<GameEvent["type"], string>> = {
     ABILITY_PLAYED: "使用能力", ABILITY_TRIGGERED: "能力触发", ABILITY_EXPIRED: "能力耗尽", ABILITY_RESOLUTION_FAILED: "能力解析失败",
     STATUS_ADDED: "获得状态", STATUS_REMOVED: "状态移除", PENDING_EVENT_MODIFIED: "修改待结算事件", PENDING_EVENT_CANCELLED: "取消待结算事件",
-    HAND_REDEALT: "整手牌重发", ROUND_STARTED: "本轮开始", CARD_DEALT: "发牌", INITIAL_BLACKJACK_CHECK: "检查黑杰克",
+    HAND_CARD_DISCARDED: "弃掉手牌", HAND_REDEALT: "整手牌重发", ROUND_STARTED: "本轮开始", CARD_DEALT: "发牌", INITIAL_BLACKJACK_CHECK: "检查黑杰克",
     TURN_SKIPPED: "跳过回合",
     PLAYER_HIT: "策展人 Hit 要牌", OPPONENT_HIT: "对手 Hit 要牌", PLAYER_STOOD: "策展人 Stand 停牌", OPPONENT_STOOD: "对手 Stand 停牌",
     BLACKJACK: "黑杰克", BUST: "爆牌", ROUND_RESOLVED: "本轮结算", ROUND_RESULT_ACKNOWLEDGED: "已确认本轮结果",
-    BULLET_ADDED: "装填子弹", TRIGGER_PULLED: "已扣下扳机", TRIGGER_SURVIVED: "空枪幸存", TRIGGER_RESULT_ACKNOWLEDGED: "已确认扳机结果",
-    PARTICIPANT_KILLED: "参与者倒下", SKILL_GAINED: "获得技能", MATCH_FINISHED: "对局结束",
+    BULLET_ADDED: "装填子弹", TRIGGER_PULLED: "已扣下扳机", TRIGGER_SURVIVED: "空枪幸存", DEFEAT_PREVENTED: "抵御致命一击", TRIGGER_RESULT_ACKNOWLEDGED: "已确认扳机结果",
+    PARTICIPANT_KILLED: "参与者倒下", SKILL_GAINED: "获得技能", SKILL_CARDS_REMOVED: "技能牌移除", MATCH_FINISHED: "对局结束",
     SKILL_DRAWS_ADDED: "获得抽卡次数", SKILL_DRAW_OPENED: "生成技能候选", SKILL_DRAW_REFRESHED: "刷新技能候选", SKILL_DRAW_RESOLVED: "完成技能抽取",
     MATCH_ESCAPED: "策展人离席", MATCH_RESULT_ACKNOWLEDGED: "已确认最终结果", AI_DECISION: "对手完成决策",
-    CARD_SUIT_REVEALED: "识破暗牌花色", DRAW_PILE_CARD_SUIT_REVEALED: "识破牌堆顶花色", DRAW_PILE_CARD_REVEALED: "识破牌堆顶牌面", ABILITY_RESULT: "能力结果"
+    CARD_REVEALED: "翻开暗牌", CARD_SUIT_REVEALED: "识破暗牌花色", DRAW_PILE_CARD_SUIT_REVEALED: "识破牌堆顶花色", DRAW_PILE_CARD_REVEALED: "识破牌堆顶牌面", ABILITY_RESULT: "能力结果"
 };
 
 export function decisionLabel(action: "hit" | "stand" | undefined): string { return action === "hit" ? "Hit 要牌" : action === "stand" ? "Stand 停牌" : "—"; }
@@ -129,6 +129,10 @@ export function unlockConditionLabel(condition: CharacterUnlockCondition | undef
         return "击败任意角色";
     if (condition.type === "defeat-count")
         return `击败 ${condition.count} 名不同与会者`;
+    if (condition.type === "defeat-faction-count") {
+        const faction = CHARACTER_CATALOG.find(character => character.faction === condition.faction && character.badge)?.badge?.label ?? condition.faction;
+        return `击败「${faction}」阵营的 ${condition.count} 名不同角色`;
+    }
     const tagLabel = (tag: string): string => {
         const tier = /^tier:(d|c|b|a|s|ss)$/.exec(tag)?.[1];
         return tier ? `${tier.toUpperCase()}级` : `带有「${tag}」标签的`;

@@ -126,7 +126,7 @@ describe("built-in debug controls", () => {
     state = adjust(state, "aiBullets", -10);
     expect(state.roulette.opponent.bullets).toBe(0);
     expect(state.rng).toEqual(before.rng);
-    expect(validateRuntimeSave(createRuntimeSave(state)).activeMatch.roulette).toEqual(state.roulette);
+    expect(validateRuntimeSave(createRuntimeSave(state)).activeMatch!.roulette).toEqual(state.roulette);
     state = nextRound(state);
     expect(state.roulette.player.bullets).toBe(5);
     expect(state.roulette.opponent.bullets).toBe(0);
@@ -138,7 +138,7 @@ describe("built-in debug controls", () => {
   it("persists through round boundaries and runtime saves, then clears on disable, escape and match completion", () => {
     let state = adjust(adjust(adjust(fixture(), "playerAdvantage", -10), "publicBustLimit", 10), "playerBullets", 1);
     state = nextRound(state);
-    const restored = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch;
+    const restored = validateRuntimeSave(JSON.parse(JSON.stringify(createRuntimeSave(state)))).activeMatch!;
     expect(debugValues(restored)).toEqual(debugValues(state));
     state = gameReducer(restored, { type: "CONFIGURE_INTRINSIC_ABILITY", binding: { definitionId: "builtin-debug-control", enabled: false, parameters: {} } });
     expect(debugInstance(state)).toBeUndefined();

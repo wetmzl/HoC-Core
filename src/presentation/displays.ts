@@ -15,6 +15,7 @@ function suitMarkup(suit: Suit): string {
 }
 export function displayNodeText(node: ResolvedDisplayNode): string {
   if (node.type === "text") return node.text;
+  if (node.type === "meter") return `${node.label} ${node.value === null || node.max === null ? "—" : `${node.value}/${node.max}`}`;
   if (node.type === "suit-record") return `${node.suits.length}/4`;
   if (node.type === "rank-record") return `${node.ranks.length}/13`;
   if (node.type === "number") return node.value === null ? "—" : node.format === "percent" ? `${Math.round(node.value * 100)}%` : String(node.value);
@@ -24,6 +25,13 @@ export function displayNodeText(node: ResolvedDisplayNode): string {
 export function displayText(display: ResolvedDisplay): string { return display.content.map(displayNodeText).join(""); }
 export function displayContentMarkup(display: ResolvedDisplay): string {
   return display.content.map((node) => {
+    if (node.type === "meter") {
+      const valid = node.value !== null && node.max !== null && Number.isFinite(node.value) && Number.isFinite(node.max) && node.max > 0;
+      const value = valid ? Math.max(0, Math.min(node.max!, node.value!)) : 0;
+      const fill = valid ? value / node.max! * 100 : 0;
+      const text = escape(displayNodeText(node));
+      return `<span class="display-meter${valid ? "" : " is-unavailable"}" role="${valid ? "meter" : "img"}" aria-label="${escape(node.label)}${valid ? "" : "：数据不可用"}"${valid ? ` aria-valuemin="0" aria-valuemax="${node.max}" aria-valuenow="${value}" aria-valuetext="${text}"` : ""}><span class="display-meter-track" aria-hidden="true"><i style="width:${fill}%"></i></span><span class="display-meter-reading">${valid ? `${node.value}/${node.max}` : "—"}</span></span>`;
+    }
     if (node.type === "suit-record") return `<span class="suit-record" aria-label="已点亮 ${node.suits.length}/4 种花色">${SUITS.map((suit) => `<span class="suit-record-cell ${suitPresentation(suit).red ? "red" : "black"}${node.suits.includes(suit) ? " is-recorded" : ""}" aria-label="${suitPresentation(suit).label}：${node.suits.includes(suit) ? "已点亮" : "未点亮"}">${suitMarkup(suit)}<span class="suit-record-mark" aria-hidden="true">${node.suits.includes(suit) ? "&#10003;" : "&middot;"}</span></span>`).join("")}</span>`;
     if (node.type === "rank-record") return `<span class="rank-record" aria-label="已记录 ${node.ranks.length}/13 个点数">${RANKS.map((rank) => `<span class="rank-record-cell${node.ranks.includes(rank) ? " is-recorded" : ""}${node.selected === rank ? " is-selected" : ""}" aria-label="${rank}：${node.ranks.includes(rank) ? "已记录" : "未记录"}${node.selected === rank ? "，本回合选中" : ""}"><span>${rank}</span><span class="rank-record-mark" aria-hidden="true">${node.ranks.includes(rank) ? "&#10003;" : "&middot;"}</span></span>`).join("")}</span>`;
     const text = escape(displayNodeText(node));
@@ -47,7 +55,7 @@ export function displayChipsMarkup(displays: readonly ResolvedDisplay[], target:
     const values = first?.type === "text" ? display.content.slice(1) : display.content;
     const showOwner = displays.some((entry) => entry.target !== target);
     const boardClass = display.content.some((node) => node.type === "rank-record") ? " status-chip-rank-record" : display.content.some((node) => node.type === "suit-record") ? " status-chip-suit-record" : "";
-    return `<section class="status-chip${boardClass}" aria-label="${owner}${escape(displayText(display))}"><span class="display-heading"${showOwner ? ` data-owner-label="${owner}"` : ""}>${label}</span><output class="display-value">${displayContentMarkup({ ...display, content: values })}</output><button type="button" class="display-info-button" data-display-key="${escape(display.key)}" aria-label="查看${owner}${escape(displayText(display))}说明">i</button></section>`;
+    return `<section class="status-chip${boardClass}${display.density === "compact" ? " status-chip-compact" : ""}" aria-label="${owner}${escape(displayText(display))}"><span class="display-heading"${showOwner ? ` data-owner-label="${owner}"` : ""}>${label}</span><output class="display-value">${displayContentMarkup({ ...display, content: values })}</output><button type="button" class="display-info-button" data-display-key="${escape(display.key)}" aria-label="查看${owner}${escape(displayText(display))}说明">i</button></section>`;
   }).join("")}</div>`;
 }
 /** Readings stay expanded; the containing dashboard limits scrolling to the stage. */

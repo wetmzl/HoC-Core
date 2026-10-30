@@ -1,0 +1,71 @@
+{
+  "sourceCommit": "1069ebe489d73be8339d676a0b58b95ebed19fe4",
+  "characters": {
+    "chatgpt": {
+      "before": {
+        "previewImage": "relaxed.png"
+      },
+      "after": {
+        "previewImage": "cover.png",
+        "previewFocus": {
+          "x": 0.5,
+          "y": 0.37
+        }
+      },
+      "coverSha256": "4314707f22d7cbfa044ed0f640acd42ee8d8614633b786c195f5d1f040a3525d"
+    },
+    "claude": {
+      "before": {
+        "previewImage": "relaxed.png"
+      },
+      "after": {
+        "previewImage": "cover.png",
+        "previewFocus": {
+          "x": 0.5,
+          "y": 0.325
+        }
+      },
+      "coverSha256": "f87678806edbfe5c37375f216d7a0a1cdf113835c3e5c690dfa7677703d45f63"
+    },
+    "deepseek": {
+      "before": {
+        "previewImage": "relaxed.png"
+      },
+      "after": {
+        "previewImage": "cover.png",
+        "previewFocus": {
+          "x": 0.5,
+          "y": 0.355
+        }
+      },
+      "coverSha256": "db30ec4154ce09826b6b3ee8d8f23da440b570a68ba4a59f783df6d994539189"
+    },
+    "gemini": {
+      "before": {
+        "previewImage": "relaxed.png"
+      },
+      "after": {
+        "previewImage": "cover.png",
+        "previewFocus": {
+          "x": 0.5,
+          "y": 0.345
+        }
+      },
+      "coverSha256": "277fd9cdfe8ff6d8f5ad1f6479eb5cc2a1094dabcb78ccbc93efe493c1b939eb"
+    },
+    "llama": {
+      "before": {
+        "previewImage": "relaxed.png"
+      },
+      "after": {
+        "previewImage": "cover.png",
+        "previewFocus": {
+          "x": 0.5,
+          "y": 0.366
+        }
+      },
+      "coverSha256": "e97f1407ffdd5dbaab2307693b6e1db7593ea401f1c14fbfa9bde4cbd512ad14"
+    }
+  },
+  "reviewedCoverDate": "2026-10-29"
+}

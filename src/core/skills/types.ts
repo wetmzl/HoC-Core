@@ -14,6 +14,7 @@ export type SkillTiming = "player-turn" | "roulette-reaction";
 export type SkillCategory = "active" | "passive";
 
 export interface PlayerSkillDefinition {
+  readonly level?: number;
   readonly id: string;
   readonly name: string;
   readonly description: string;
@@ -21,6 +22,7 @@ export interface PlayerSkillDefinition {
   readonly profileLore: string;
   /** Full in-game rules shown from the compact table card. */
   readonly usage: string;
+  readonly metadataLabels?: readonly string[];
   readonly category: SkillCategory;
   readonly timing: readonly SkillTiming[];
   /** Successful activations available on one inventory card. Defaults to one. */
@@ -31,6 +33,8 @@ export interface PlayerSkillDefinition {
   readonly tags: readonly string[];
   readonly drop: { readonly enabled: boolean; readonly baseWeight: number };
   readonly stackable: boolean;
+  /** Definition-wide successful acquisitions, independent of card consumption. */
+  readonly acquisitionLimit?: { readonly perMatch: number };
   readonly ttl?: AbilityTtl;
   /** Optional data-driven unlock source. Undefined means an initial skill. */
   readonly unlock?: { readonly opponentId: string; readonly label: string };
@@ -46,6 +50,8 @@ export interface SkillDrawOffer {
 export interface PlayerSkillInventory {
   /** Every active and passive card occupies one stable inventory slot. */
   readonly cards: readonly SkillCardInstance[];
+  /** Match lifetime ledger, retained when cards are used, expire, or cross challenge tables. */
+  readonly acquisitionCounts?: Readonly<Record<string, number>>;
   /** Durable unlock snapshot used by deterministic draw generation. */
   readonly unlockedDefinitionIds: readonly string[];
   /** Optional candidate-pool snapshot; absent on legacy ongoing matches. */
@@ -58,5 +64,4 @@ export interface PlayerSkillInventory {
   readonly openingCardCount: number;
   readonly refreshesPerDraw: number;
   readonly drawOffer: SkillDrawOffer | null;
-  readonly advice: "hit" | "stand" | null;
 }
