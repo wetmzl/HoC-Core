@@ -8,9 +8,9 @@ import { TelemetryClient } from "./client";
 import type { ClientMetadata } from "./types";
 
 let active: TelemetryClient | undefined, initialized = false;
-const packages = new Map<string, { package_id: string; package_version: string }>();
+const packages = new Map<string, { package_id: string; package_version: string; package_name?: string }>();
 export function telemetryConfigured(): boolean { return Boolean(import.meta.env.VITE_HOC_TELEMETRY_ENDPOINT?.trim()); }
-export function setTelemetryPackages(entries: Readonly<Record<string, { package_id: string; package_version: string }>>): void {
+export function setTelemetryPackages(entries: Readonly<Record<string, { package_id: string; package_version: string; package_name?: string }>>): void {
   packages.clear(); for (const [id, value] of Object.entries(entries)) packages.set(id, value);
 }
 function clientMetadata(): ClientMetadata {

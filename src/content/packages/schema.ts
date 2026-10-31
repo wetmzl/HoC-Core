@@ -134,14 +134,15 @@ export const BuiltinPackageIndexSchema = z.object({
   releaseDigest: HocpkgDigestSchema.optional(),
   abilityCatalogVersion: z.string().min(1),
   defaultCharacterId: z.string().regex(identifierPattern, "defaultCharacterId 必须是安全标识"),
-  playerSkillOrder: uniqueStrings("playerSkillOrder 必须唯一").pipe(z.array(z.string().regex(identifierPattern, "playerSkillOrder 必须是安全标识")).min(1)),
+  defaultEnabled: uniqueStrings("默认启用内容必须唯一").optional(),
+  playerSkillOrder: uniqueStrings("playerSkillOrder 必须唯一").pipe(z.array(z.string().regex(identifierPattern, "playerSkillOrder 必须是安全标识"))),
   packages: z.array(z.object({
     manifest: HocpkgPortablePathSchema.refine((path) => path.endsWith("/hocpkg-info.json"), "内嵌包入口必须是 hocpkg-info.json"),
     packageId: z.string().regex(new RegExp(`^${identifierPattern.source.slice(1, -1)}/${identifierPattern.source.slice(1, -1)}$`), "packageId 必须是 authorId/packageName"),
     version: HocpkgSemverSchema,
     contentDigest: HocpkgDigestSchema,
     bytes: z.number().int().nonnegative()
-  }).strict()).min(1)
+  }).strict()).max(4096)
 }).strict().superRefine((index, ctx) => {
   const paths = new Set<string>();
   const packageIds = new Set<string>();
@@ -151,6 +152,7 @@ export const BuiltinPackageIndexSchema = z.object({
     if (packageIds.has(entry.packageId)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["packages", entryIndex, "packageId"], message: `内嵌 packageId 重复：${entry.packageId}` });
     packageIds.add(entry.packageId);
   }
+  for (const id of index.defaultEnabled ?? []) if (!packageIds.has(id)) ctx.addIssue({ code: "custom", path: ["defaultEnabled"], message: `默认启用内容不在内嵌索引中：${id}` });
 });
 
 export type HocpkgManifest = z.infer<typeof HocpkgManifestSchema>;

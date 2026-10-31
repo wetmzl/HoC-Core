@@ -452,7 +452,7 @@ export class HocpkgTransfer {
     return { manifest: source.manifest, cover, asset, mediaType: file?.mediaType };
   }
 
-  async installSelected(sessionId: string, candidateIds: readonly string[], onProgress?: (progress: import("../storage/contracts").ContentInstallProgress) => void, options: import("../storage/contracts").ContentInstallOptions = {}): Promise<readonly ImportOutcome[]> {
+  async installSelected(sessionId: string, candidateIds: readonly string[], onProgress?: (progress: import("../storage/contracts").ContentInstallProgress) => void, options: import("../storage/contracts").ContentInstallOptions = {}, resolveConflicts?: () => Promise<void>): Promise<readonly ImportOutcome[]> {
     if (candidateIds.length === 0 || new Set(candidateIds).size !== candidateIds.length) throw new Error("请选择有效且不重复的候选包。");
     checkCancelled({ signal: options.signal });
     const session = await this.readSession(sessionId);
@@ -471,11 +471,11 @@ export class HocpkgTransfer {
       const previous = installed.get(candidate.packageId);
       if (previous) {
         const current = await this.repository.readManifest(candidate.packageId);
-        if (previous.currentRevision === await getContentRevision(source.manifest)) {
+        if (!previous.embedded && previous.currentRevision === await getContentRevision(source.manifest)) {
           outcomes.push({ candidateId: id, packageId: candidate.packageId, kind: "same", message: `${candidate.packageId}：内容相同，未重复安装。` });
           continue;
         }
-        outcomes.push({ candidateId: id, packageId: candidate.packageId, kind: "replaced", message: `${candidate.packageId}：v${source.manifest.identity.version} 已替换 v${current.identity.version}。` });
+        outcomes.push({ candidateId: id, packageId: candidate.packageId, kind: "replaced", message: previous.embedded ? `${candidate.packageId}：已处理内嵌冲突，继续使用内嵌来源。` : `${candidate.packageId}：v${source.manifest.identity.version} 已替换 v${current.identity.version}。` });
       } else {
         outcomes.push({ candidateId: id, packageId: candidate.packageId, kind: "installed", message: `${candidate.packageId}：v${source.manifest.identity.version} 已入库，暂未启用。` });
       }
@@ -483,6 +483,7 @@ export class HocpkgTransfer {
     }
     checkCancelled({ signal: options.signal });
     if (sources.length) await this.repository.installBatch(sources, { allowDowngrade: true, allowSameVersionReplacement: true, newPackagesEnabled: false, ...options, onProgress });
+    await resolveConflicts?.();
     const retained = session.candidates.filter((candidate) => !candidateIds.includes(candidate.id));
     for (const id of candidateIds) await this.fs.remove(`${IMPORT_ROOT}/${sessionId}/candidates/${id}`).catch(() => undefined);
     if (retained.length) await this.fs.write(this.sessionPath(sessionId), encodeText(JSON.stringify({ ...session, candidates: retained })));

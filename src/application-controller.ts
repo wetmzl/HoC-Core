@@ -1,6 +1,5 @@
 import {
   ContentPackageManager,
-  EmbeddedContentSeeder,
   EmbeddedContentSource,
   RepositoryContentSource,
   activateContentRuntime,
@@ -19,7 +18,6 @@ import { CONTENT_PERSISTENCE_REFUSED_WARNING, resolveContentHost, type ContentHo
 import { installDialogueEvents, clearDialogueEvents } from "./dialogue/events";
 import { installDialogueRegistry, clearDialogueRegistry } from "./dialogue/registry";
 import { loadPluginModules, type LoadedPluginModules } from "./content/packages/plugin-modules";
-import { migrateBuiltinPackageAuthors } from "./content/storage/builtin-author-migration";
 import { CORE_PACKAGE_AUTHOR_ID } from "./content/packages/builtin-authors";
 import { mergeSkillArchetypeArt } from "./resources/skill-archetype-art";
 import { HocpkgTransfer, type ImportOutcome, type ImportSession } from "./content/transfer/hocpkg";
@@ -33,6 +31,9 @@ import { collectPluginCredits } from "./content/packages/plugin-credits";
 import { ensureLongTermSaveReady } from "./persistence/long-term-recovery";
 import { releaseImportFile, type ImportFile } from "./content/storage/import-file";
 import { checkCancelled } from "./content/storage/file-operations";
+import { canonicalBuiltinPackageId } from "./content/packages/builtin-authors";
+import { EMBEDDED_MEDIA_CACHE, preserveEmbeddedCache } from "./resources/embedded-offline";
+import { Capacitor } from "@capacitor/core";
 
 export type ApplicationControllerState = "idle" | "starting" | "running" | "stopping";
 
@@ -52,6 +53,7 @@ export interface ApplicationControllerOptions {
   readonly onRuntimeStopped?: () => void | Promise<void>;
   /** Explicit test harness mode; production never enables this storage bypass. */
   readonly readOnlyEmbedded?: boolean;
+  readonly resolveEmbeddedConflicts?: (packageIds: readonly string[]) => Promise<boolean>;
 }
 
 export class ApplicationController {
@@ -96,28 +98,20 @@ export class ApplicationController {
     this.embedded.assetSource = host.fileSystem.assetSource?.bind(host.fileSystem);
     const repository = new FileContentRepository(host);
     await repository.open();
-    if (await repository.isEmpty()) {
-      const index = await this.embedded.loadIndex();
-      const requiredBytes = index.packages.reduce((total, entry) => total + entry.bytes, 0);
-      const availableBytes = await host.capabilities.estimateAvailableBytes?.();
-      if (availableBytes !== undefined && availableBytes !== null && availableBytes < requiredBytes) {
-        throw new Error(`内容目录空间不足：需要 ${requiredBytes} 字节，可用 ${availableBytes} 字节。`);
-      }
-      const persistent = await host.capabilities.requestPersistence?.();
-      if (persistent === false) this.startupWarnings.add(CONTENT_PERSISTENCE_REFUSED_WARNING);
-      await new EmbeddedContentSeeder(repository, this.embedded).seed({
-        onProgress: (progress) => this.options.onProgress?.({ phase: "seeding", ...progress })
-      });
-    }
-    try { await migrateBuiltinPackageAuthors(repository); }
-    catch (error) {
-      // Keep resource management available so a collision or damaged legacy package can be removed.
-      this.startupWarnings.add(`内嵌包作者迁移未完成：${error instanceof Error ? error.message : "请在资源管理中检查旧包。"}`);
-    }
-    await new EmbeddedContentSeeder(repository, this.embedded).upgradeInstalled({
-      onProgress: progress => this.options.onProgress?.({ phase: "seeding", ...progress })
-    });
+    this.embedded.assetFallback = async (packageId, file, url) => {
+      if (Capacitor.isNativePlatform()) return undefined;
+      try { if (typeof caches !== "undefined" && await caches.match(url, { cacheName: EMBEDDED_MEDIA_CACHE })) return undefined; } catch { /* Reuse archived bytes if the browser cache is unavailable. */ }
+      return repository.resolveArchivedAsset(packageId, file);
+    };
+    const persistent = await host.capabilities.requestPersistence?.();
+    if (persistent === false) this.startupWarnings.add(CONTENT_PERSISTENCE_REFUSED_WARNING);
+    const priorPlaylists = new PlaylistStore(host.fileSystem, await repository.listPluginOrder());
+    const selectedId = await priorPlaylists.currentId();
+    const selected = (await priorPlaylists.list()).find(entry => entry.id === selectedId);
+    const index = await this.embedded.loadIndex();
+    await repository.configureEmbedded(await this.embedded.packages(), selected ? new Set(selected.document.packages.map(entry => entry.packageId)) : undefined, index.defaultEnabled ? new Set(index.defaultEnabled) : undefined);
     this.repository = repository;
+    await this.resolveStoredConflicts();
     this.manager = new ContentPackageManager(repository, this.embedded);
     this.fileSystem = host.fileSystem;
     this.assetResolver = host.assetResolver;
@@ -127,9 +121,69 @@ export class ApplicationController {
     const current = await repository.listPackages();
     const entries = await Promise.all(current.filter((entry) => entry.enabled).map(async (entry) => ({ packageId: entry.packageId, version: (await repository.readManifest(entry.packageId).catch(() => undefined))?.identity.version })));
     await this.playlists.initialize(entries, await this.installedPluginOrder());
-    await this.syncCurrentPlaylist();
+    // Existing playlists (including missing references and version hints) are preserved verbatim.
     await host.fileSystem.remove("content/v1/imports");
     this.contentInitialized = true;
+  }
+
+  private async resolveStoredConflicts(): Promise<void> {
+    if (!this.repository) return;
+    const conflicts = await this.repository!.listStoredConflicts();
+    if (!conflicts.length) return;
+    const ids = conflicts.map(entry => entry.packageId);
+    const clean = this.options.resolveEmbeddedConflicts ? await this.options.resolveEmbeddedConflicts(ids) : await (async () => {
+      const { chooseGameDialog } = await import("./game-dialog");
+      return await chooseGameDialog("过时内嵌包", `在用户仓库检测到过时内嵌包，是否清理？\n${ids.join("\n")}\n选择否或关闭弹窗会归档并禁用旧副本；使用当前内嵌内容。`, [
+        { value: "clean", label: "是，清理", style: "danger" }, { value: "archive", label: "否，归档禁用", style: "secondary" }
+      ]) === "clean";
+    })();
+    const targets = new Map((await this.embedded.packages()).map(entry => [entry.packageId, entry]));
+    for (const conflict of conflicts) {
+      try {
+        const old = await this.repository!.storedSource(conflict.packageId);
+        await preserveEmbeddedCache(old, targets.get(canonicalBuiltinPackageId(conflict.packageId))!);
+      } catch (error) {
+        if (clean) throw new Error("无法保留已有离线资源；旧副本未清理。请腾出空间重试，或选择归档禁用。", { cause: error });
+        this.startupWarnings.add("部分离线缓存未能保存，已保留历史归档中的资源。");
+      }
+    }
+    await this.repository!.resolveEmbeddedConflicts(clean);
+  }
+
+  async listArchivedPackages() {
+    this.beginIdleOperation();
+    try {
+      await this.ensureInitialized();
+      return await Promise.all((await this.repository?.listArchives() ?? []).map(async entry => {
+        try { const source = await this.repository!.archiveSource(entry.id); return { ...entry, title: source.manifest.metadata.title, version: source.manifest.identity.version }; }
+        catch { return { ...entry, title: entry.packageId, version: "未知" }; }
+      }));
+    }
+    finally { this.idleOperationRunning = false; }
+  }
+
+  async exportArchivedPackage(id: string): Promise<void> {
+    this.beginIdleOperation();
+    try {
+      await this.ensureInitialized();
+      const source = await this.repository!.archiveSource(id), { zip } = await import("fflate");
+      const files: Record<string, Uint8Array> = { "hocpkg-info.json": new TextEncoder().encode(JSON.stringify(source.manifest)) };
+      const { sha256 } = await import("./content/storage/encoding");
+      for await (const file of source.files()) {
+        if (!file.bytes) throw new Error("归档文件不可读。");
+        const expected = source.manifest.files.find(entry => entry.path === file.path);
+        if (!expected || file.bytes.length !== expected.bytes || await sha256(file.bytes) !== expected.sha256) throw new Error("归档文件校验失败。");
+        files[file.path] = file.bytes;
+      }
+      const bytes = await new Promise<Uint8Array>((resolve, reject) => zip(files, (error, data) => error ? reject(error) : resolve(data)));
+      await createSaveFileWriter().write(new Blob([Uint8Array.from(bytes).buffer], { type: "application/zip" }), `${source.packageId.replace("/", "-")}-archived.hocpkg`, "归档内容", { "application/zip": [".hocpkg"] });
+    } finally { this.idleOperationRunning = false; }
+  }
+
+  async removeArchivedPackage(id: string): Promise<void> {
+    this.beginIdleOperation();
+    try { await this.ensureInitialized(); await this.repository!.removeArchive(id); }
+    finally { this.idleOperationRunning = false; }
   }
 
   async listPackages(): Promise<readonly ManagedContentPackage[]> {
@@ -235,7 +289,7 @@ export class ApplicationController {
     try {
       await this.ensureInitialized();
       if (!this.transfer) throw new Error("只读模式不能安装内容包。");
-      return await this.transfer.installSelected(sessionId, candidateIds, onProgress, options);
+      return await this.transfer.installSelected(sessionId, candidateIds, onProgress, options, () => this.resolveStoredConflicts());
     } finally { this.idleOperationRunning = false; }
   }
 
@@ -406,6 +460,7 @@ export class ApplicationController {
     let plugins: LoadedPluginModules | undefined;
     try {
       await this.ensureInitialized();
+      await this.resolveStoredConflicts();
       if (!this.embeddedOnly) {
         const installed = (await this.repository!.listPackages()).filter((entry) => entry.enabled);
         if (installed.length === 0) throw new Error("没有启用的内容包。");
@@ -490,7 +545,7 @@ export class ApplicationController {
         telemetryPackages: Object.fromEntries(content.packages.flatMap(pkg => pkg.resources.flatMap(resource => {
           if (resource.descriptor.type !== "game.character-match" || resource.state !== "active") return [];
           const character = resource.value as import("./content/packages/resources").CharacterMatchResource;
-          return [[character.metadata.id, { package_id: `${pkg.manifest.identity.authorId}/${pkg.manifest.identity.packageName}`, package_version: pkg.manifest.identity.version }]];
+          return [[character.metadata.id, { package_id: `${pkg.manifest.identity.authorId}/${pkg.manifest.identity.packageName}`, package_version: pkg.manifest.identity.version, package_name: pkg.manifest.metadata.title }]];
         }))),
         contributions: activePresentation.contributions,
         preparePresentation,

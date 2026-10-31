@@ -181,7 +181,7 @@ const GameEventSchema = z.union([
   z.object({ type: z.literal("ROUND_RESOLVED"), outcome: RoundOutcomeSchema }).strict(),
   z.object({ type: z.literal("ROUND_RESULT_ACKNOWLEDGED") }).strict(),
   z.object({ type: z.literal("BULLET_ADDED"), actor: z.enum(["player", "opponent"]), amount: z.number().int().min(0), actualAmount: z.number().int().min(0).optional() }).strict(),
-  z.object({ type: z.literal("TRIGGER_PULLED"), actor: z.enum(["player", "opponent"]), probability: z.number().min(0).max(1), baseProbability: z.number().min(0).max(1), misfireChance: z.number().min(0).max(1), result: z.enum(["fired", "empty-chamber", "misfire"]), fired: z.boolean() }).strict().superRefine((event, ctx) => {
+  z.object({ type: z.literal("TRIGGER_PULLED"), bulletsBefore: z.number().int().nonnegative().optional(), capacityBefore: z.number().int().positive().optional(), actor: z.enum(["player", "opponent"]), probability: z.number().min(0).max(1), baseProbability: z.number().min(0).max(1), misfireChance: z.number().min(0).max(1), result: z.enum(["fired", "empty-chamber", "misfire"]), fired: z.boolean() }).strict().superRefine((event, ctx) => {
     if (event.fired !== (event.result === "fired")) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["fired"], message: "trigger result and fired flag disagree" });
   }),
   z.object({ type: z.literal("TRIGGER_SURVIVED"), actor: z.enum(["player", "opponent"]) }).strict(),

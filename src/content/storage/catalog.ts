@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { ContentFileSystem } from "./contracts";
 import { assertContentDigestAvailable, ContentDigestUnavailableError, decodeText, encodeText, sha256Json, stableJson } from "./encoding";
 
-export const CONTENT_STORAGE_VERSION = 3 as const;
+export const CONTENT_STORAGE_VERSION = 4 as const;
 export const CONTENT_ROOT = "content/v1";
 export const CONTENT_CATALOG_PATHS = [`${CONTENT_ROOT}/catalog-a.json`, `${CONTENT_ROOT}/catalog-b.json`] as const;
 
@@ -16,6 +16,10 @@ const installedPackageSchema = z.object({
 
 export const ContentCatalogSchema = z.object({
   packages: z.record(packageId, installedPackageSchema),
+  embedded: z.record(packageId, z.object({ enabled: z.boolean() }).strict()).optional(),
+  archives: z.record(z.string().regex(/^[a-z0-9_-]+\/[a-z0-9_-]+\/[a-f0-9]{64}$/), z.object({
+    packageId, currentRevision: revision, archivedAt: z.string()
+  }).strict()).optional(),
   pluginOrder: z.array(packageId).refine((order) => new Set(order).size === order.length)
 }).strict();
 
@@ -46,6 +50,7 @@ const legacyEnvelopeSchema = legacyEnvelopeBodySchema.extend({ checksum: z.strin
 const previousEnvelopeSchema = envelopeBodySchema.extend({
   storageVersion: z.literal(2), catalog: PreviousContentCatalogSchema
 }).extend({ checksum: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
+const versionThreeEnvelopeSchema = envelopeBodySchema.extend({ storageVersion: z.literal(3) }).extend({ checksum: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
 
 export type ContentCatalog = z.infer<typeof ContentCatalogSchema>;
 type CatalogEnvelopeBody = z.infer<typeof envelopeBodySchema>;
@@ -82,6 +87,11 @@ async function parseEnvelope(bytes: Uint8Array): Promise<CatalogEnvelope | null>
     // Try older catalog shapes below.
   }
   try {
+    const parsed = versionThreeEnvelopeSchema.parse(JSON.parse(decodeText(bytes)));
+    const { checksum, ...body } = parsed;
+    if (await sha256Json(body) === checksum) return { ...parsed, storageVersion: CONTENT_STORAGE_VERSION };
+  } catch (error) { if (error instanceof ContentDigestUnavailableError) throw error; }
+  try {
     const parsed = previousEnvelopeSchema.parse(JSON.parse(decodeText(bytes)));
     const { checksum, ...body } = parsed;
     if (await sha256Json(body) !== checksum) return null;
@@ -114,7 +124,7 @@ async function parseEnvelope(bytes: Uint8Array): Promise<CatalogEnvelope | null>
 async function envelopeNeedsMigration(bytes: Uint8Array): Promise<boolean> {
   try {
     const value = JSON.parse(decodeText(bytes));
-    return legacyEnvelopeSchema.safeParse(value).success || previousEnvelopeSchema.safeParse(value).success;
+    return legacyEnvelopeSchema.safeParse(value).success || previousEnvelopeSchema.safeParse(value).success || versionThreeEnvelopeSchema.safeParse(value).success;
   } catch {
     return false;
   }

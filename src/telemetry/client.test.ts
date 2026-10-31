@@ -96,3 +96,14 @@ describe("gameplay event aggregation", () => {
     expect(gunStatistics(match, "player", 0).loaded_actual).toBeNull();
   });
 });
+
+it.each(["player", "opponent"] as const)("counts only actual %s shots with known pre-shot loads, keeping legacy samples unknown", actor => {
+  const match = fresh();
+  const trigger = (result: "fired" | "empty-chamber" | "misfire", bulletsBefore?: number) => ({
+    type: "TRIGGER_PULLED" as const, actor, probability: .5, baseProbability: .5, misfireChance: 0,
+    fired: result === "fired", result, ...(bulletsBefore === undefined ? {} : { bulletsBefore, capacityBefore: 6 })
+  });
+  const state = { ...match, history: [trigger("fired", 2), trigger("empty-chamber", 4), trigger("misfire", 5), trigger("fired"), trigger("fired", 2), trigger("fired", 6)] };
+  expect(gunStatistics(state, actor, 0)).toMatchObject({ fired: 4, triggers: 6,
+    firing_bullets: [{ bullets: 2, count: 2 }, { bullets: 6, count: 1 }] });
+});

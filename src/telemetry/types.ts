@@ -12,12 +12,13 @@ export interface EventEnvelope {
   game_version: string; build_id: string; environment: "production" | "test" | "development"; client: ClientMetadata;
 }
 export interface GunStatistics {
+  firing_bullets?: { bullets: number; count: number }[];
   capacity: number; initial_bullets: number | null; final_bullets: number; loaded_actual: number | null;
   removed_actual: number; load_requested: number; triggers: number; fired: number; misfires: number;
 }
 export interface MatchStatistics {
   match_id: string;
-  opponent: { id: string; name: string; package_id?: string; package_version?: string };
+  opponent: { id: string; name: string; package_id?: string; package_version?: string; package_name?: string };
   flow: { run_id: string; definition_id: string; node_id: string; encounter_index: number };
   outcome: "win" | "loss" | "escaped"; reason: "player-killed" | "opponent-killed" | "escaped";
   started_at: string | null; ended_at: string; duration_ms: number | null;
@@ -25,7 +26,7 @@ export interface MatchStatistics {
   rounds: { resolved: number; player_wins: number; opponent_wins: number; pushes: number;
     player_busts: number; opponent_busts: number; player_blackjacks: number; opponent_blackjacks: number };
   guns: Record<"player" | "opponent", GunStatistics>;
-  skills: { id: string; level: number; owner: "player" | "opponent"; plays: number; rule_triggers: number }[];
+  skills: { id: string; name?: string; level: number; owner: "player" | "opponent"; plays: number; rule_triggers: number }[];
   loadout: { deck: string[]; talents: string[] }; configuration_hash?: string;
 }
 export type TelemetryEvent = EventEnvelope & (

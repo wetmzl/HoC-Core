@@ -1,3 +1,5 @@
+import { Capacitor } from "@capacitor/core";
+import { mountEmbeddedOfflineControls } from "./resources/embedded-offline";
 import { mountPluginOrderDrag } from "./presentation/plugin-order-drag";
 import type { ContentImportFile, ContentOperationProgress } from "./content/storage/contracts";
 import type { ApplicationController } from "./application-controller";
@@ -61,6 +63,8 @@ function stateLabel(entry: ManagedContentPackage): string {
 }
 
 export class LauncherView {
+  private disposeOffline?: () => void;
+  private archives: Awaited<ReturnType<ApplicationController["listArchivedPackages"]>> = [];
   private packages: readonly ManagedContentPackage[] = [];
   private importSessions: readonly ImportSession[] = [];
   private transferMessage = "";
@@ -140,6 +144,7 @@ export class LauncherView {
     try {
       const packages = await this.controller.listPackages();
       const importSessions = await this.controller.listImportSessions();
+      this.archives = await this.controller.listArchivedPackages();
       const playlists = await this.controller.listPlaylists();
       this.releasePackages();
       this.packages = packages;
@@ -203,14 +208,16 @@ export class LauncherView {
       else if (entry.state === "disabled") actions = `<button type="button" class="primary-button" data-package-action="enable" data-package-id="${escapeHtml(entry.packageId)}">启用</button><button type="button" class="danger-button" data-package-action="remove" data-package-id="${escapeHtml(entry.packageId)}">删除</button>`;
       else if (entry.state === "not-installed") actions = `<button type="button" class="primary-button" data-package-action="restore" data-package-id="${escapeHtml(entry.packageId)}">恢复</button>`;
       else if (entry.state === "broken") actions = `${entry.enabled ? `<button type="button" class="secondary-button" data-package-action="disable" data-package-id="${escapeHtml(entry.packageId)}">禁用</button>` : ""}<button type="button" class="danger-button" data-package-action="remove" data-package-id="${escapeHtml(entry.packageId)}">删除</button>`;
+      if (entry.embedded) actions = entry.state === "disabled" ? `<button type="button" class="primary-button" data-package-action="enable" data-package-id="${escapeHtml(entry.packageId)}">启用</button>` : `<button type="button" class="secondary-button" data-package-action="disable" data-package-id="${escapeHtml(entry.packageId)}">禁用</button>`;
       if (entry.currentRevision && this.controller.contentSource === "repository") actions += `<button type="button" class="secondary-button" data-export-package data-package-id="${escapeHtml(entry.packageId)}" ${this.busy ? "disabled" : ""}>导出</button>`;
-      return `<article class="package-card" data-package-id="${escapeHtml(entry.packageId)}" data-package-state="${entry.state}">${orderControls}<div class="package-card-summary"><figure class="package-cover"><img src="${escapeHtml(coverUrl)}" alt="" loading="lazy" decoding="async" data-package-cover data-fallback-src="${PACKAGE_COVER_FALLBACK}"></figure><div class="package-card-body"><header><div class="package-content-tags">${tags}</div><span class="package-state">${escapeHtml(stateLabel(entry))}</span></header><div class="package-identity"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(creators)} · v${escapeHtml(version)}</p></div>${entry.error ? `<p class="package-error">${escapeHtml(entry.error)}</p>` : ""}<footer><button type="button" class="package-details-toggle" aria-expanded="${detailsOpen}" aria-controls="${detailsId}" data-toggle-package-details>${detailsOpen ? "收起" : "详情"}</button><div class="package-actions">${actions}</div></footer></div></div><section class="package-details" id="${detailsId}" ${detailsOpen ? "" : "hidden"}><p>${escapeHtml(manifest?.metadata.description ?? "暂无包说明。")}</p><dl><div><dt>许可证</dt><dd>${escapeHtml(license)}</dd></div><div><dt>Package ID</dt><dd>${escapeHtml(entry.packageId)}</dd></div><div><dt>大小</dt><dd>${formatBytes(entry.bytes)}</dd></div><div><dt>Tags</dt><dd>${escapeHtml(metadataTags)}</dd></div><div><dt>资源</dt><dd>${escapeHtml(resourceSummary(entry.presentation.resourceCounts))}</dd></div></dl></section></article>`;
+      return `<article class="package-card" data-package-id="${escapeHtml(entry.packageId)}" data-package-state="${entry.state}">${orderControls}<div class="package-card-summary"><figure class="package-cover"><img src="${escapeHtml(coverUrl)}" alt="" loading="lazy" decoding="async" data-package-cover data-fallback-src="${PACKAGE_COVER_FALLBACK}"></figure><div class="package-card-body"><header><div class="package-content-tags">${entry.embedded ? `<span class="embedded-badge">内嵌</span>` : ""}${tags}</div><span class="package-state">${escapeHtml(stateLabel(entry))}</span></header><div class="package-identity"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(creators)} · v${escapeHtml(version)}</p></div>${entry.error ? `<p class="package-error">${escapeHtml(entry.error)}</p>` : ""}<footer><button type="button" class="package-details-toggle" aria-expanded="${detailsOpen}" aria-controls="${detailsId}" data-toggle-package-details>${detailsOpen ? "收起" : "详情"}</button><div class="package-actions">${actions}</div></footer></div></div><section class="package-details" id="${detailsId}" ${detailsOpen ? "" : "hidden"}><p>${escapeHtml(manifest?.metadata.description ?? "暂无包说明。")}</p><dl><div><dt>许可证</dt><dd>${escapeHtml(license)}</dd></div><div><dt>Package ID</dt><dd>${escapeHtml(entry.packageId)}</dd></div><div><dt>大小</dt><dd>${formatBytes(entry.bytes)}</dd></div><div><dt>Tags</dt><dd>${escapeHtml(metadataTags)}</dd></div><div><dt>资源</dt><dd>${escapeHtml(resourceSummary(entry.presentation.resourceCounts))}</dd></div></dl></section></article>`;
     };
     const group = (id: "plugins" | "resources", title: string, entries: readonly ManagedContentPackage[]) => {
       const collapsed = this.collapsedGroups.has(id);
       return `<section class="package-group" data-package-group="${id}"><button type="button" class="package-group-toggle" data-toggle-package-group="${id}" aria-expanded="${!collapsed}"><strong>${title}</strong><span>${entries.length} 个 · ${collapsed ? "展开" : "收起"}</span></button><div class="package-group-items" ${collapsed ? "hidden" : ""}>${entries.map((entry) => cardFor(entry)).join("")}</div></section>`;
     };
-    const packageCards = group("plugins", "插件", plugins) + group("resources", "资源", resources);
+    const archiveCards = this.archives.length ? `<section class="package-archives"><h3>历史内嵌归档（${this.archives.length}）</h3><p>归档已禁用，不参与游戏。可导出或删除。</p>${this.archives.map(entry => `<article class="archive-card" data-archive-id="${escapeHtml(entry.id)}"><strong>${escapeHtml(entry.title)}</strong><small>${escapeHtml(entry.packageId)} · v${escapeHtml(entry.version)}</small><span class="package-state">归档 · 已禁用</span><div class="package-actions"><button type="button" class="secondary-button" data-export-archive="${escapeHtml(entry.id)}">导出</button><button type="button" class="danger-button" data-remove-archive="${escapeHtml(entry.id)}">删除归档</button></div></article>`).join("")}</section>` : "";
+    const packageCards = group("plugins", "插件", plugins) + group("resources", "资源", resources) + archiveCards;
     const knownPackages = new Map(this.packages.map((entry) => [entry.packageId, entry]));
     const playlistItems = this.playlists.map((entry) => {
       const selected = entry.document.packages.map((item) => knownPackages.get(item.packageId)).filter((item): item is ManagedContentPackage => item !== undefined);
@@ -223,7 +230,10 @@ export class LauncherView {
     const playlistTools = this.controller.contentSource === "repository" ? `<section class="playlist-tools"><div class="playlist-toolbar"><div class="playlist-name-field"><button type="button" class="playlist-name-arrow" data-toggle-playlist-menu aria-label="展开播放集列表" aria-expanded="${this.playlistMenuOpen}"><span aria-hidden="true">${this.playlistMenuOpen ? "▾" : "▸"}</span></button><span class="playlist-current-name">${escapeHtml(this.playlists.find((item) => item.id === this.selectedPlaylistId)?.document.name ?? "默认播放集")}</span></div><button type="button" class="playlist-icon" data-open-playlist-manager aria-label="管理播放集" title="管理">⚙</button><button type="button" class="playlist-icon" data-open-playlist-import aria-label="导入播放集" title="导入">${PLAYLIST_ICONS.import}</button></div><div class="playlist-menu" ${this.playlistMenuOpen ? "" : "hidden"}>${playlistItems || `<p>还没有保存的播放集。</p>`}</div><p class="playlist-status" role="status">${escapeHtml(this.playlistMessage)}</p></section>` : "";
     const playlistDialogs = this.controller.contentSource === "repository" ? `<dialog class="modal playlist-manager-dialog" data-playlist-manager aria-label="管理播放集"><button type="button" class="modal-close" data-close-playlist-manager aria-label="关闭管理">×</button><h2>管理播放集</h2><div class="playlist-manager-list">${managerRows || `<p>还没有保存的播放集。</p>`}</div></dialog><dialog class="modal playlist-import-dialog" data-playlist-import aria-label="导入播放集"><button type="button" class="modal-close" data-close-playlist-import aria-label="关闭导入">×</button><h2>导入播放集</h2><label class="secondary-button playlist-file-label">选择 JSON、hocpkg、PNG 或 ZIP<input type="file" data-playlist-file accept=".json,.hocpkg,.png,.zip,application/json,application/zip,image/png" hidden></label><label class="playlist-paste-label">粘贴播放集 JSON<textarea data-playlist-paste rows="7" spellcheck="false"></textarea></label><button type="button" class="primary-button" data-import-playlist-text>导入文本</button><p data-playlist-import-status role="status">${escapeHtml(this.playlistImportMessage)}</p></dialog><dialog class="modal playlist-text-dialog" data-playlist-text-dialog aria-label="播放集纯文本"><button type="button" class="modal-close" data-close-playlist-text aria-label="关闭纯文本">×</button><h2>纯文本播放集</h2><textarea readonly rows="10" data-playlist-export-text>${textDocument ? escapeHtml(playlistJson(textDocument)) : ""}</textarea><div class="playlist-text-actions"><button type="button" class="secondary-button" data-copy-playlist-text>复制 JSON</button><button type="button" class="primary-button" data-download-playlist-text>下载 JSON</button></div></dialog>` : "";
 
-    this.root.innerHTML = `<main class="launcher-shell"><section class="launcher-hero"><p class="eyebrow">House of Chances</p><h1>内容管理器</h1><p class="launcher-description">知者不言，言者不知。<br>玩腻了？HoC是一个开放的社区项目，随意导入角色包或插件以定义你自己的HoC游戏体验！</p><p class="launcher-release" data-core-release aria-label="Core 版本与版本批注"><span>Core v${escapeHtml(version)}</span><strong>${escapeHtml(releaseName)}</strong></p></section><section class="launcher-actions"><button type="button" class="primary-button launcher-start" data-start-game ${!startable || this.busy ? "disabled" : ""}>开始游戏</button><button type="button" class="secondary-button" data-open-packages ${this.busy ? "disabled" : ""}>资源管理</button>${warnings}<p class="launcher-status ${error ? "is-error" : ""}" data-launcher-status role="status">${escapeHtml(message)}</p><progress max="1" value="0" data-launcher-progress aria-label="内容处理进度" hidden></progress></section><dialog class="package-drawer" data-package-drawer aria-labelledby="package-drawer-title"><header><div><p class="eyebrow">Content Vault</p><h2 id="package-drawer-title">资源管理</h2></div><button type="button" class="modal-close" data-close-packages aria-label="关闭资源管理">×</button></header>${playlistTools}${this.controller.contentSource === "repository" ? `<div class="package-import-tools"><div class="package-transfer-actions"><label class="secondary-button">导入资源/资源包<input type="file" data-import-file accept=".hocpkg,.zip,.png,application/zip,image/png" hidden ${this.busy ? "disabled" : ""}></label><button type="button" class="secondary-button" disabled>社区工坊</button></div><p class="package-import-result" role="status">${escapeHtml(this.transferMessage)}</p></div>` : ""}<section class="package-list">${packageCards || `<p class="empty-package-list">内容仓库暂时不可用。</p>`}</section><button type="button" class="secondary-button package-retry" data-retry-packages>重新检查</button></dialog>${playlistDialogs}${this.renderImportDialog()}</main>`;
+    const offlineButton = Capacitor.isNativePlatform() ? "" : `<button type="button" class="secondary-button" data-open-offline ${this.busy ? "disabled" : ""}>离线设置</button>`;
+    const offlineDialog = Capacitor.isNativePlatform() ? "" : `<dialog class="modal" data-offline-dialog aria-label="离线设置"><button type="button" class="modal-close" data-close-offline aria-label="关闭离线设置">×</button><h2>离线设置</h2><div data-embedded-offline></div></dialog>`;
+
+    this.root.innerHTML = `<main class="launcher-shell"><section class="launcher-hero"><p class="eyebrow">House of Chances</p><h1>内容管理器</h1><p class="launcher-description">知者不言，言者不知。<br>玩腻了？HoC是一个开放的社区项目，随意导入角色包或插件以定义你自己的HoC游戏体验！</p><p class="launcher-release" data-core-release aria-label="Core 版本与版本批注"><span>Core v${escapeHtml(version)}</span><strong>${escapeHtml(releaseName)}</strong></p></section><section class="launcher-actions"><button type="button" class="primary-button launcher-start" data-start-game ${!startable || this.busy ? "disabled" : ""}>开始游戏</button><button type="button" class="secondary-button" data-open-packages ${this.busy ? "disabled" : ""}>资源管理</button>${offlineButton}${warnings}<p class="launcher-status ${error ? "is-error" : ""}" data-launcher-status role="status">${escapeHtml(message)}</p><progress max="1" value="0" data-launcher-progress aria-label="内容处理进度" hidden></progress></section><dialog class="package-drawer" data-package-drawer aria-labelledby="package-drawer-title"><header><div><p class="eyebrow">Content Vault</p><h2 id="package-drawer-title">资源管理</h2></div><button type="button" class="modal-close" data-close-packages aria-label="关闭资源管理">×</button></header>${playlistTools}${this.controller.contentSource === "repository" ? `<div class="package-import-tools"><div class="package-transfer-actions"><label class="secondary-button">导入资源/资源包<input type="file" data-import-file accept=".hocpkg,.zip,.png,application/zip,image/png" hidden ${this.busy ? "disabled" : ""}></label><button type="button" class="secondary-button" disabled>社区工坊</button></div><p class="package-import-result" role="status">${escapeHtml(this.transferMessage)}</p></div>` : ""}<section class="package-list">${packageCards || `<p class="empty-package-list">内容仓库暂时不可用。</p>`}</section><button type="button" class="secondary-button package-retry" data-retry-packages>重新检查</button></dialog>${playlistDialogs}${offlineDialog}${this.renderImportDialog()}</main>`;
     this.wire();
     if (this.packageManagerOpen) this.openPackageManager();
     if (this.managerOpen) this.root.querySelector<HTMLDialogElement>("[data-playlist-manager]")?.showModal();
@@ -234,6 +244,15 @@ export class LauncherView {
     if (list) list.scrollTop = this.listScrollTop;
   }
 
+  private async archiveAction(id: string, remove: boolean): Promise<void> {
+    if (this.busy) return;
+    if (remove && !await confirmGameDialog("删除归档", "永久删除这份历史归档？当前内嵌内容、存档和播放集会保留。", "删除归档")) return;
+    this.busy = true;
+    try { if (remove) await this.controller.removeArchivedPackage(id); else await this.controller.exportArchivedPackage(id); await this.refresh(); }
+    catch (error) { this.transferMessage = error instanceof Error ? error.message : String(error); }
+    finally { this.busy = false; this.render(); }
+  }
+
   private openPackageManager(): void {
     const dialog = this.root.querySelector<HTMLDialogElement>("[data-package-drawer]");
     if (!dialog) return;
@@ -242,6 +261,16 @@ export class LauncherView {
   }
 
   private wire(): void {
+    this.disposeOffline?.();
+    // Only inspect cache when the user opens settings; resource management stays lightweight.
+    this.root.querySelector('[data-open-offline]')?.addEventListener('click', () => {
+      this.disposeOffline?.();
+      this.disposeOffline = mountEmbeddedOfflineControls(this.root.querySelector('[data-embedded-offline]'));
+      this.root.querySelector<HTMLDialogElement>('[data-offline-dialog]')?.showModal();
+    });
+    this.root.querySelector('[data-close-offline]')?.addEventListener('click', () => this.root.querySelector<HTMLDialogElement>('[data-offline-dialog]')?.close());
+    this.root.querySelectorAll<HTMLElement>('[data-export-archive]').forEach(button => button.addEventListener('click', () => void this.archiveAction(button.dataset.exportArchive!, false)));
+    this.root.querySelectorAll<HTMLElement>('[data-remove-archive]').forEach(button => button.addEventListener('click', () => void this.archiveAction(button.dataset.removeArchive!, true)));
     this.root.querySelector<HTMLDialogElement>("[data-package-drawer]")?.addEventListener("close", () => {
       this.packageManagerOpen = false;
     });

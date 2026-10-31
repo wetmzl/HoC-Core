@@ -86,8 +86,10 @@ export async function loadPluginModules(source: ContentSource, settings = new Pl
             const schema = JSON.parse(new TextDecoder().decode(schemaBytes));
             assertAuthoringSchema(schema);
             extensionSchemas.set(`${extension.type}@${extension.apiVersion}`, schema);
-            await verifiedBytes(access, extension.guide, "text/markdown");
-            for (const example of extension.examples) await verifiedBytes(access, example, "application/zip");
+            // Creator guides/examples are not runtime inputs. Imported packages have
+            // already been verified; directory assets are verified when requested.
+            declaredFile(access, extension.guide, "text/markdown");
+            for (const example of extension.examples) declaredFile(access, example, "application/zip");
           }
           if (payload.settings) assets.push(settings.register({ packageId: access.packageId, title: access.manifest.metadata.title, declaration: payload.settings }));
           const moduleBytes = new Uint8Array(await verifiedBytes(access, payload.module, "text/javascript"));

@@ -55,6 +55,7 @@ describe("generic defeat prevention", () => {
     expect(survived.history.some(event => ["PARTICIPANT_KILLED", "MATCH_FINISHED", "TRIGGER_SURVIVED"].includes(event.type))).toBe(false);
     expect(getLegalActions(survived)).toContainEqual({ type: "ACK_TRIGGER_RESULT" });
     expect(survived.roulette[actor].bullets).toBe(0);
+    expect(survived.history).toContainEqual(expect.objectContaining({ type: "TRIGGER_PULLED", actor, bulletsBefore: 6, capacityBefore: 6 }));
     const loaded = restored(survived); expect(loaded).toEqual(survived);
     const next = ack(loaded); expect(next.roundIndex).toBe(before.roundIndex + 1); expect(next.round.phase).toBe("turns");
     expect(next.abilities.statuses).toContainEqual(expect.objectContaining({ statusDefinitionId: "fixture-stage", owner: actor, stacks: 2 }));
@@ -64,6 +65,15 @@ describe("generic defeat prevention", () => {
     expect(final.history.filter(event => event.type === "MATCH_FINISHED")).toHaveLength(1);
     expect(firedRules(final, "fixture-protect")).toHaveLength(1);
     expect(final.abilities.statuses).toEqual([]);
+  });
+
+  it("captures the gun after before-trigger abilities and before post-shot effects", () => {
+    install([ability("fixture-load", [{ id: "load", trigger: "before-trigger-pull", effects: [{ type: "add-gun-bullets", target: "owner", amount: 6 }] }]),
+      protection("fixture-clear", 0, [{ type: "remove-gun-bullets", target: "owner", amount: 6 }])]);
+    const state = fire(prepare(ready("opponent", ["fixture-load", "fixture-clear"]), "opponent", 1));
+    expect(state.history).toContainEqual(expect.objectContaining({ type: "TRIGGER_PULLED", result: "fired", bulletsBefore: 6, capacityBefore: 6 }));
+    expect(state.roulette.opponent.bullets).toBe(0);
+    expect(restored(state)).toEqual(state);
   });
 
   it("consumes only the first eligible protection in priority order", () => {
