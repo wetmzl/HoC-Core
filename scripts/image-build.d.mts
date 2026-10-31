@@ -27,4 +27,5 @@ export function imageOptions(args?: string[], env?: NodeJS.ProcessEnv): ImageOpt
 export function rewriteImageText(text: string, paths: Map<string, string>): string;
 export function buildPackage(charactersRoot: string, entry: BuiltinPackageIndex['packages'][number], options: ImageOptions): Promise<BuiltImagePackage>;
 export function buildPackageTree(charactersRoot: string, options: ImageOptions): Promise<{ packages: BuiltImagePackage[]; index: BuiltinPackageIndex }>;
+export function buildEmbeddedContent(tree: { packages: BuiltImagePackage[]; index: BuiltinPackageIndex }): { files: Record<string, Buffer>; downloads: Array<{ url: string; bytes: number; sha256: string; mediaType: string }>; content: unknown };
 export function imageBuildPlugin(): Plugin;

@@ -1,8 +1,10 @@
+import { getAbilityDefinition } from "../core/abilities/registry";
 import type { Actor, MatchState } from "../core/match/types";
 import type { TelemetryFlow as FlowRun } from "./types";
 import type { GunStatistics, MatchStatistics } from "./types";
 
 export function gunStatistics(match: MatchState, actor: Actor, initial: number | null): GunStatistics {
+  const firing = new Map<number, number>();
   let loaded = 0, removed = 0, known = true, requested = 0, triggers = 0, fired = 0, misfires = 0;
   for (const event of match.history) {
     if (event.type === "BULLET_ADDED" && event.actor === actor) {
@@ -13,10 +15,13 @@ export function gunStatistics(match: MatchState, actor: Actor, initial: number |
       if (event.result.amount >= 0) loaded += event.result.amount; else removed -= event.result.amount;
     }
     if (event.type === "TRIGGER_PULLED" && event.actor === actor) {
-      triggers++; if (event.result === "fired") fired++; if (event.result === "misfire") misfires++;
+      triggers++; if (event.result === "fired") {
+        fired++;
+        if (event.bulletsBefore !== undefined && (firing.has(event.bulletsBefore) || firing.size < 128)) firing.set(event.bulletsBefore, (firing.get(event.bulletsBefore) ?? 0) + 1);
+      } if (event.result === "misfire") misfires++;
     }
   }
-  return { capacity: match.roulette[actor].capacity, initial_bullets: initial, final_bullets: match.roulette[actor].bullets,
+  return { firing_bullets: [...firing].sort(([a], [b]) => a - b).map(([bullets, count]) => ({ bullets, count })), capacity: match.roulette[actor].capacity, initial_bullets: initial, final_bullets: match.roulette[actor].bullets,
     loaded_actual: known ? loaded : null, removed_actual: removed, load_requested: requested, triggers, fired, misfires };
 }
 
@@ -45,6 +50,10 @@ export function summarizeTelemetry(match: MatchState, run: FlowRun, metadata: {
   }
   const guns = { player: gunStatistics(match, "player", metadata.initial?.player ?? null), opponent: gunStatistics(match, "opponent", metadata.initial?.opponent ?? null) };
   const allSkills = [...skills.values()].sort((a, b) => a.owner.localeCompare(b.owner) || a.id.localeCompare(b.id) || a.level - b.level);
+  for (const skill of allSkills) {
+    const name = getAbilityDefinition(skill.id, undefined, skill.level)?.name;
+    if (name) skill.name = name.slice(0, 256);
+  }
   return { match_id: metadata.matchId, opponent: metadata.opponent,
     flow: { run_id: run.id, definition_id: run.definition.id, node_id: run.encounter.nodeId, encounter_index: run.encounterIndex },
     outcome: match.outcome.reason === "escaped" ? "escaped" : match.outcome.winner === "player" ? "win" : "loss", reason: match.outcome.reason,

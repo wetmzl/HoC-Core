@@ -237,3 +237,12 @@ h2 { font-size: 1.5rem; }
 
 /* Shared by lobby and direct table entry, including restored matches. */
 .scaled-character-art { transform: scale(var(--character-art-scale, 1)); }
+
+.embedded-badge { display: inline-flex; padding: 2px 7px; border: 1px solid #9b8353; border-radius: 5px; color: #e6ce96; font-size: .65rem; }
+.package-archives { border-top: 1px solid #74613b; margin-top: 16px; padding-top: 12px; }
+.package-archives > p, .archive-card small { color: var(--muted); font-size: .72rem; }
+.archive-card { display: grid; gap: 8px; padding: 14px; margin: 10px 0; border: 1px solid #514b53; border-radius: 10px; background: #201e29; overflow-wrap: anywhere; }
+.embedded-offline-controls { margin: 14px 0; padding-top: 12px; border-top: 1px solid #74613b; }
+.embedded-offline-controls progress { width: 100%; accent-color: #d4b476; }
+.embedded-offline-controls [role=status] { font-size: .75rem; color: var(--muted); }
+.game-dialog [data-game-dialog-message] { white-space: pre-line; overflow-wrap: anywhere; max-height: 48vh; overflow: auto; }

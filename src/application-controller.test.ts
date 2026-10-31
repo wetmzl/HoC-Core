@@ -27,14 +27,14 @@ const fileFetch: typeof fetch = async (input) => {
   }
 };
 
-async function setup() {
+async function setup(custom = false) {
   const provider = new MemoryContentHostProvider();
   const embedded = new EmbeddedContentSource({ fetch: fileFetch });
   const characterPackage = (await embedded.packages()).find((entry) => entry.packageId === "hoc-core/chatgpt");
   if (!characterPackage) throw new Error("missing characterPackage fixture");
-  await new FileContentRepository(provider.host).install(characterPackage);
+  await new FileContentRepository(provider.host).install(custom ? { ...characterPackage, manifest: { ...characterPackage.manifest, identity: { ...characterPackage.manifest.identity, authorId: "example" } } } : characterPackage);
   let disposeCount = 0;
-  const controller = new ApplicationController({
+  const controller = new ApplicationController({ resolveEmbeddedConflicts: async () => false, acknowledgeThirdPartyContent: async () => true,
     providers: [provider],
     embedded: { fetch: fileFetch },
     mountRuntime: async () => ({ dispose: async () => { disposeCount += 1; } })
@@ -43,6 +43,23 @@ async function setup() {
 }
 
 describe("ApplicationController", () => {
+  for (const clean of [false, true]) it(`handles cache exhaustion without losing old data when cleaning=${clean}`, async () => {
+    const provider = new MemoryContentHostProvider(), embedded = new EmbeddedContentSource({ fetch: fileFetch });
+    const base = (await embedded.packages()).find(entry => entry.packageId === 'hoc-core/chatgpt')!;
+    await new FileContentRepository(provider.host).install(base);
+    vi.stubGlobal('caches', { open: async () => { throw new Error('quota exceeded'); } });
+    try {
+      const controller = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch }, resolveEmbeddedConflicts: async () => clean });
+      if (clean) {
+        await expect(controller.initialize()).rejects.toThrow('旧副本未清理');
+        expect(await new FileContentRepository(provider.host).listPackages()).toHaveLength(1);
+      } else {
+        await controller.initialize();
+        expect(await controller.listArchivedPackages()).toHaveLength(1);
+        expect(controller.warnings).toContain('部分离线缓存未能保存，已保留历史归档中的资源。');
+      }
+    } finally { vi.unstubAllGlobals(); }
+  });
   it("waits for third-party acknowledgement before plugin loading and returns idle on cancellation", async () => {
     const provider = new MemoryContentHostProvider();
     const embedded = new EmbeddedContentSource({ fetch: fileFetch });
@@ -52,7 +69,7 @@ describe("ApplicationController", () => {
     const acknowledge = vi.fn(() => new Promise<boolean>((resolve) => { answer = resolve; }));
     const mountRuntime = vi.fn(async () => ({ dispose: async () => {} }));
     const plugins = vi.spyOn(pluginModules, "loadPluginModules");
-    const controller = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch }, acknowledgeThirdPartyContent: acknowledge, mountRuntime });
+    const controller = new ApplicationController({ resolveEmbeddedConflicts: async () => false, providers: [provider], embedded: { fetch: fileFetch }, acknowledgeThirdPartyContent: acknowledge, mountRuntime });
     try {
       const start = controller.startGame({} as HTMLDivElement);
       await vi.waitFor(() => expect(acknowledge).toHaveBeenCalledOnce());
@@ -81,7 +98,7 @@ describe("ApplicationController", () => {
     await repository.install(base);
     await repository.install({ ...base, manifest: { ...base.manifest, identity: { ...base.manifest.identity, authorId: "example" } } }, { newPackagesEnabled: false });
     const acknowledge = vi.fn(async () => true);
-    const controller = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch }, acknowledgeThirdPartyContent: acknowledge, mountRuntime: async () => ({ dispose: async () => {} }) });
+    const controller = new ApplicationController({ resolveEmbeddedConflicts: async () => false, providers: [provider], embedded: { fetch: fileFetch }, acknowledgeThirdPartyContent: acknowledge, mountRuntime: async () => ({ dispose: async () => {} }) });
     expect(await controller.startGame({} as HTMLDivElement)).toBe(true);
     expect(acknowledge).not.toHaveBeenCalled();
     await controller.stopGame();
@@ -98,19 +115,20 @@ describe("ApplicationController", () => {
     const store = new PlaylistStore(provider.fileSystem);
     const saved = await store.save(playlistDocument("旧播放集", [{ packageId: "hoc-art/chatgpt", version: "1.0.4" }]));
     await store.copy(saved.id);
-    const controller = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    const controller = new ApplicationController({ resolveEmbeddedConflicts: async () => false, acknowledgeThirdPartyContent: async () => true, providers: [provider], embedded: { fetch: fileFetch } });
     await controller.initialize();
     const migrated = new FileContentRepository(provider.host);
-    expect((await migrated.listPackages()).map(({ packageId, enabled }) => ({ packageId, enabled }))).toEqual([
-      { packageId: "hoc-core/chatgpt", enabled: true }, { packageId: "hoc-core/claude", enabled: false }
-    ]);
-    expect(await migrated.readFile("hoc-core/chatgpt", "resources/character-match.json")).toEqual(before);
-    expect((await migrated.readManifest("hoc-core/chatgpt")).metadata.creators).toEqual([{ displayName: "HoC-core", roles: ["maintainer"] }]);
+    expect(await migrated.listPackages()).toEqual([]);
+    expect((await controller.listPackages()).find(entry => entry.packageId === "hoc-core/claude")?.enabled).toBe(false);
+    const archives = await controller.listArchivedPackages();
+    expect(archives).toHaveLength(2);
+    expect(await (await migrated.archiveSource(archives.find(entry => entry.packageId === "hoc-art/chatgpt")!.id)).readFile!("resources/character-match.json")).toEqual(before);
     expect((await controller.listPlaylists()).every((entry) => entry.document.packages[0]?.packageId === "hoc-core/chatgpt")).toBe(true);
     expect(await controller.currentPlaylistId()).toBe(saved.id);
-    const restarted = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
-    await restarted.initialize();
-    expect((await migrated.listPackages()).map((entry) => entry.packageId)).toEqual(["hoc-core/chatgpt", "hoc-core/claude"]);
+    const resolve = vi.fn(async () => false);
+    const restarted = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch }, resolveEmbeddedConflicts: resolve });
+    await restarted.initialize(); expect(resolve).not.toHaveBeenCalled();
+
   });
 
   it("keeps resource management available when legacy and canonical identities collide", async () => {
@@ -120,13 +138,12 @@ describe("ApplicationController", () => {
     const repository = new FileContentRepository(provider.host);
     await repository.install(base);
     await repository.install({ ...base, manifest: { ...base.manifest, identity: { ...base.manifest.identity, authorId: "hoc-art" } } });
-    const controller = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
-    expect((await controller.listPackages()).map(entry => entry.packageId).sort()).toEqual(
-      [...builtinIndex.packages.map(entry => entry.packageId), "hoc-art/chatgpt"].sort()
-    );
-    expect(controller.warnings).toEqual([expect.stringContaining("同时存在")]);
-    await controller.removePackage("hoc-art/chatgpt");
-    expect((await new FileContentRepository(provider.host).listPackages()).map((entry) => entry.packageId)).toEqual(["hoc-core/chatgpt"]);
+    const controller = new ApplicationController({ resolveEmbeddedConflicts: async () => false, acknowledgeThirdPartyContent: async () => true, providers: [provider], embedded: { fetch: fileFetch } });
+    expect((await controller.listPackages()).map(entry => entry.packageId).sort()).toEqual(builtinIndex.packages.map(entry => entry.packageId).sort());
+    expect(await controller.listArchivedPackages()).toHaveLength(2);
+    expect(controller.warnings).toEqual([]);
+    await expect(controller.removePackage("hoc-core/chatgpt")).rejects.toThrow("不能删除");
+
   });
 
   it("keeps the active saved playlist in sync with package changes and restores it after switching", async () => {
@@ -135,7 +152,7 @@ describe("ApplicationController", () => {
     const characters = (await embedded.packages()).filter((entry) => ["hoc-core/chatgpt", "hoc-core/claude"].includes(entry.packageId));
     const repository = new FileContentRepository(provider.host);
     await repository.installBatch(characters);
-    const controller = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    const controller = new ApplicationController({ resolveEmbeddedConflicts: async () => false, acknowledgeThirdPartyContent: async () => true, providers: [provider], embedded: { fetch: fileFetch } });
     await controller.listPackages();
     const original = (await controller.listPlaylists())[0]!;
     expect(await controller.currentPlaylistId()).toBe(original.id);
@@ -145,7 +162,7 @@ describe("ApplicationController", () => {
     expect((await controller.listPlaylists()).find((item) => item.id === copy.id)?.document.packages.map((item) => item.packageId)).toEqual(["hoc-core/chatgpt"]);
     await controller.selectPlaylist(original.id);
     expect((await controller.listPackages()).find((item) => item.packageId === "hoc-core/claude")?.enabled).toBe(true);
-    const restored = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    const restored = new ApplicationController({ resolveEmbeddedConflicts: async () => false, acknowledgeThirdPartyContent: async () => true, providers: [provider], embedded: { fetch: fileFetch } });
     expect(await restored.currentPlaylistId()).toBe(original.id);
     expect((await restored.listPlaylists()).find((item) => item.id === copy.id)?.document.packages).toHaveLength(1);
   });
@@ -162,7 +179,7 @@ describe("ApplicationController", () => {
         };
       }
     };
-    const controller = new ApplicationController({ providers: [refusingProvider], embedded: { fetch: fileFetch } });
+    const controller = new ApplicationController({ resolveEmbeddedConflicts: async () => false, acknowledgeThirdPartyContent: async () => true, providers: [refusingProvider], embedded: { fetch: fileFetch } });
 
     const packages = await controller.listPackages();
 
@@ -170,7 +187,7 @@ describe("ApplicationController", () => {
       builtinIndex.packages.map(({ packageId, version }) => ({ packageId, version })).sort((left, right) => left.packageId.localeCompare(right.packageId))
     );
     expect(controller.warnings).toEqual(["浏览器拒绝提供持久化存储，你的存档和数据可能被浏览器静默清理"]);
-    expect(await new FileContentRepository(provider.host).isEmpty()).toBe(false);
+    expect(await new FileContentRepository(provider.host).isEmpty()).toBe(true);
   });
 
   it("serializes package operations around a repeatable game runtime", async () => {
@@ -195,7 +212,7 @@ describe("ApplicationController", () => {
   });
 
   it("leaves no installed globals after package verification fails", async () => {
-    const { provider, controller } = await setup();
+    const { provider, controller } = await setup(true);
     const file = [...provider.fileSystem.entries.keys()].find((path) => path.endsWith("resources/character-match.json"));
     if (!file) throw new Error("missing character resource fixture");
     provider.fileSystem.entries.set(file, new TextEncoder().encode("corrupt"));

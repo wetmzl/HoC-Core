@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { buildPackageTree, imageBuildPlugin, imageOptions, rewriteImageText } from './image-build.mjs';
+import { buildEmbeddedContent, buildPackageTree, imageBuildPlugin, imageOptions, rewriteImageText } from './image-build.mjs';
 
 let root, sourceImage, sourceManifest;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -81,6 +81,22 @@ test('rewrites only complete asset references, not longer names or ordinary pros
   assert.equal(rewriteImageText('"/assets/example.png" url(/assets/example.png) "/assets/example.png.other"', paths), '"/assets/example.webp" url(/assets/example.webp) "/assets/example.png.other"');
 });
 
+test('embedded distribution uses descriptors and immutable directory assets without package containers', async () => {
+  const tree = await buildPackageTree(root, imageOptions([], {}));
+  const built = buildEmbeddedContent(tree), entry = built.content.packages[0];
+  assert.equal(built.content.format, 'house-of-chances-embedded-content');
+  assert.equal(entry.format, undefined); assert.equal(entry.formatVersion, undefined); assert.equal(entry.$schema, undefined);
+  assert.equal(Object.keys(built.files).some(path => path.endsWith('hocpkg-info.json') || path.endsWith('.hocpkg')), false);
+  assert.match(entry.base, /^\/embedded\/[a-f0-9]{64}\/$/);
+  assert.equal(entry.identity.authorId, 'test');
+  assert.equal(entry.startup['match.json'], tree.packages[0].files['match.json'].toString());
+  assert.equal(entry.startup['assets/portrait.webp'], undefined);
+  for (const resource of built.downloads) {
+    const bytes = built.files[resource.url.slice(1)];
+    assert.equal(bytes.length, resource.bytes); assert.equal(hash(bytes), resource.sha256);
+  }
+});
+
 test('quality changes lossy bytes and cache entries for portraits and covers', async () => {
   const build = quality => buildPackageTree(root, { mode: 'lossy', quality, cacheDir: join(root, 'cache') });
   const low = (await build(1)).packages[0], high = (await build(100)).packages[0];
@@ -148,14 +164,15 @@ test('persistent build cache survives checkout cleanup and preserves encoded byt
     await writeFile(join(project, 'public/assets/sample.png'), sourceImage);
     const first = imageBuildPlugin();
     const staged = await first.config({ root: project });
-    const bytes = await readFile(join(staged.publicDir, 'assets/sample.webp'));
+    const builtPath = (await readdir(join(staged.publicDir, 'assets'))).find(path => /^sample\.[a-f0-9]{64}\.webp$/.test(path));
+    const bytes = await readFile(join(staged.publicDir, 'assets', builtPath));
     await first.closeBundle();
     const cached = await readdir(join(process.env.HOC_BUILD_CACHE_DIR, 'hoc-images'));
     assert.equal(cached.length, 1);
     await rm(join(project, 'node_modules'), { recursive: true, force: true });
     const second = imageBuildPlugin();
     const rebuilt = await second.config({ root: project });
-    try { assert.deepEqual(await readFile(join(rebuilt.publicDir, 'assets/sample.webp')), bytes); }
+    try { assert.deepEqual(await readFile(join(rebuilt.publicDir, 'assets', builtPath)), bytes); }
     finally { await second.closeBundle(); }
     assert.deepEqual(await readdir(join(process.env.HOC_BUILD_CACHE_DIR, 'hoc-images')), cached);
   } finally {

@@ -14,7 +14,7 @@ export interface PreparedGamePresentation {
   retirePrevious(): void;
 }
 export interface MountGameRuntimeOptions {
-  readonly telemetryPackages?: Readonly<Record<string, { package_id: string; package_version: string }>>;
+  readonly telemetryPackages?: Readonly<Record<string, { package_id: string; package_version: string; package_name?: string }>>;
   readonly preparePresentation?: (preferences: import("./content/packages/character-presentation").CharacterSkinPreferences, unlocks?: import("./persistence/skin-unlocks").CharacterSkinUnlocks) => Promise<PreparedGamePresentation>;
   readonly characterSkinUnlocks?: import("./persistence/skin-unlocks").CharacterSkinUnlocks;
   readonly loadSkinPreviews?: (characterKey: string, signal: AbortSignal) => Promise<import("./content/packages/skin-previews").SkinPreviews>;

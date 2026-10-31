@@ -1,10 +1,15 @@
 import { expect, test } from "@playwright/test";
 import builtinIndex from "../../public/characters/packages.json" with { type: "json" };
 
-test("installed production PWA starts and resumes a match offline after HTTP cache eviction", async ({ page, context }) => {
+test("explicit complete download supports offline start and resume after HTTP cache eviction", async ({ page, context }) => {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.goto("/");
+  await page.locator('[data-open-offline]').click();
+  await expect(page.locator('[data-offline-dialog] [data-offline-download]')).toBeEnabled();
+  await page.locator('[data-offline-dialog] [data-offline-download]').click();
+  await expect(page.locator('[data-offline-dialog] [data-embedded-offline]')).toHaveAttribute('data-offline-state', 'complete');
+  await page.locator('[data-close-offline]').click();
   await page.getByRole("button", { name: "开始游戏", exact: true }).click();
   await page.getByRole("button", { name: "我已成年并继续" }).click();
   await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
@@ -16,10 +21,10 @@ test("installed production PWA starts and resumes a match offline after HTTP cac
     const keys = await Promise.all((await caches.keys()).map(async name => (await (await caches.open(name)).keys()).map(request => new URL(request.url).pathname)));
     return keys.flat();
   });
-  expect(cached).toContain("/characters/packages.json");
-  for (const entry of builtinIndex.packages) expect(cached).toContain(`/characters/${entry.manifest}`);
-  // Package media belongs to OPFS; precaching it would duplicate installed content.
-  expect(cached.filter(path => path.startsWith("/characters/")).every(path => path.endsWith(".json"))).toBe(true);
+  expect(cached).toContain("/embedded/content.json");
+  expect(cached).toContain("/embedded/offline.json");
+  expect(cached.some(path => /^\/embedded\/[a-f0-9]{64}\/.*\.webp$/.test(path))).toBe(true);
+  expect(cached.some(path => path.startsWith("/characters/"))).toBe(false);
   const session = await context.newCDPSession(page);
   await session.send("Network.clearBrowserCache");
   await context.setOffline(true);

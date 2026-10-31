@@ -1,3 +1,4 @@
+import { mountEmbeddedOfflineControls } from "../resources/embedded-offline";
 import { gameAudio } from "../audio/game-audio";
 import { openSkinPicker } from "../presentation/skin-picker";
 import { isCharacterSkinUnlocked } from "../persistence/skin-unlocks";
@@ -209,6 +210,8 @@ export class LobbyScreen {
         this.deps.disposeDeckEditor = undefined;
         const menuActions = this.deps.mainMenuActions;
         this.deps.root.innerHTML = this.lobbyModule!.renderLobbyMarkup({ menuActions, save: this.deps.save, layer, guests: guestCharacters, defeated: defeatedCharacters, visibleDefeated: visibleDefeatedCharacters, defeatedRemaining: defeatedGuestsRemaining, pluginCredits: this.deps.pluginCredits });
+        const disposeOffline = mountEmbeddedOfflineControls(this.deps.root.querySelector('[data-embedded-offline]'));
+        signal.addEventListener("abort", disposeOffline, { once: true });
         this.deps.root.querySelector<HTMLButtonElement>("[data-enter-duel]")?.addEventListener("click", () => { this.guestSelectionIds = []; void this.renderLobby("characters"); });
         this.deps.root.querySelector<HTMLButtonElement>("[data-lobby-home]")?.addEventListener("click", () => { void this.renderLobby("menu"); });
         this.deps.root.querySelector<HTMLButtonElement>("[data-refresh-guests]")?.addEventListener("click", () => { this.guestSelectionIds = this.selectGuestIds(); void this.renderLobby("characters"); });

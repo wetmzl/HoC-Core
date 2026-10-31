@@ -581,7 +581,7 @@ function triggerFor(state: MatchState, actor: Actor): MatchState {
   if (prepared.pendingTrigger?.cancelled) return startNextRound(prepared.state);
   const trigger = pullTrigger(prepared.state.roulette[actor], SeededRng.fromSnapshot(prepared.state.rng.roulette), prepared.pendingTrigger?.misfireChance ?? 0);
   let next = append(withRound({ ...prepared.state, rng: { ...prepared.state.rng, roulette: trigger.rng } }, { ...prepared.state.round, phase: "roulette-result", currentActor: null }), {
-    type: "TRIGGER_PULLED", actor, probability: trigger.result.probability, baseProbability: trigger.result.baseProbability,
+    type: "TRIGGER_PULLED", actor, bulletsBefore: prepared.state.roulette[actor].bullets, capacityBefore: prepared.state.roulette[actor].capacity, probability: trigger.result.probability, baseProbability: trigger.result.baseProbability,
     misfireChance: trigger.result.misfireChance, result: trigger.result.result, fired: trigger.result.fired
   });
   const resultContext = { eventActor: actor, roundHitCounts: getRoundHitCounts(state), triggerResult: { actor, result: trigger.result.result, fired: trigger.result.fired }, roundOutcome: state.round.outcome ?? undefined };
