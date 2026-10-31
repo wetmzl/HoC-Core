@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { FileContentRepository } from "../storage/repository";
 import { MemoryContentHostProvider } from "../storage/memory-host";
 import { DEFAULT_CHARACTER_ID } from "../characters/catalog";
 import { installContent, loadContent } from "./content-loader";
+import { sha256Json } from "../storage/encoding";
 import { EmbeddedContentSource, RepositoryContentSource, type ContentSource } from "./content-source";
 
 const publicRoot = resolve(import.meta.dirname, "../../../public");
@@ -66,5 +67,36 @@ describe("content source contract", () => {
 
     expect(DEFAULT_CHARACTER_ID).toBe("claude");
     content.release();
+  });
+});
+
+
+describe("neutral embedded directory distribution", () => {
+  async function document() {
+    const legacy = new EmbeddedContentSource({ indexUrl: "/characters/packages.json", fetch: fileFetch });
+    const index = await legacy.loadIndex(), access = (await legacy.packages()).find(entry => entry.packageId.endsWith("official-built-in-talents"))!;
+    const { format: _format, formatVersion: _version, $schema: _schema, ...descriptor } = access.manifest;
+    const digest = await sha256Json(descriptor);
+    const packageBase = resolve(publicRoot, "characters", index.packages.find(entry => entry.packageId === access.packageId)!.manifest, "..");
+    const startup = Object.fromEntries(descriptor.files.filter(file => file.mediaType === "application/json").map(file => [file.path, readFileSync(resolve(packageBase, file.path), "utf8")]));
+    return { format: "house-of-chances-embedded-content", formatVersion: 1, abilityCatalogVersion: index.abilityCatalogVersion,
+      defaultCharacterId: index.defaultCharacterId, playerSkillOrder: index.playerSkillOrder,
+      packages: [{ ...descriptor, contentDigest: digest, base: `/embedded/${digest}/`, startup }] };
+  }
+  it("parses and prepares a directory from one description request without fetching its media", async () => {
+    const value = await document(), request = vi.fn<typeof fetch>(async () => Response.json(value));
+    const source = new EmbeddedContentSource({ fetch: request }), index = await source.loadIndex();
+    const content = await loadContent(source, index); expect(content.packages).toHaveLength(1); content.release();
+    expect(request).toHaveBeenCalledTimes(1);
+    await expect((await source.packages())[0]!.resolveAsset(value.packages[0]!.files.find(file => file.mediaType.startsWith("image/"))!.path)).resolves.toMatchObject({ url: expect.stringMatching(/^\/embedded\/[a-f0-9]{64}\//) });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+  it("rejects corrupt startup bytes and an altered descriptor before activating content", async () => {
+    const value = await document();
+    const path = Object.keys(value.packages[0]!.startup)[0]!; value.packages[0]!.startup[path] = "{}";
+    const source = new EmbeddedContentSource({ fetch: async () => Response.json(value) });
+    await expect((await source.packages())[0]!.readJson(path)).rejects.toThrow("校验失败");
+    value.packages[0]!.metadata.title = "tampered";
+    await expect(new EmbeddedContentSource({ fetch: async () => Response.json(value) }).packages()).rejects.toThrow("摘要不一致");
   });
 });

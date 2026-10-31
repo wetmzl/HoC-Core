@@ -18,6 +18,8 @@ npm run test:e2e
 npm run test:pwa
 ```
 
+内嵌内容按目录直接读取，媒体默认按需下载；可在设置中下载完整离线资源。用户导入内容继续使用 hocpkg／ZIP／PNG。
+
 构建输出为 `dist/`；基本 Web 与 Android 部署见 [部署说明](docs/deployment.md)。
 
 ## 匿名玩法统计
@@ -69,7 +71,7 @@ npm run test:pwa
 
 内嵌独立插件 `hoc-core/character-tap` 默认启用，通过通用角色交互接口提供拍一拍事件、计数和可选区域原语；停用不影响角色加载。区域 Schema、指南和中性示例随包提供于 `public/characters/character-tap/authoring/`。
 
-内嵌 `hoc-core/official-factions` 独立内容包提供“智能核心”阵营及共享徽标。角色包使用 `game.character-match` API 7 的 `metadata.faction` 声明 `authorId/packageName#resourceId`，由 `presentation.faction` API 1 资源提供名称和包内徽标。阵营包未安装、停用或删除时角色仍可正常对局和读档；旧本地 `metadata.badge` 继续兼容。
+内嵌 `hoc-core/official-factions` 独立内容包提供“智能核心”阵营及共享徽标。角色包使用 `game.character-match` API 7 的 `metadata.faction` 声明 `authorId/packageName#resourceId`，由 `presentation.faction` API 1 资源提供名称和包内徽标。阵营资源不可用或停用时角色仍可正常对局和读档；旧本地 `metadata.badge` 继续兼容。
 
 ## 内容契约升级
 

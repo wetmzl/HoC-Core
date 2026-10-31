@@ -42,6 +42,7 @@ const PRIORITY: Readonly<Record<ResourceLoadPriority, number>> = {
 
 function isResourceUrl(url: string): boolean {
   return url.startsWith("/assets/")
+    || url.startsWith("/embedded/")
     || url.startsWith("/characters/")
     || url.startsWith("blob:")
     || /^https?:\/\//.test(url);

@@ -134,6 +134,26 @@ export async function buildPackageTree(charactersRoot, options) {
   return { packages, index: { ...release, releaseDigest: digestJson(release) } };
 }
 
+/** A directory distribution, independent of the import/export container format. */
+export function buildEmbeddedContent(tree) {
+  const files = {}, downloads = [];
+  const packages = tree.packages.map(pkg => {
+    const { format: _format, formatVersion: _version, $schema: _schema, ...descriptor } = pkg.manifest;
+    const contentDigest = digestJson(descriptor);
+    const base = `embedded/${contentDigest}/`;
+    const startup = {};
+    for (const file of descriptor.files) {
+      const bytes = pkg.files[file.path];
+      files[base + file.path] = bytes;
+      if ((file.mediaType === 'application/json' || file.mediaType.startsWith('text/')) && bytes.length <= 2097152) startup[file.path] = bytes.toString('utf8');
+      downloads.push({ url: '/' + base + file.path, bytes: file.bytes, sha256: file.sha256, mediaType: file.mediaType });
+    }
+    return { ...descriptor, contentDigest, base: '/' + base, startup };
+  });
+  const { packages: _packages, format: _format, formatVersion: _version, releaseDigest: _digest, ...settings } = tree.index;
+  return { files, downloads, content: { format: 'house-of-chances-embedded-content', formatVersion: 1, ...settings, packages } };
+}
+
 async function visit(root, prefix = '') {
   const files = [];
   for (const item of (await readdir(join(root, prefix), { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
@@ -157,16 +177,16 @@ export function imageBuildPlugin() {
       await mkdir(join(projectRoot, 'node_modules/.cache'), { recursive: true });
       staging = await mkdtemp(join(projectRoot, 'node_modules/.cache/hoc-public-'));
       try {
-        const tree = await buildPackageTree(join(source, 'characters'), options);
+        // A distributor may supply a separate source tree using the same authoring inputs.
+        const tree = await buildPackageTree(resolve(process.env.HOC_EMBEDDED_SOURCE ?? join(source, 'characters')), options);
+        const embedded = buildEmbeddedContent(tree);
         const written = new Set();
         const write = async (path, bytes) => {
           if (written.has(path)) throw new Error(`Media output path collision: ${path}`);
           written.add(path);
           const target = join(staging, path); await mkdir(dirname(target), { recursive: true }); await writeFile(target, bytes); };
-        for (const pkg of tree.packages) for (const [path, bytes] of Object.entries(pkg.files)) {
-          await write('characters/' + pkg.entry.manifest.slice(0, pkg.entry.manifest.lastIndexOf('/') + 1) + path, bytes);
-        }
-        await write('characters/packages.json', jsonBytes(tree.index));
+        for (const [path, bytes] of Object.entries(embedded.files)) await write(path, bytes);
+        await write('embedded/content.json', jsonBytes(embedded.content));
         const shared = [], sharedAudio = [];
         paths.clear();
         for (const path of (await visit(source)).filter(path => !path.startsWith('characters/'))) {
@@ -176,11 +196,16 @@ export function imageBuildPlugin() {
           const audio = isAudioPath(path) ? await buildAudio(bytes, path, { cacheDir: options.audioCacheDir }) : undefined;
           const target = audio ? audio.record.output : convert ? path.replace(/\.png$/, '.webp') : path;
           const output = audio ? audio.bytes : convert ? await encode(bytes, options) : bytes;
-          if (target !== path) paths.set('/' + path, '/' + target);
-          if (audio) sharedAudio.push(audio.record);
-          await write(target, output);
-          if (path.endsWith('.png')) shared.push({ source: path, output: target, sourceBytes: bytes.length, bytes: output.length });
+          const media = path.startsWith('assets/') && /\.(?:png|webp|jpe?g|mp3|ogg|opus|wav)$/i.test(target);
+          const builtTarget = media ? target.replace(/(\.[^.]+)$/, '.' + sha(output) + '$1') : target;
+          const url = '/' + builtTarget;
+          if (target !== path || media) paths.set('/' + path, url);
+          if (media) embedded.downloads.push({ url, legacyUrl: '/' + target, bytes: output.length, sha256: sha(output), mediaType: audio ? 'audio/ogg' : target.endsWith('.png') ? 'image/png' : target.endsWith('.webp') ? 'image/webp' : 'image/jpeg' });
+          if (audio) sharedAudio.push({ ...audio.record, output: builtTarget });
+          await write(builtTarget, output);
+          if (path.endsWith('.png')) shared.push({ source: path, output: builtTarget, sourceBytes: bytes.length, bytes: output.length });
         }
+        await write('embedded/offline.json', jsonBytes({ format: 'house-of-chances-offline-resources', formatVersion: 1, resources: embedded.downloads }));
         report = { mode: options.mode, quality: options.mode === 'lossy' ? options.quality : null, resize: false, encoder: sharp.versions, packages: tree.packages.map(pkg => ({ packageId: pkg.entry.packageId, contentDigest: pkg.entry.contentDigest, images: pkg.images })), shared };
         audioReport = { ...AUDIO_ENCODING, packages: tree.packages.map(pkg => ({ packageId: pkg.entry.packageId, contentDigest: pkg.entry.contentDigest, audio: pkg.audio })), shared: sharedAudio };
         console.log(`Audio: Opus ${AUDIO_ENCODING.bgmKbps} kbps BGM / ${AUDIO_ENCODING.effectKbps} kbps effects; existing Opus retained`);

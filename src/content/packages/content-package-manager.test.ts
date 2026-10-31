@@ -4,7 +4,7 @@ import { FileContentRepository } from "../storage/repository";
 import type { ContentPackageSource } from "../storage/contracts";
 import { encodeText, sha256 } from "../storage/encoding";
 import type { HocpkgManifest } from "./schema";
-import type { ContentPackageAccess, ContentSource } from "./content-source";
+import type { ContentPackageAccess } from "./content-source";
 import { ContentPackageManager } from "./content-package-manager";
 import { playlistDocument } from "../playlists/store";
 
@@ -27,6 +27,7 @@ async function fixture(packageName: string): Promise<{ source: ContentPackageSou
       ...source,
       packageId: `test/${packageName}`,
       readJson: async () => ({ package: packageName }),
+      readFile: async () => bytes,
       resolveAsset: async () => ({ url: `memory://${packageName}/${path}` })
     }
   };
@@ -71,6 +72,7 @@ async function characterFixture(packageName: string): Promise<{ source: ContentP
       ...source,
       packageId: `test/${packageName}`,
       readJson: async () => payload,
+      readFile: async assetPath => assetPath === coverPath ? cover : bytes,
       resolveAsset: async (assetPath) => ({ url: `memory://${packageName}/${assetPath}` })
     }
   };
@@ -88,17 +90,15 @@ describe("ContentPackageManager inventory", () => {
     });
     expect((await repository.listPackages()).map((entry) => [entry.packageId, entry.enabled])).toEqual([["test/character", false], ["test/plugin", true]]);
   });
-  it("merges installed packages with embedded packages without installing missing entries", async () => {
-    const one = await fixture("one");
-    const two = await fixture("two");
-    const repository = new FileContentRepository(new MemoryContentHostProvider().host);
-    await repository.install(one.source);
-    const embedded: ContentSource = { packages: async () => [one.access, two.access] };
-
-    await expect(new ContentPackageManager(repository, embedded).listPackages()).resolves.toEqual([
-      expect.objectContaining({ packageId: "test/one", state: "enabled", source: "embedded", bytes: one.access.manifest.files[0]!.bytes }),
-      expect.objectContaining({ packageId: "test/two", state: "not-installed", source: "embedded", bytes: two.access.manifest.files[0]!.bytes })
+  it("lists embedded entries without installing any resource bodies", async () => {
+    const one = await fixture("one"), two = await fixture("two");
+    const provider = new MemoryContentHostProvider(), repository = new FileContentRepository(provider.host);
+    await repository.configureEmbedded([one.access, two.access]);
+    expect(await new ContentPackageManager(repository, { packages: async () => [one.access, two.access] }).listPackages()).toEqual([
+      expect.objectContaining({ packageId: "test/one", state: "enabled", embedded: true }),
+      expect.objectContaining({ packageId: "test/two", state: "enabled", embedded: true })
     ]);
+    expect(await provider.fileSystem.list("content/v1/revisions")).toEqual([]);
   });
 
   it("disables ordinary packages but refuses to disable the final character package", async () => {
@@ -125,7 +125,7 @@ describe("ContentPackageManager inventory", () => {
     await expect(repository.listPackages()).resolves.toContainEqual(expect.objectContaining({ packageId: "test/system", enabled: true }));
   });
 
-  it("keeps cover presentation available for disabled and not-installed embedded packages", async () => {
+  it("keeps disabled embedded previews manageable while rejecting deletion", async () => {
     const first = await characterFixture("first");
     const second = await characterFixture("second");
     const repository = new FileContentRepository(new MemoryContentHostProvider().host);
@@ -139,12 +139,9 @@ describe("ContentPackageManager inventory", () => {
       presentation: { characterName: "角色 first", coverAsset: { url: expect.stringContaining("cover.png") } }
     });
 
-    await manager.removePackage("test/first");
-    const removed = (await manager.listPackages()).find((entry) => entry.packageId === "test/first");
-    expect(removed).toMatchObject({
-      state: "not-installed",
-      presentation: { characterName: "角色 first", coverAsset: { url: "memory://first/cover.png" } }
-    });
+    await expect(manager.removePackage("test/first")).rejects.toThrow("不能删除");
+    expect((await manager.listPackages()).find(entry => entry.packageId === "test/first")?.state).toBe("disabled");
+
   });
 
   it("falls back without a cover when an installed manifest is broken", async () => {
@@ -169,30 +166,22 @@ describe("ContentPackageManager inventory", () => {
     const second = await characterFixture("second");
     const repository = new FileContentRepository(new MemoryContentHostProvider().host);
     await repository.installBatch([first.source, second.source]);
-    const manager = new ContentPackageManager(repository, { packages: async () => [first.access, second.access] });
+    const manager = new ContentPackageManager(repository, { packages: async () => [] });
 
     await manager.removePackage("test/first");
     await expect(manager.removePackage("test/second")).rejects.toThrow(/至少需要保留一个启用的角色包/);
     await expect(manager.listPackages()).resolves.toEqual([
-      expect.objectContaining({ packageId: "test/first", state: "not-installed" }),
       expect.objectContaining({ packageId: "test/second", state: "enabled" })
     ]);
   });
 
-  it("restores a removed embedded package as enabled content", async () => {
-    const first = await characterFixture("first");
-    const second = await characterFixture("second");
-    const repository = new FileContentRepository(new MemoryContentHostProvider().host);
-    await repository.installBatch([first.source, second.source]);
+  it("re-enables embedded content without installing or restoring its files", async () => {
+    const first = await characterFixture("first"), second = await characterFixture("second");
+    const provider = new MemoryContentHostProvider(), repository = new FileContentRepository(provider.host);
+    await repository.configureEmbedded([first.access, second.access]);
     const manager = new ContentPackageManager(repository, { packages: async () => [first.access, second.access] });
-    await manager.removePackage("test/first");
-    const progress: string[] = [];
-
-    await manager.restoreEmbeddedPackage("test/first", { onProgress: (entry) => progress.push(entry.path) });
-
-    await expect(repository.listPackages()).resolves.toContainEqual(expect.objectContaining({ packageId: "test/first", enabled: true }));
-    expect(progress).toEqual(["resources/content.json", "cover.png"]);
-    await expect(manager.restoreEmbeddedPackage("test/first")).rejects.toThrow(/已经安装/);
-    await expect(manager.restoreEmbeddedPackage("test/missing")).rejects.toThrow(/没有可恢复/);
+    await manager.disablePackage("test/first"); await manager.enablePackage("test/first");
+    await expect(manager.removePackage("test/first")).rejects.toThrow("不能删除");
+    expect(await provider.fileSystem.list("content/v1/revisions")).toEqual([]);
   });
 });

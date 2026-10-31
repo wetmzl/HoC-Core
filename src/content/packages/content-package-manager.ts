@@ -21,6 +21,7 @@ export interface ManagedContentPackage {
   readonly embeddedManifest?: HocpkgManifest;
   readonly bytes: number;
   readonly source: "embedded" | "external";
+  readonly embedded?: boolean;
   readonly presentation: ManagedContentPackagePresentation;
   readonly error?: string;
   readonly pluginPriority?: number;
@@ -106,6 +107,7 @@ export class ContentPackageManager {
   }
 
   async removePackage(packageId: string): Promise<void> {
+    if ((await this.embedded.packages()).some(entry => entry.packageId === packageId)) throw new ContentPackageOperationError("内嵌内容不能删除；可以禁用或清除离线缓存。");
     const installed = await this.repository.listPackages();
     const target = installed.find((entry) => entry.packageId === packageId);
     if (!target) return;
@@ -123,14 +125,10 @@ export class ContentPackageManager {
     await this.repository.removePackage(packageId);
   }
 
-  async restoreEmbeddedPackage(packageId: string, options: ContentInstallOptions = {}): Promise<void> {
-    const installed = await this.repository.listPackages();
-    if (installed.some((entry) => entry.packageId === packageId)) {
-      throw new ContentPackageOperationError(`内容包已经安装：${packageId}`);
-    }
+  async restoreEmbeddedPackage(packageId: string, _options: ContentInstallOptions = {}): Promise<void> {
     const source = (await this.embedded.packages()).find((entry) => entry.packageId === packageId);
     if (!source) throw new ContentPackageOperationError(`没有可恢复的内嵌内容包：${packageId}`);
-    await this.repository.install(source, options);
+    throw new ContentPackageOperationError("内嵌内容直接读取，无需安装或恢复；请使用启用操作。");
   }
 
   private async describePackage(
@@ -163,7 +161,8 @@ export class ContentPackageManager {
         manifest,
         embeddedManifest: embedded?.manifest,
         bytes: declaredBytes(manifest),
-        source: embedded ? "embedded" : "external",
+        source: installed.embedded ? "embedded" : "external",
+        embedded: installed.embedded === true,
         presentation
       };
     } catch (error) {

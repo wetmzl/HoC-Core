@@ -95,7 +95,7 @@ export type GameEvent =
   | { readonly type: "ROUND_RESOLVED"; readonly outcome: RoundOutcome }
   | { readonly type: "ROUND_RESULT_ACKNOWLEDGED" }
   | { readonly type: "BULLET_ADDED"; readonly actor: Actor; readonly amount: number; readonly actualAmount?: number }
-  | { readonly type: "TRIGGER_PULLED"; readonly actor: Actor; readonly probability: number; readonly baseProbability: number; readonly misfireChance: number; readonly result: "fired" | "empty-chamber" | "misfire"; readonly fired: boolean }
+  | { readonly type: "TRIGGER_PULLED"; readonly bulletsBefore?: number; readonly capacityBefore?: number; readonly actor: Actor; readonly probability: number; readonly baseProbability: number; readonly misfireChance: number; readonly result: "fired" | "empty-chamber" | "misfire"; readonly fired: boolean }
   | { readonly type: "TRIGGER_SURVIVED"; readonly actor: Actor }
   | { readonly type: "DEFEAT_PREVENTED"; readonly actor: Actor; readonly sourceInstanceId: string }
   | { readonly type: "TRIGGER_RESULT_ACKNOWLEDGED" }

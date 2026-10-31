@@ -98,6 +98,7 @@ export interface InstalledContentPackage {
   readonly packageId: string;
   readonly currentRevision: string;
   readonly enabled: boolean;
+  readonly embedded?: boolean;
 }
 
 export interface ContentInstallOptions {

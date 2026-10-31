@@ -9,14 +9,17 @@ export default defineConfig(({ mode }) => ({
       disable: mode === "capacitor",
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "favicon.svg", "icons/*.png"],
-      workbox: {
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
+      injectManifest: {
         // Installed package bodies live in the content repository. The launcher
         // still needs the embedded index and manifests when reopening offline.
         globPatterns: [
           "*.{js,css,html,svg,png,ico,txt}",
-          "assets/**/*.{js,css,svg,png,webp,jpg,jpeg,mp3,ogg,opus,wav}",
+          "assets/**/*.{js,css}",
           "icons/*.png", "licenses/*.txt",
-          "characters/packages.json", "characters/**/hocpkg-info.json"
+          "embedded/content.json", "embedded/offline.json"
         ],
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
       },

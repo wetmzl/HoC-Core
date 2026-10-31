@@ -19,7 +19,9 @@ import type {
   InstalledContentPackage,
   ResolvedContentAsset
 } from "./contracts";
-import { decodeText, encodeText, sha256Json, stableJson } from "./encoding";
+import { decodeText, encodeText, sha256, sha256Json, stableJson } from "./encoding";
+import type { ContentPackageAccess } from "../packages/content-source";
+import { canonicalBuiltinPackageId } from "../packages/builtin-authors";
 
 const MANIFEST_FILE = "hocpkg-info.json";
 const PENDING_FILE = ".pending";
@@ -79,7 +81,114 @@ function parsePackageId(packageId: string): readonly [string, string] {
 export class FileContentRepository implements ContentRepository {
   private catalog: ContentCatalog = emptyContentCatalog();
   private opened = false;
+  private hadCatalog = false;
   private queue: Promise<void> = Promise.resolve();
+  private readonly embedded = new Map<string, ContentPackageAccess & { revision: string }>();
+  private archivedFiles?: Promise<Map<string, { source: ContentPackageAccess; path: string }>>;
+
+  /** Register directory sources without installing their bodies in userdata. */
+  configureEmbedded(sources: readonly ContentPackageAccess[], selected?: ReadonlySet<string>, defaults?: ReadonlySet<string>): Promise<void> {
+    const operation = this.queue.catch(() => undefined).then(async () => {
+    await this.open();
+    this.embedded.clear();
+    for (const source of sources) this.embedded.set(source.packageId, { ...source, revision: await getContentRevision(source.manifest) });
+    const first = this.catalog.embedded === undefined;
+    const fresh = first && !this.hadCatalog && selected === undefined && !Object.keys(this.catalog.packages).length;
+    const states = { ...this.catalog.embedded };
+    for (const source of sources) if (!states[source.packageId]) states[source.packageId] = {
+      enabled: this.catalog.packages[source.packageId]?.enabled ?? Object.entries(this.catalog.packages).find(([id]) => canonicalBuiltinPackageId(id) === source.packageId)?.[1].enabled ?? (fresh ? defaults?.has(source.packageId) ?? true : false)
+    };
+    const next = { ...this.catalog, embedded: states };
+    if (stableJson(next) !== stableJson(this.catalog)) { await commitCatalog(this.host.fileSystem, next, this.now); this.catalog = next; }
+    }); this.queue = operation; return operation;
+  }
+
+  async listStoredConflicts(): Promise<readonly InstalledContentPackage[]> {
+    await this.ready();
+    return packageList(this.catalog).filter(entry => this.embedded.has(canonicalBuiltinPackageId(entry.packageId)));
+  }
+
+  /** Snapshot a stored source before the same identity is handed to the embedded directory. */
+  async storedSource(packageId: string): Promise<ContentPackageAccess> {
+    await this.ready();
+    const state = this.catalog.packages[packageId];
+    if (!state) throw new Error("用户仓库副本不存在。");
+    return this.storedAccess(packageId, state.currentRevision);
+  }
+
+  private async storedAccess(packageId: string, revision: string): Promise<ContentPackageAccess> {
+    const fs = this.host.fileSystem, root = revisionRoot(packageId, revision);
+    const manifest = HocpkgManifestSchema.parse(JSON.parse(decodeText((await fs.read(`${root}/${MANIFEST_FILE}`))!)));
+    if (getHocpkgPackageId(manifest.identity) !== packageId || await getContentRevision(manifest) !== revision) throw new ContentPackageIntegrityError("历史副本描述与目录不一致。");
+    const readFile = async (path: string) => {
+      const file = manifest.files.find(file => file.path === path);
+      if (!file) throw new Error("未声明归档文件。");
+      const bytes = await fs.read(`${root}/${path}`);
+      if (!bytes) throw new Error("归档文件缺失。");
+      return bytes;
+    };
+    return { packageId, manifest, readFile, readJson: async path => JSON.parse(decodeText(await readFile(path))),
+      resolveAsset: async path => { const file = manifest.files.find(file => file.path === path); if (!file) throw new Error("未声明归档文件。"); return this.host.assetResolver.resolve(`${root}/${path}`, file.mediaType); },
+      async *files() { for (const file of manifest.files) yield { path: file.path, bytes: await readFile(file.path) }; }
+    };
+  }
+
+  async resolveEmbeddedConflicts(clean: boolean): Promise<void> {
+    const operation = this.queue.catch(() => undefined).then(async () => {
+      await this.open();
+      const packages = { ...this.catalog.packages }, archives = { ...this.catalog.archives };
+      for (const [id, state] of Object.entries(packages)) if (this.embedded.has(canonicalBuiltinPackageId(id))) {
+        if (!clean) archives[`${id}/${state.currentRevision}`] = { packageId: id, currentRevision: state.currentRevision, archivedAt: this.now() };
+        delete packages[id];
+      }
+      const next = { ...this.catalog, packages, archives };
+      const committed = await commitCatalog(this.host.fileSystem, next, this.now);
+      this.catalog = next;
+      this.archivedFiles = undefined;
+      if (committed.mirrored) await this.cleanupUnreferencedRevisions().catch(() => undefined);
+    });
+    this.queue = operation; return operation;
+  }
+
+  async listArchives() { await this.ready(); return Object.entries(this.catalog.archives ?? {}).map(([id, entry]) => ({ id, ...entry })); }
+
+  async resolveArchivedAsset(packageId: string, expected: HocpkgManifest["files"][number]): Promise<ResolvedContentAsset | undefined> {
+    await this.ready();
+    const files = await (this.archivedFiles ??= (async () => {
+      const index = new Map<string, { source: ContentPackageAccess; path: string }>();
+      for (const entry of Object.values(this.catalog.archives ?? {})) {
+        try {
+          const source = await this.storedAccess(entry.packageId, entry.currentRevision);
+          for (const file of source.manifest.files) index.set(`${canonicalBuiltinPackageId(entry.packageId)}#${file.sha256}`, { source, path: file.path });
+        } catch { /* A broken optional archive is still removable in resource management. */ }
+      }
+      return index;
+    })());
+    const previous = files.get(`${packageId}#${expected.sha256}`); if (!previous) return undefined;
+    try {
+      const bytes = await previous.source.readFile!(previous.path);
+      if (bytes.length !== expected.bytes || await sha256(bytes) !== expected.sha256) return undefined;
+      return await previous.source.resolveAsset(previous.path);
+    } catch { return undefined; }
+  }
+
+  async archiveSource(id: string): Promise<ContentPackageAccess> {
+    await this.ready();
+    const entry = this.catalog.archives?.[id];
+    if (!entry) throw new Error("归档不存在。");
+    return this.storedAccess(entry.packageId, entry.currentRevision);
+  }
+
+  async removeArchive(id: string): Promise<void> {
+    const operation = this.queue.catch(() => undefined).then(async () => {
+      await this.open(); if (!this.catalog.archives?.[id]) throw new Error("归档不存在。");
+      const archives = { ...this.catalog.archives }; delete archives[id];
+      const next = { ...this.catalog, archives }, committed = await commitCatalog(this.host.fileSystem, next, this.now);
+      this.catalog = next;
+      this.archivedFiles = undefined;
+      if (committed.mirrored) await this.cleanupUnreferencedRevisions().catch(() => undefined);
+    }); this.queue = operation; return operation;
+  }
 
   constructor(
     private readonly host: ContentHost,
@@ -89,6 +198,7 @@ export class FileContentRepository implements ContentRepository {
   async open(): Promise<void> {
     if (this.opened) return;
     const loaded = await readCurrentCatalog(this.host.fileSystem);
+    this.hadCatalog = loaded !== null;
     this.catalog = loaded?.envelope.catalog ?? emptyContentCatalog();
     if (loaded?.requiresMigration) await commitCatalog(this.host.fileSystem, this.catalog, this.now);
     await this.cleanupUnreferencedRevisions();
@@ -102,23 +212,24 @@ export class FileContentRepository implements ContentRepository {
 
   async isEmpty(): Promise<boolean> {
     await this.ready();
-    return Object.keys(this.catalog.packages).length === 0;
+    return Object.keys(this.catalog.packages).length === 0 && this.embedded.size === 0;
   }
 
   async listPackages(): Promise<readonly InstalledContentPackage[]> {
     await this.ready();
-    return packageList(this.catalog);
+    return [...packageList(this.catalog).filter(entry => !this.embedded.has(canonicalBuiltinPackageId(entry.packageId))),
+      ...[...this.embedded].map(([packageId, source]) => ({ packageId, currentRevision: source.revision, enabled: this.catalog.embedded?.[packageId]?.enabled ?? false, embedded: true }))];
   }
 
   async listPluginOrder(): Promise<readonly string[]> {
     await this.ready();
-    return [...this.catalog.pluginOrder];
+    return [...new Set(this.catalog.pluginOrder.map(id => this.embedded.has(canonicalBuiltinPackageId(id)) ? canonicalBuiltinPackageId(id) : id))];
   }
 
   async setPluginOrder(order: readonly string[]): Promise<void> {
     const operation = this.queue.catch(() => undefined).then(async () => {
       await this.open();
-      if (new Set(order).size !== order.length || order.some((id) => !this.catalog.packages[id])) throw new Error("插件排序包含未安装或重复的内容包。");
+      if (new Set(order).size !== order.length || order.some((id) => !this.catalog.packages[id] && !this.embedded.has(id))) throw new Error("插件排序包含未安装或重复的内容包。");
       const next: ContentCatalog = { ...this.catalog, pluginOrder: [...order] };
       await commitCatalog(this.host.fileSystem, next, this.now);
       this.catalog = next;
@@ -140,6 +251,11 @@ export class FileContentRepository implements ContentRepository {
   }
 
   private async readManifestNow(packageId: string): Promise<HocpkgManifest> {
+    if (this.embedded.has(packageId)) return this.embedded.get(packageId)!.manifest;
+    return this.readStoredManifestNow(packageId);
+  }
+
+  private async readStoredManifestNow(packageId: string): Promise<HocpkgManifest> {
     const root = revisionRoot(packageId, this.currentRevision(packageId));
     const bytes = await this.host.fileSystem.read(`${root}/${MANIFEST_FILE}`);
     if (!bytes) throw new Error(`内容包 Manifest 缺失：${packageId}`);
@@ -148,6 +264,7 @@ export class FileContentRepository implements ContentRepository {
 
   async readFile(packageId: string, path: string): Promise<Uint8Array> {
     await this.ready();
+    if (this.embedded.has(packageId)) return this.embedded.get(packageId)!.readFile!(path);
     const safePath = HocpkgPortablePathSchema.parse(path);
     const manifest = await this.readManifestNow(packageId);
     if (!manifest.files.some((file) => file.path === safePath)) throw new Error(`文件未在 Manifest 中声明：${packageId}#${safePath}`);
@@ -159,6 +276,7 @@ export class FileContentRepository implements ContentRepository {
 
   async resolveAsset(packageId: string, path: string): Promise<ResolvedContentAsset> {
     await this.ready();
+    if (this.embedded.has(packageId)) return this.embedded.get(packageId)!.resolveAsset(path);
     const manifest = await this.readManifestNow(packageId);
     const safePath = HocpkgPortablePathSchema.parse(path);
     const file = manifest.files.find((candidate) => candidate.path === safePath);
@@ -169,6 +287,7 @@ export class FileContentRepository implements ContentRepository {
 
   async verifyPackage(packageId: string, onProgress?: (progress: import("./contracts").ContentInstallProgress) => void): Promise<void> {
     await this.ready();
+    if (this.embedded.has(packageId)) return;
     const currentRevision = this.currentRevision(packageId);
     const manifest = await this.readManifestNow(packageId);
     if (getHocpkgPackageId(manifest.identity) !== packageId || await getContentRevision(manifest) !== currentRevision) {
@@ -204,6 +323,7 @@ export class FileContentRepository implements ContentRepository {
   }
 
   disablePackage(packageId: string): Promise<ContentPackageMutationResult> {
+    if (this.embedded.has(packageId)) return this.setEmbeddedEnabled(packageId, false);
     let result!: ContentPackageMutationResult;
     const operation = this.queue.catch(() => undefined).then(async () => {
       await this.open();
@@ -227,6 +347,7 @@ export class FileContentRepository implements ContentRepository {
   }
 
   enablePackage(packageId: string): Promise<ContentPackageMutationResult> {
+    if (this.embedded.has(packageId)) return this.setEmbeddedEnabled(packageId, true);
     let result!: ContentPackageMutationResult;
     const operation = this.queue.catch(() => undefined).then(async () => {
       await this.open();
@@ -253,14 +374,16 @@ export class FileContentRepository implements ContentRepository {
     let result!: ContentPackageMutationResult;
     const operation = this.queue.catch(() => undefined).then(async () => {
       await this.open();
-      if (new Set(packageIds).size !== packageIds.length || packageIds.some((id) => !this.catalog.packages[id])) {
+      if (new Set(packageIds).size !== packageIds.length || packageIds.some((id) => !this.catalog.packages[id] && !this.embedded.has(id))) {
         throw new Error("播放集包含重复或尚未安装的内容包。");
       }
       const enabled = new Set(packageIds);
       const packages = Object.fromEntries(Object.entries(this.catalog.packages).map(([id, entry]) => [id, { ...entry, enabled: enabled.has(id) }]));
-      const changed = Object.keys(packages).some((id) => this.catalog.packages[id]!.enabled !== packages[id]!.enabled);
+      const embedded = { ...this.catalog.embedded };
+      for (const id of this.embedded.keys()) embedded[id] = { enabled: enabled.has(id) };
+      const changed = Object.keys(packages).some((id) => this.catalog.packages[id]!.enabled !== packages[id]!.enabled) || stableJson(embedded) !== stableJson(this.catalog.embedded ?? {});
       if (!changed) { result = { packages: packageList(this.catalog), changed: false, cleanup: "complete" }; return; }
-      const next: ContentCatalog = { ...this.catalog, packages };
+      const next: ContentCatalog = { ...this.catalog, packages, ...(this.catalog.embedded ? { embedded } : {}) };
       const committed = await commitCatalog(this.host.fileSystem, next, this.now);
       this.catalog = next;
       result = { packages: packageList(next), changed: true, cleanup: committed.mirrored ? "complete" : "deferred" };
@@ -270,6 +393,7 @@ export class FileContentRepository implements ContentRepository {
   }
 
   removePackage(packageId: string): Promise<ContentPackageMutationResult> {
+    if (this.embedded.has(canonicalBuiltinPackageId(packageId))) return Promise.reject(new ContentPackageConflictError("内嵌内容不能删除；可以禁用或清除离线缓存。"));
     let result!: ContentPackageMutationResult;
     const operation = this.queue.catch(() => undefined).then(async () => {
       await this.open();
@@ -296,6 +420,17 @@ export class FileContentRepository implements ContentRepository {
     });
     this.queue = operation;
     return operation.then(() => result);
+  }
+
+  private setEmbeddedEnabled(packageId: string, enabled: boolean): Promise<ContentPackageMutationResult> {
+    const operation = this.queue.catch(() => undefined).then(async () => {
+      await this.open();
+      const next = { ...this.catalog, embedded: { ...this.catalog.embedded, [packageId]: { enabled } } };
+      const changed = this.catalog.embedded?.[packageId]?.enabled !== enabled;
+      const result = changed ? await commitCatalog(this.host.fileSystem, next, this.now) : { mirrored: true };
+      this.catalog = next;
+      return { packages: packageList(next), changed, cleanup: result.mirrored ? "complete" as const : "deferred" as const };
+    }); this.queue = operation.then(() => undefined); return operation;
   }
 
   /** Atomically move an existing package to a new identity without replacing its resources. */
@@ -373,7 +508,7 @@ export class FileContentRepository implements ContentRepository {
       checkCancelled({ signal: options.signal });
       options.onCommit?.();
     } catch (error) {
-      await Promise.all(prepared.map((entry) => this.host.fileSystem.remove(entry.root).catch(() => undefined)));
+      await Promise.all(prepared.filter(entry => !this.catalog.archives?.[`${entry.packageId}/${entry.revision}`]).map((entry) => this.host.fileSystem.remove(entry.root).catch(() => undefined)));
       throw error;
     }
 
@@ -394,6 +529,7 @@ export class FileContentRepository implements ContentRepository {
     if (committed.mirrored) {
       for (const entry of prepared) {
         if (!entry.previousRevision || entry.previousRevision === entry.revision) continue;
+        if (this.catalog.archives?.[`${entry.packageId}/${entry.previousRevision}`]) continue;
         try {
           await this.host.fileSystem.remove(revisionRoot(entry.packageId, entry.previousRevision));
         } catch {
@@ -415,7 +551,7 @@ export class FileContentRepository implements ContentRepository {
     const previousRevision = this.catalog.packages[packageId]?.currentRevision;
     if (previousRevision === revision) return null;
     if (previousRevision) {
-      const current = await this.readManifestNow(packageId);
+      const current = await this.readStoredManifestNow(packageId);
       const comparison = compareHocpkgPackages(
         { manifest: current, contentDigest: previousRevision },
         { manifest, contentDigest: revision }
@@ -429,6 +565,10 @@ export class FileContentRepository implements ContentRepository {
     }
 
     const root = revisionRoot(packageId, revision);
+    if (this.catalog.archives?.[`${packageId}/${revision}`]) {
+      await this.verifyStoredPackage(root, manifest, options);
+      return { packageId, revision, manifest, root, previousRevision };
+    }
     await this.host.fileSystem.remove(root);
     await this.host.fileSystem.write(`${root}/${PENDING_FILE}`, encodeText(this.now()));
     await this.host.fileSystem.write(`${root}/${MANIFEST_FILE}`, encodeText(stableJson(canonicalManifest(manifest))));
@@ -480,6 +620,7 @@ export class FileContentRepository implements ContentRepository {
   private async cleanupUnreferencedRevisions(): Promise<void> {
     const files = await this.host.fileSystem.list(`${CONTENT_ROOT}/revisions`);
     const referenced = new Set(Object.entries(this.catalog.packages).map(([id, state]) => revisionRoot(id, state.currentRevision)));
+    for (const entry of Object.values(this.catalog.archives ?? {})) referenced.add(revisionRoot(entry.packageId, entry.currentRevision));
     const roots = new Set<string>();
     for (const path of files) {
       const relative = path.slice(`${CONTENT_ROOT}/revisions/`.length);
