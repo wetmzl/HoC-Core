@@ -35,7 +35,8 @@ export function gameTelemetry(): TelemetryClient | undefined {
   const environment = import.meta.env.VITE_HOC_TELEMETRY_ENVIRONMENT ?? (import.meta.env.DEV ? "development" : "production");
   if (!["production", "test", "development"].includes(environment)) return undefined;
   try {
-    active = new TelemetryClient({ endpoint, environment: environment as "production" | "test" | "development",
+    active = new TelemetryClient({ endpoint, fallbackEndpoint: import.meta.env.VITE_HOC_TELEMETRY_FALLBACK_ENDPOINT?.trim() || undefined,
+      environment: environment as "production" | "test" | "development",
       gameVersion: version, buildId: (import.meta.env.VITE_HOC_BUILD_ID ?? "").slice(0, 80), client: clientMetadata(),
       getAchievementCatalog: () => achievementCatalog,
       driver: Capacitor.isNativePlatform() ? new CapacitorFileSaveStorageDriver(undefined, undefined, `telemetry/${environment}`, true)

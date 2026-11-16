@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createAssetHandler, isAppUrl, resolveAssetPath } from './protocol.mjs';
+import { CONTENT_SECURITY_POLICY, createAssetHandler, isAppUrl, resolveAssetPath } from './protocol.mjs';
 
 test('only the fixed app origin can resolve packaged files', () => {
   const root = join(tmpdir(), 'hoc-web');
@@ -40,4 +40,10 @@ test('serves exact binary bytes, MIME and CSP; blocks writes and missing files',
   assert.equal((await handle(new Request('hoc://app/sample.webp', { method: 'POST' }))).status, 405);
   assert.equal((await handle(new Request('hoc://evil/sample.webp'))).status, 403);
   assert.equal(reads, 3);
+});
+
+
+test('telemetry connects only to its two fixed receivers', () => {
+  const connect = CONTENT_SECURITY_POLICY.split('; ').find(value => value.startsWith('connect-src '));
+  assert.equal(connect, "connect-src 'self' blob: https://hoc-platform.house-of-chances.workers.dev/v1/events https://hoc-events.10170923.xyz/v1/events");
 });
