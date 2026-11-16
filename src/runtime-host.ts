@@ -14,6 +14,8 @@ export interface PreparedGamePresentation {
   retirePrevious(): void;
 }
 export interface MountGameRuntimeOptions {
+  /** Late binding keeps package media owned by the active presentation generation. */
+  readonly storyResources?: () => Readonly<Record<string, readonly import("./content/packages/resources").ExtensionResource[]>>;
   readonly telemetryPackages?: Readonly<Record<string, { package_id: string; package_version: string; package_name?: string }>>;
   readonly preparePresentation?: (preferences: import("./content/packages/character-presentation").CharacterSkinPreferences, unlocks?: import("./persistence/skin-unlocks").CharacterSkinUnlocks) => Promise<PreparedGamePresentation>;
   readonly characterSkinUnlocks?: import("./persistence/skin-unlocks").CharacterSkinUnlocks;

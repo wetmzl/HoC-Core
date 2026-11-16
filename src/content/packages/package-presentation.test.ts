@@ -35,6 +35,26 @@ const characterBody = {
 };
 
 describe("package presentation", () => {
+  it("resolves the default presentation cover before parsing character metadata", async () => {
+    const match = { ...characterBody, presentationResourceId: "appearance",
+      metadata: { ...characterBody.metadata, previewImage: { presentationRef: "cover" } },
+      definition: { assets: { cover: { presentationRef: "cover" } } } };
+    const appearance = { skins: [{ id: "base", name: "默认" }, { id: "other", name: "备用" }],
+      resources: { cover: { type: "image", variants: [
+        { skinId: "base", value: "cover.png" }, { skinId: "other", value: "other.png" }
+      ] } } };
+    const source = manifest([
+      { id: "match", type: "game.character-match", apiVersion: 13, entry: "resources/match.json", requires: ["appearance"] },
+      { id: "appearance", type: "presentation.character", apiVersion: 1, entry: "appearance.json", requires: [] }
+    ]);
+    const resolveAsset = vi.fn(async () => ({ url: "blob:default-cover" }));
+    const readJson = vi.fn(async (path: string) => path === "appearance.json" ? appearance : match);
+    await expect(loadPackagePresentation({ manifest: source, readJson, resolveAsset })).resolves.toMatchObject({
+      characterName: "预览角色", coverAsset: { url: "blob:default-cover" }
+    });
+    expect(readJson).toHaveBeenCalledWith("appearance.json");
+    expect(resolveAsset).toHaveBeenCalledExactlyOnceWith("cover.png");
+  });
   it("shows a declared cover for a non-character package without reading resource data", async () => {
     const base = manifest([{ id: "skill", type: "game.player-skill", apiVersion: 4, entry: "resources/match.json", requires: [] }]);
     const skillOnly = { ...base, metadata: { ...base.metadata, coverImage: "cover.png" } };

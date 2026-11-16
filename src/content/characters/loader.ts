@@ -15,6 +15,11 @@ export function clearCharacterDefinitions(): void {
   installedPromises = Object.freeze({});
 }
 
+/** Boot installs immutable definitions before runtime; checkpoint projections never load asynchronously. */
+export function getInstalledCharacterDefinition(id: string): CharacterDefinition | undefined {
+  return getCharacterMetadata(id) ? installedDefinitions?.[id] : undefined;
+}
+
 export function loadCharacter(id: string): Promise<CharacterDefinition> {
   const metadata = getCharacterMetadata(id);
   if (!metadata) {

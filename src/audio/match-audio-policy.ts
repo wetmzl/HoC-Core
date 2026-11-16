@@ -1,6 +1,7 @@
 import type { MatchState, RoundOutcome } from "../core/match/types";
 import { isBlackjack } from "../core/blackjack/hand";
 import type { MatchTransition } from "../runtime/match-transition";
+import type { MatchFactBatch } from "../core/events";
 import type { SoundCue } from "./sound-resources";
 
 export type AudioCommand =
@@ -20,7 +21,13 @@ export function roundResultCue(outcome: RoundOutcome): "blackjack" | "bust" | "c
 }
 
 /** Pure policy: no playback, timers, state mutation or history restoration. */
-export function selectMatchAudio({ before, after, events }: MatchTransition): readonly AudioCommand[] {
+export function selectMatchAudioFacts({ before, after, facts, restored }: MatchFactBatch): readonly AudioCommand[] {
+  if (!before || restored) return [];
+  return selectMatchAudio({ before, after, events: facts.map(fact => fact.event) });
+}
+
+/** Compatibility entry for callers holding an ordinary transition. */
+export function selectMatchAudio({ before, after, events }: Pick<MatchTransition, "before" | "after" | "events">): readonly AudioCommand[] {
   const commands: AudioCommand[] = [];
   const play = (cue: Exclude<SoundCue, "heartbeat">, delayMs = 0) => commands.push({ type: "play", cue, delayMs });
   const trigger = events.find(event => event.type === "TRIGGER_PULLED");

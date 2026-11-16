@@ -9,7 +9,7 @@ async function mount(page: Page, mode: "transfer" | "protection") {
     await (await load("/src/content/packages/content-loader.ts")).bootstrapContent({ fetch: window.fetch.bind(window) });
     const { createMatch } = await load("/src/core/match/reducer.ts");
     const { createCard } = await load("/src/core/blackjack/card.ts");
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const repo = (await load("/src/persistence/factory.ts")).createPersistenceService();
     const skill = mode === "transfer" ? "claude-ss-reasoning" : "claude-ss-verdict";
     const base = createMatch("claude-remaining-ui", { opponentId: "claude", skillDeckIds: [], opponentAiSkills: [{ definitionId: skill, enabled: true, level: 2, parameters: {} }], aiProfile: { P: 0, A: 0, B: 0, C: 0 } });

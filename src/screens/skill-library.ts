@@ -1,3 +1,4 @@
+import { openUiDialog } from "../presentation/dialog-motion";
 import { availableDeckSkills, resolveSkillDeck, type SkillDeck } from "../core/skills/deck";
 import { createDeckSaveQueue, type DeckSaveQueue } from "../presentation/deck-save-queue";
 import { mountDeckEditor } from "../presentation/deck-editor";
@@ -11,12 +12,14 @@ export interface SkillLibraryControllerDependencies {
     repository: import("../persistence/save-service").PersistenceService;
     readonly autosave: import("../runtime/session-ports").ActiveMatchPersistence | null;
     root: HTMLDivElement;
+    refreshTutorials?: () => void;
 }
 export class SkillLibraryController {
     constructor(private readonly deps: SkillLibraryControllerDependencies) { }
     dispose = (): void => {
         this.disposeDeckEditor?.();
         this.disposeDeckEditor = undefined;
+        this.deps.refreshTutorials?.();
     };
     skillManagementTab: "skills" | "talents" = "skills";
     deckQueue: DeckSaveQueue | undefined;
@@ -102,17 +105,21 @@ export class SkillLibraryController {
         }
         content.onclick = (event) => {
             const tab = (event.target as Element).closest<HTMLButtonElement>("[data-skill-tab]");
-            if (!tab)
+            if (!tab) {
+                this.deps.refreshTutorials?.();
                 return;
+            }
             this.skillManagementTab = tab.dataset.skillTab === "talents" ? "talents" : "skills";
             this.renderSkillManagement();
         };
+        this.deps.refreshTutorials?.();
     };
     openSkillManagement = (statusMessage = ""): void => {
         this.skillManagementTab = "skills";
         this.renderSkillManagement(statusMessage);
         const dialog = this.deps.root.querySelector<HTMLDialogElement>("#skills");
         if (dialog && !dialog.open)
-            dialog.showModal();
+            openUiDialog(dialog);
+        this.deps.refreshTutorials?.();
     };
 }

@@ -343,4 +343,28 @@ describe("ContentRepository", () => {
     await reopened.open();
     expect([...provider.fileSystem.entries.keys()].some((path) => path.includes("orphan"))).toBe(false);
   });
+
+  it("recovers orphan revisions without traversing media directories and supports legacy hosts", async () => {
+    for (const shallow of [true, false]) {
+      const { provider, repository } = setup();
+      await repository.install(await packageSource("one"));
+      const before = await repository.listPackages();
+      provider.fileSystem.entries.set("content/v1/revisions/test/orphan/a/media/deep/file.bin", encodeText("orphan"));
+      const list = vi.spyOn(provider.fileSystem, "list");
+      const directories = vi.spyOn(provider.fileSystem, "listDirectories");
+      const fs = provider.fileSystem;
+      const host = shallow ? provider.host : { ...provider.host, fileSystem: {
+        read: fs.read.bind(fs), write: fs.write.bind(fs), list: fs.list.bind(fs), remove: fs.remove.bind(fs)
+      } };
+      const reopened = new FileContentRepository(host);
+      await reopened.open();
+      expect(await reopened.listPackages()).toEqual(before);
+      await reopened.verifyPackage("test/one");
+      expect([...fs.entries.keys()].some(path => path.includes("/orphan/"))).toBe(false);
+      if (shallow) {
+        expect(list).not.toHaveBeenCalled();
+        expect(directories.mock.calls.every(([path]) => path.split("/").length <= 5)).toBe(true);
+      } else expect(list).toHaveBeenCalledWith("content/v1/revisions");
+    }
+  });
 });

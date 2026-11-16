@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     imageBuildPlugin(),
     VitePWA({
-      disable: mode === "capacitor",
+      disable: mode === "capacitor" || mode === "electron",
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "favicon.svg", "icons/*.png"],
       strategies: "injectManifest",
@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => ({
           "*.{js,css,html,svg,png,ico,txt}",
           "assets/**/*.{js,css}",
           "icons/*.png", "licenses/*.txt",
-          "embedded/content.json", "embedded/offline.json"
+          "embedded/content.json", "embedded/offline.json", "embedded/default-playlist.json"
         ],
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
       },
@@ -54,5 +54,9 @@ export default defineConfig(({ mode }) => ({
       }
     })
   ],
+  // Playwright traces contain HTML snapshots. Watching them would reload every
+  // active browser page while another test is still running.
+  server: { watch: { ignored: ["**/output/**"] } },
+  worker: { format: "es" },
   build: { target: "es2022" }
 }));

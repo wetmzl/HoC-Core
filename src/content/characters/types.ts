@@ -102,5 +102,6 @@ export interface CharacterDefinition extends CharacterMetadata, CharacterData {
   /** Validated package-local runtime declaration, resolved before a flow starts. */
   readonly program?: import("../../core/flow/program").ProgramDefinition;
   /** Resolved presentation URLs, in character then faction fallback order. Never saved. */
+  readonly matchMusicPriorities?: readonly ("character" | "faction")[];
   readonly matchMusicSources?: readonly string[];
 }

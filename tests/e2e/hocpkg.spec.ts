@@ -136,7 +136,7 @@ test("归档处理中取消后可以重新导入并开始游戏", async ({ page 
   };
   const bytes = zipSync({ "hocpkg-info.json": Buffer.from(JSON.stringify(manifest)), "resources/data.json": body }, { level: 0 });
   await page.locator("[data-import-file]").setInputFiles({ name: "cancel.hocpkg", mimeType: "application/zip", buffer: Buffer.from(bytes) });
-  await expect(page.locator("[data-import-dialog] progress")).toBeVisible();
+  await expect(page.locator("[data-import-dialog] [role=progressbar]")).toBeVisible();
   await page.locator("[data-import-cancel]").click();
   await expect(page.locator("[data-import-dialog]")).toHaveCount(0);
   await expect(page.locator(".package-import-result")).toContainText("导入已取消");

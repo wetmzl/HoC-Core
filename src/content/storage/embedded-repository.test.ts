@@ -46,7 +46,11 @@ describe("direct embedded repository", () => {
     await repo.setPluginOrder([other.packageId, embedded.packageId]);
     await repo.configureEmbedded([embedded]);
     expect(await repo.listStoredConflicts()).toHaveLength(1);
+    const list = vi.spyOn(provider.fileSystem, "list");
+    const directories = vi.spyOn(provider.fileSystem, "listDirectories");
     await repo.resolveEmbeddedConflicts(clean);
+    expect(list).not.toHaveBeenCalled();
+    expect(directories).not.toHaveBeenCalled();
     expect(await repo.listStoredConflicts()).toEqual([]);
     expect(await repo.listPluginOrder()).toEqual([other.packageId, embedded.packageId]);
     expect((await repo.listPackages()).find(p => p.packageId === embedded.packageId)?.enabled).toBe(false);

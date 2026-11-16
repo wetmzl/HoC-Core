@@ -5,6 +5,16 @@ import { mountBuiltinTap } from "./builtin-tap-fixture";
 for (const id of ["chatgpt", "claude", "gemini", "deepseek", "llama"]) for (const [phase, actor] of [["roulette-reaction", "player"], ["roulette-trigger", "player"], ["roulette-trigger", "opponent"]] as const) test(`${id} ${phase} ${actor} 戳戳只换台词并保留轮盘立绘`, async ({ page }, testInfo) => {
   const lines = JSON.parse(readFileSync(`public/characters/${id}/resources/dialogue.json`, "utf8")).pools.CHARACTER_TAP_ROULETTE;
   await mountBuiltinTap(page, id, false, { phase, actor });
+  if (phase === "roulette-trigger" && actor === "opponent") {
+    const threatened = await page.evaluate(async id => {
+      const { loadCharacter } = await import(/* @vite-ignore */ "/src/content/characters/loader.ts");
+      return (await loadCharacter(id)).assets.threatened;
+    }, id);
+    await expect.poll(async () => {
+      await page.clock.runFor(16);
+      return page.locator(".character-portrait").getAttribute("src");
+    }).toBe(threatened);
+  }
   const original = await page.locator(".character-portrait").getAttribute("src");
   const gun = await page.locator(".trigger-prop").count() ? await page.locator(".trigger-prop").getAttribute("style") : null;
   for (const width of actor === "opponent" ? [1280, 390, 320] : [390]) {

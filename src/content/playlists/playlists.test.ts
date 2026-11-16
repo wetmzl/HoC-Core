@@ -7,10 +7,51 @@ import { PlaylistDocumentSchema, PlaylistStore, playlistDocument } from "./store
 import { decodePlaylistBytes, decodePlaylistFile, encodePlaylistHocpkg, encodePlaylistPng, MAX_PLAYLIST_FILE, PlaylistArchiveError, playlistJson } from "./transfer";
 import type { ContentFileSystem, ContentImportFile } from "../storage/contracts";
 import { releaseImportFile } from "../storage/import-file";
+import { MAX_PLAYLIST_COVER_BYTES, playlistCoverDataUrl } from "./cover";
 
 const sample = () => playlistDocument("夜场", [{ packageId: "author/hero", version: "1.1.0" }, { packageId: "author/plugin" }]);
 
 describe("playlists", () => {
+  it("preserves a portable cover through archive import, edits, copying, persistence and exports", async () => {
+    const cover = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWOoWHDmPwAGXALkvyEHRgAAAABJRU5ErkJggg=="), character => character.charCodeAt(0));
+    const document = { ...sample(), coverImage: playlistCoverDataUrl(cover) };
+    const archive = await encodePlaylistHocpkg(document, crypto.randomUUID());
+    const files = await unzipChecked(archive);
+    expect(Object.keys(files).sort()).toEqual(["cover.png", "hocpkg-info.json", "playlist.json"]);
+    expect(JSON.parse(decodeText(files["playlist.json"]!)).coverImage).toBeUndefined();
+    expect(files["cover.png"]).toEqual(cover);
+    expect(await decodePlaylistBytes(archive)).toEqual(document);
+    expect(await decodePlaylistBytes(encodeText(playlistJson(document)))).toEqual(document);
+    const png = await encodePlaylistPng(document, crypto.randomUUID(), new Uint8Array());
+    expect(await decodePlaylistBytes(png)).toEqual(document);
+    const host = new MemoryContentHostProvider();
+    const store = new PlaylistStore(host.fileSystem);
+    const [saved] = await store.importBatch([document]);
+    await store.select(saved!.id);
+    await store.updateCurrent(playlistDocument("ignored", []));
+    await store.rename(saved!.id, "renamed");
+    await store.setMode(saved!.id, "incremental");
+    await store.copy(saved!.id);
+    await store.save(playlistDocument("renamed", sample().packages));
+    expect((await new PlaylistStore(host.fileSystem).list()).every(entry => entry.document.coverImage === document.coverImage)).toBe(true);
+  }, 15_000);
+
+  it("rejects undeclared, corrupt, mismatched and oversized playlist covers", async () => {
+    const cover = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWOoWHDmPwAGXALkvyEHRgAAAABJRU5ErkJggg=="), character => character.charCodeAt(0));
+    const files = await unzipChecked(await encodePlaylistHocpkg({ ...sample(), coverImage: playlistCoverDataUrl(cover) }, crypto.randomUUID()));
+    const corrupt = cover.slice(); corrupt[corrupt.length - 1] ^= 1;
+    await expect(decodePlaylistBytes(await zipFiles({ ...files, "cover.png": corrupt }))).rejects.toThrow(/摘要/);
+    await expect(decodePlaylistBytes(await zipFiles({ ...files, "extra.png": cover }))).rejects.toThrow();
+    const { "cover.png": _cover, ...missingCover } = files;
+    await expect(decodePlaylistBytes(await zipFiles(missingCover))).rejects.toThrow();
+    const manifest = JSON.parse(decodeText(files["hocpkg-info.json"]!));
+    manifest.files.find((file: { path: string }) => file.path === "cover.png").mediaType = "image/svg+xml";
+    await expect(decodePlaylistBytes(await zipFiles({ ...files, "hocpkg-info.json": encodeText(JSON.stringify(manifest)) }))).rejects.toThrow();
+    expect(() => PlaylistDocumentSchema.parse({ ...sample(), coverImage: "https://example.invalid/cover.png" })).toThrow();
+    expect(() => playlistCoverDataUrl(new Uint8Array(MAX_PLAYLIST_COVER_BYTES + 1))).toThrow();
+    expect(() => PlaylistDocumentSchema.parse({ ...sample(), coverImage: "data:image/png;base64,aW52YWxpZA==" })).toThrow();
+  });
+
   it("migrates legacy builtin references in imported playlists without losing explicit canonical versions", async () => {
     const document = playlistDocument("旧内嵌包", [
       { packageId: "hoc-art/chatgpt", version: "1.0.0" },
@@ -25,6 +66,26 @@ describe("playlists", () => {
       { packageId: "example/third-party" }
     ]);
     expect(migrated.pluginOrder).toEqual(["hoc-core/chatgpt", "example/third-party"]);
+  });
+
+  it("preserves incremental mode through storage, editing, copying and every export format", async () => {
+    const host = new MemoryContentHostProvider();
+    const store = new PlaylistStore(host.fileSystem);
+    const document = playlistDocument("增量", sample().packages, ["author/plugin"], "incremental");
+    const saved = await store.save(document);
+    await store.select(saved.id);
+    await store.updateCurrent(playlistDocument("ignored", document.packages, document.pluginOrder));
+    expect((await store.rename(saved.id, "增量改名")).document.mode).toBe("incremental");
+    expect((await store.copy(saved.id)).document.mode).toBe("incremental");
+    expect((await store.importBatch([document]))[0]?.document.mode).toBe("incremental");
+    expect((await new PlaylistStore(host.fileSystem).list()).every(entry => entry.document.mode === "incremental")).toBe(true);
+    const cover = new Uint8Array(readFileSync(new URL("../../../public/assets/playlist-cover.png", import.meta.url)));
+    for (const bytes of [encodeText(playlistJson(document)), await encodePlaylistHocpkg(document, saved.id), await encodePlaylistPng(document, saved.id, cover)]) {
+      expect(await decodePlaylistBytes(bytes)).toEqual(document);
+    }
+    await store.setMode(saved.id, "replace");
+    expect((await store.list()).find(entry => entry.id === saved.id)?.document.mode).toBeUndefined();
+    expect(() => PlaylistDocumentSchema.parse({ ...document, mode: "unknown" })).toThrow();
   });
 
   it("validates identity, version, and duplicate package entries", () => {

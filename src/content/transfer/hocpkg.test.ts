@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { unzipSync, zipSync } from "fflate";
-import type { HocpkgManifest } from "../packages";
+import { createHocpkgResourceHandlers, HocpkgManifestSchema, loadHocpkgResources, type HocpkgManifest } from "../packages";
+import { ContentPackageManager } from "../packages/content-package-manager";
 import { MemoryContentHostProvider } from "../storage/memory-host";
 import { openBrowserArchive } from "../storage/browser-io";
 import type { ContentArchive, ContentFileSource, ContentOperationOptions } from "../storage/contracts";
@@ -10,6 +11,7 @@ import { encodeText, sha256 } from "../storage/encoding";
 import { embedHocpkgInPng, extractHocpkgFromPng, HocpkgTransfer, unzipChecked } from "./hocpkg";
 import { playlistDocument } from "../playlists/store";
 import { encodePlaylistHocpkg } from "../playlists/transfer";
+import { playlistCoverDataUrl } from "../playlists/cover";
 
 async function makePackage(authorId: string, version: string, body = version, license?: string) {
   const payload = encodeText(JSON.stringify({ body }));
@@ -50,6 +52,127 @@ function clearZipUtf8Flags(bytes: Uint8Array): Uint8Array {
 }
 
 describe("hocpkg transfer", () => {
+  it.each(["cycle", "duplicate", "future-fields", "metadata", "unsupported-api", "invalid-payload"])("stores complete %s content without runtime validation or losing bytes", async failure => {
+    const { host, transfer } = setup();
+    const pkg = await makePackage("test", "1.0.0");
+    const files = unzipSync(pkg.bytes);
+    const manifest = pkg.manifest;
+    manifest.resources[0]!.type = "game.player-skill";
+    manifest.resources[0]!.apiVersion = 4;
+    if (failure === "cycle") manifest.resources[0]!.requires = ["content"];
+    if (failure === "duplicate") manifest.resources.push({ ...manifest.resources[0]! });
+    if (failure === "future-fields") Object.assign(manifest.resources[0]!, { future: { value: true } });
+    if (failure === "metadata") manifest.metadata.tags = ["not a runtime tag"];
+    if (failure === "unsupported-api") manifest.resources[0]!.apiVersion = 999;
+    if (failure === "invalid-payload") {
+      files["resources/content.json"] = Uint8Array.from(encodeText("{invalid JSON"));
+      manifest.files[0]!.bytes = files["resources/content.json"]!.length;
+      manifest.files[0]!.sha256 = await sha256(files["resources/content.json"]!);
+    }
+    files["hocpkg-info.json"] = Uint8Array.from(encodeText(JSON.stringify(manifest)));
+    const session = await transfer.stage(file(zipSync(files), "complete.hocpkg"));
+    expect(session.candidates).toMatchObject([{ packageId: "test/hero" }]);
+    expect(session.candidates[0]?.error).toBeUndefined();
+    await transfer.installSelected(session.id, ["0000"]);
+    const reopened = new FileContentRepository(host.host);
+    const manager = new ContentPackageManager(reopened, { packages: async () => [] });
+    expect(await manager.listPackages()).toMatchObject([{ state: "disabled", manifest }]);
+    expect((await manager.listPackages())[0]?.error).toBeUndefined();
+    const restored = await reopened.readManifest("test/hero");
+    expect(restored).toEqual(manifest);
+    expect(await reopened.readFile("test/hero", "resources/content.json")).toEqual(files["resources/content.json"]);
+    const exported = unzipSync(await transfer.exportPackage("test/hero"));
+    expect(JSON.parse(new TextDecoder().decode(exported["hocpkg-info.json"]))).toEqual(manifest);
+    expect(exported["resources/content.json"]).toEqual(files["resources/content.json"]);
+    const load = () => loadHocpkgResources(restored, {
+      handlers: createHocpkgResourceHandlers(),
+      readJson: async entry => JSON.parse(new TextDecoder().decode(await reopened.readFile("test/hero", entry)))
+    });
+    if (failure === "unsupported-api") expect(await load()).toMatchObject([{ reason: "api-version-unsupported", error: expect.stringContaining("API 999") }]);
+    else if (failure === "invalid-payload") expect(await load()).toMatchObject([{ state: "invalid", reason: "payload-invalid" }]);
+    else {
+      expect(HocpkgManifestSchema.safeParse(restored).success).toBe(false);
+      await expect(load()).rejects.toThrow();
+    }
+  });
+
+  it.each(["missing-manifest", "missing-entry", "missing-file", "bad-digest", "unsafe-path"])("still rejects incomplete or corrupt %s packages during import", async failure => {
+    const { transfer } = setup();
+    const pkg = await makePackage("test", "1.0.0");
+    const files = unzipSync(pkg.bytes);
+    if (failure === "missing-entry") pkg.manifest.resources[0]!.entry = "missing.json";
+    if (failure === "missing-file") delete files["resources/content.json"];
+    if (failure === "bad-digest") pkg.manifest.files[0]!.sha256 = "0".repeat(64);
+    if (failure === "unsafe-path") pkg.manifest.resources[0]!.entry = "../outside.json";
+    files["hocpkg-info.json"] = Uint8Array.from(encodeText(JSON.stringify(pkg.manifest)));
+    if (failure === "missing-manifest") delete files["hocpkg-info.json"];
+    const session = await transfer.stage(file(zipSync(files), "broken.hocpkg"));
+    expect(session.candidates.every(candidate => Boolean(candidate.error))).toBe(true);
+    expect(session.candidates.filter(candidate => !candidate.error)).toHaveLength(0);
+  });
+
+  it("restores and revalidates a covered playlist staged inside a bundle", async () => {
+    const { host, repository, transfer } = setup();
+    const cover = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWOoWHDmPwAGXALkvyEHRgAAAABJRU5ErkJggg=="), character => character.charCodeAt(0));
+    const document = playlistDocument("有封面", [], [], "replace", playlistCoverDataUrl(cover));
+    const playlist = await encodePlaylistHocpkg(document, crypto.randomUUID());
+    const session = await transfer.stage(file(zipSync({ "playlist.hocpkg": playlist }), "bundle.zip"));
+    expect(session.candidates).toMatchObject([{ kind: "playlist", title: "有封面" }]);
+    expect(session.candidates[0]?.error).toBeUndefined();
+    expect((await transfer.preview(session.id, "0000")).cover).toEqual(cover);
+    const restored = new HocpkgTransfer(host.fileSystem, repository);
+    expect(await restored.readPlaylist(session.id, "0000")).toEqual(document);
+    await host.fileSystem.write(`content/v1/imports/${session.id}/candidates/0000/files/cover.png`, cover.subarray(0, 8));
+    await expect(restored.readPlaylist(session.id, "0000")).rejects.toThrow(/摘要/);
+  });
+
+  for (const clean of [true, false]) it(`rechecks embedded imports before ${clean ? "reusing the embedded source" : "archiving their bytes"}`, async () => {
+    const { host, repository, transfer } = setup();
+    const pkg = await makePackage("a", "1.0.0");
+    const files = unzipSync(pkg.bytes);
+    await repository.configureEmbedded([{
+      manifest: pkg.manifest, packageId: "a/hero", readJson: async path => JSON.parse(new TextDecoder().decode(files[path])),
+      readFile: async path => files[path]!, resolveAsset: async path => ({ url: `/embedded/${path}` }),
+      async *files() { for (const entry of pkg.manifest.files) yield { path: entry.path, bytes: files[entry.path]! }; }
+    }]);
+    const session = await transfer.stage(file(zipSync({ "a.hocpkg": pkg.bytes, "b.hocpkg": (await makePackage("b", "1.0.0")).bytes }), "batch.zip"));
+    const write = vi.spyOn(host.fileSystem, "write");
+    const choose = vi.fn(async () => clean);
+    await transfer.installSelected(session.id, ["0000", "0001"], undefined, {}, async () => {
+      if ((await repository.listStoredConflicts()).length) await repository.resolveEmbeddedConflicts(clean);
+    }, choose);
+    expect(choose).toHaveBeenCalledExactlyOnceWith(["a/hero"]);
+    expect(write.mock.calls.some(([path]) => path.startsWith("content/v1/revisions/a/"))).toBe(!clean);
+    expect(await repository.listArchives()).toHaveLength(clean ? 0 : 1);
+    expect(await repository.listPackages()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ packageId: "a/hero", embedded: true, enabled: true }),
+      expect.objectContaining({ packageId: "b/hero", enabled: false })
+    ]));
+    await repository.verifyPackage("b/hero");
+  });
+
+  it.each(["tamper", "cancel"])("rejects %s of a cleaned embedded candidate without committing other selected packages", async fault => {
+    const { host, repository, transfer } = setup();
+    const pkg = await makePackage("a", "1.0.0");
+    await repository.configureEmbedded([{
+      manifest: pkg.manifest, packageId: "a/hero", readJson: async () => ({}),
+      resolveAsset: async () => ({ url: "/embedded/example" }), async *files() {}
+    }]);
+    const before = await repository.listPackages();
+    const session = await transfer.stage(file(zipSync({ "a.hocpkg": pkg.bytes, "b.hocpkg": (await makePackage("b", "1.0.0")).bytes }), "batch.zip"));
+    const path = `content/v1/imports/${session.id}/candidates/0000/files/resources/content.json`;
+    if (fault === "tamper") {
+      const bytes = (await host.fileSystem.read(path))!; bytes[bytes.length - 2] ^= 1;
+      await host.fileSystem.write(path, bytes);
+    }
+    const abort = new AbortController();
+    await expect(transfer.installSelected(session.id, ["0000", "0001"], undefined, { signal: abort.signal }, undefined,
+      async () => { if (fault === "cancel") abort.abort(new Error("cancelled")); return true; })).rejects.toThrow(fault === "tamper" ? "摘要不符" : "cancelled");
+    expect(await repository.listPackages()).toEqual(before);
+    expect((await transfer.listSessions())[0]?.candidates).toHaveLength(2);
+    expect(await host.fileSystem.list("content/v1/revisions")).toEqual([]);
+  });
+
   it("reads known sessions directly and reuses one session read for a batch", async () => {
     const { host, repository, transfer } = setup();
     const session = await transfer.stage(file(zipSync({
@@ -62,14 +185,14 @@ describe("hocpkg transfer", () => {
     const read = vi.spyOn(host.fileSystem, "read");
     await transfer.preview(session.id, "0000");
     expect(list).not.toHaveBeenCalled();
-    expect(directories).not.toHaveBeenCalled();
+    expect(directories.mock.calls.some(([path]) => path.startsWith("content/v1/imports"))).toBe(false);
     read.mockClear();
     await transfer.installSelected(session.id, ["0000", "0001"]);
     expect(read.mock.calls.filter(([path]) => path.endsWith("/session.json"))).toEqual([
       [`content/v1/imports/${session.id}/session.json`]
     ]);
     expect(list.mock.calls.some(([path]) => path === "content/v1/imports")).toBe(false);
-    expect(directories).not.toHaveBeenCalled();
+    expect(directories.mock.calls.some(([path]) => path.startsWith("content/v1/imports"))).toBe(false);
     await repository.verifyPackage("a/hero");
     await repository.verifyPackage("b/hero");
   });

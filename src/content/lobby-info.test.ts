@@ -2,29 +2,21 @@ import { describe, expect, it } from "vitest";
 import { LOBBY_INFO_PAGES, LOBBY_INFO_URLS } from "./lobby-info";
 
 describe("lobby information pages", () => {
-  it("defines three independent pages", () => {
-    expect(LOBBY_INFO_PAGES.map((page) => page.id)).toEqual(["about", "community", "credits"]);
+  it("defines a single about page", () => {
+    expect(LOBBY_INFO_PAGES.map((page) => page.id)).toEqual(["about"]);
   });
 
-  it("keeps every external destination as an HTTPS URL object", () => {
-    for (const url of Object.values(LOBBY_INFO_URLS)) {
-      expect(url).toBeInstanceOf(URL);
-      expect(url.protocol).toBe("https:");
-      expect(url.hostname).toBe("www.pixiv.net");
-    }
+  it("uses the public release repository as the sole external destination", () => {
+    expect(Object.values(LOBBY_INFO_URLS)).toHaveLength(1);
+    expect(LOBBY_INFO_URLS.releaseRepository).toBeInstanceOf(URL);
+    expect(LOBBY_INFO_URLS.releaseRepository.href).toBe("https://github.com/wetmzl/HoC-Core");
   });
 
-  it("includes the supplied copy and link destinations", () => {
-    expect(LOBBY_INFO_PAGES.find((page) => page.id === "about")?.content).toContain("由爱好者维护的免费、非商业游戏项目");
-    expect(LOBBY_INFO_PAGES.find((page) => page.id === "community")?.content).toContain("如有问题或建议，可通过下方联系方式反馈。");
-    const credits = LOBBY_INFO_PAGES.find((page) => page.id === "credits")?.content;
-    expect(credits).toContain("感谢所有参与角色写作、测试、校对的每一位贡献者");
-    expect(credits).toContain("谢谢你们让HoC项目继续运转！");
-  });
-
-  it("does not publish the withdrawn QQ group", () => {
-    const community = LOBBY_INFO_PAGES.find((page) => page.id === "community")?.content;
-    expect(community).not.toContain("玩家交流 / 测试群");
-    expect(Object.keys(LOBBY_INFO_URLS)).not.toContain("playerGroup");
+  it("keeps the release link and source availability obligation after the selected copy", () => {
+    const content = LOBBY_INFO_PAGES[0].content;
+    expect(content).toContain('href="https://github.com/wetmzl/HoC-Core" target="_blank" rel="noopener noreferrer"');
+    expect(content).toContain("提供源代码是本项目的义务。");
+    expect(content).toContain("各发布版本的对应源代码可在上述仓库获取。");
+    expect(content.match(/<a /g)).toHaveLength(1);
   });
 });

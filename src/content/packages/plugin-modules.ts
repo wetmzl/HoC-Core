@@ -13,7 +13,7 @@ import { HocpkgPortablePathSchema } from "./schema";
 import type { HocpkgResourceHandler } from "./resources";
 import type { PluginHostApi, PluginModule, PluginRegistration } from "./plugin-contracts";
 
-import { validatePluginUiActions } from "./plugin-ui";
+import { validatePluginMainMenuQuote, validatePluginUiActions } from "./plugin-ui";
 import { bindPluginTutorialIdentity } from "./plugin-tutorials";
 
 export { PluginModuleResourceSchema } from "./plugin-declarations";
@@ -148,15 +148,16 @@ export async function loadPluginModules(source: ContentSource, settings = new Pl
               const runtime = registration.createRuntime(extensions);
               if (runtime.presentDialogue && descriptor.apiVersion < 9) throw new Error("对白表现回调必须使用 API 9");
               const uiActions = validatePluginUiActions(runtime.uiActions, descriptor.apiVersion);
+              const mainMenuQuote = validatePluginMainMenuQuote(runtime.mainMenuQuote, descriptor.apiVersion);
               if (descriptor.apiVersion < 6 && (runtime.mountRuntime || runtime.initialAbilities)) throw new Error("运行时扩展必须使用 API 6");
               if (runtime.dialogueSource) throw new Error("对白来源必须由宿主绑定包身份");
-              return bindPluginTutorialIdentity({ ...runtime, uiActions, dialogueSource: registration.mountDialogueSource ? {
+              return bindPluginTutorialIdentity({ ...runtime, uiActions, mainMenuQuote, dialogueSource: registration.mountDialogueSource ? {
                 packageId: access.packageId, declaration: payload.presentationState!, signal: lifetime.signal,
                 mount(context, signal) {
                   if (lifetime.signal.aborted) return;
                   return registration.mountDialogueSource!(context, AbortSignal.any([signal, lifetime.signal]));
                 }
-              } : undefined }, { packageId: access.packageId, apiVersion: descriptor.apiVersion });
+              } : undefined }, { packageId: access.packageId, apiVersion: descriptor.apiVersion, signal: lifetime.signal });
             }
           } });
           activated.add(`${access.packageId}#${descriptor.id}`);

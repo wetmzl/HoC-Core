@@ -1,3 +1,4 @@
+import { openUiDialog, closeUiDialog } from "./dialog-motion";
 import { loadCharacter, type CharacterDefinition } from "../content/characters";
 import type { AbilityBinding } from "../core/abilities/types";
 import type { RematchSkill } from "../content/characters/rematches";
@@ -54,9 +55,9 @@ export class ProfileController {
         };
       };
       render();
-      dialog.querySelector<HTMLButtonElement>("[data-close]")!.onclick = () => { this.invalidate(); dialog.close(); };
+      dialog.querySelector<HTMLButtonElement>("[data-close]")!.onclick = () => { this.invalidate(); void closeUiDialog(dialog); };
       dialog.oncancel = () => this.invalidate();
-      dialog.showModal();
+      openUiDialog(dialog);
       dialog.scrollTop = 0;
     } catch (error) { if (request === this.request && isCurrent()) this.deps.report(error); }
   };

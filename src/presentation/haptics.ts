@@ -1,4 +1,6 @@
 import type { MatchTransition } from "../runtime/match-transition";
+import type { MatchFactBatch } from "../core/events";
+import type { GameEvent } from "../core/match/types";
 
 import { haptics, type HapticsApi } from "./haptic-service";
 
@@ -21,10 +23,22 @@ export function presentInteractionHaptic(
 
 /** Best-effort Android feedback; unsupported browsers simply do nothing. */
 export function presentMatchHapticsTransition(
-  { events }: MatchTransition,
+  { events }: Pick<MatchTransition, "before" | "after" | "events">,
   enabled: boolean,
   target: HapticsApi = haptics
 ): void {
+  presentEventHaptics(events, enabled, target);
+}
+
+export function presentMatchHapticsFacts(
+  { facts }: MatchFactBatch,
+  enabled: boolean,
+  target: HapticsApi = haptics
+): void {
+  presentEventHaptics(facts.map(fact => fact.event), enabled, target);
+}
+
+function presentEventHaptics(events: readonly GameEvent[], enabled: boolean, target: HapticsApi): void {
   if (!enabled) return;
   if (events.some((event) => event.type === "ROUND_RESULT_ACKNOWLEDGED")) {
     void target.play([CONFIRM_PATTERN]);

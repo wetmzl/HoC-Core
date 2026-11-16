@@ -1,3 +1,4 @@
+import { captureMatchRuleWindows, recordMatchRuleWindows, withoutRuleWindowCapture } from "../events/rule-windows";
 import { publicHandCardIds } from "./card-visibility";
 import { carryPlayerSkills, type PlayerSkillCarryover } from "../abilities/carryover";
 import { configureIntrinsicAbility, reconcileIntrinsicAbilities, removeIntrinsicAbilities } from "../intrinsic-abilities";
@@ -16,7 +17,8 @@ import { getRoundStarter } from "../blackjack/round";
 import { advanceRoundAbilityTtls, createAbilityRuntime, addAbilityInstance, clearCounters, clearEventCounters, expireOwnerActionStatuses, expireStatuses, garbageCollectAbilityInstances, isAbilityInstanceExpired } from "../abilities/runtime";
 import { getAbilityDefinition, instantiateAbility, supportsAbilitySourceKind, validateAbilityBinding } from "../abilities/registry";
 import { canPlayAbility, isActionBlockedByStatus, playAbility, resolveAbilityEvent, AbilityResolutionError } from "../abilities/engine";
-import type { AbilityBinding, AbilityEventContext, AbilityInstance, AbilityWorld, PendingAiThreshold, PendingBustCheck, PendingComparison, PendingDefeat, PendingDraw, PendingLoad, PendingTrigger, PendingTurn, SkillCardInstance } from "../abilities/types";
+import { captureMatchFactRound, captureMatchFactSnapshot, captureVoluntaryStand, withoutMatchFactEvidence, captureMatchHitResolution } from "../events/production";
+import type { AbilityBinding, AbilityEventContext, AbilityInstance, AbilityRuntimeState, AbilityWorld, ActionWindow, PendingAiThreshold, PendingBustCheck, PendingComparison, PendingDefeat, PendingDraw, PendingLoad, PendingTrigger, PendingTurn, SkillCardInstance } from "../abilities/types";
 import type { Action, Actor, GameEvent, MatchOutcome, MatchState, ParticipantState, RoundOutcome, RoundPhase, RoundState } from "./types";
 import { DEFAULT_AI_PROFILE, type AiProfile } from "../ai/types";
 
@@ -60,7 +62,13 @@ function normalizeSelectedSkillTags(tags: readonly SkillTag[] | undefined): Skil
 }
 function playerSkillState(state: MatchState, patch: Partial<MatchState["playerSkills"]> = {}): MatchState["playerSkills"] { return { ...state.playerSkills, ...patch }; }
 function participant(id: Actor, cards: readonly Card[]): ParticipantState { return { id, hand: createHand(cards), stood: false, busted: false }; }
-function append(state: MatchState, ...events: readonly GameEvent[]): MatchState { return events.length === 0 ? state : { ...state, history: [...state.history, ...events] }; }
+function append(state: MatchState, ...events: readonly GameEvent[]): MatchState {
+  captureMatchFactRound(events, state.roundIndex);
+  const observed = events.filter(event => ["ROUND_RESOLVED", "PLAYER_HIT", "OPPONENT_HIT", "SKILL_DRAW_RESOLVED", "MATCH_FINISHED"].includes(event.type));
+  if (observed.length) captureMatchFactSnapshot(observed, { world: abilityWorld(state), busted: { player: state.player.busted, opponent: state.opponent.busted },
+    bustLimits: { player: state.player.bustLimit ?? getActiveBustLimit(state, "player"), opponent: state.opponent.bustLimit ?? getActiveBustLimit(state, "opponent") }, ...(state.outcome ? { outcome: state.outcome } : {}) });
+  return events.length === 0 ? state : { ...state, history: [...state.history, ...events] };
+}
 function makeRound(index: number, shoe: MatchState["shoe"], deckRng: SeededRng) {
   const deal = dealInitialHands(reshuffleIfLow(shoe, deckRng, 12));
   return { player: participant("player", deal.player), opponent: participant("opponent", deal.opponent), shoe: deal.shoe, starter: getRoundStarter(index), deckRng, events: [
@@ -148,6 +156,10 @@ export interface PendingTriggerPreview {
 /** Resolves the pending trigger against a discarded copy so the waiting UI can
  * present deterministic modifiers without consuming TTL, counters or RNG. */
 export function previewPendingTrigger(state: MatchState): PendingTriggerPreview | null {
+  return withoutRuleWindowCapture(() => previewPendingTriggerProjection(state));
+}
+
+function previewPendingTriggerProjection(state: MatchState): PendingTriggerPreview | null {
   if (state.round.phase !== "round-reveal" && state.round.phase !== "roulette-reaction" && state.round.phase !== "roulette-trigger") return null;
   const actor = state.round.outcome?.penaltyTarget;
   if (!actor) return null;
@@ -189,11 +201,26 @@ function broadcastDrawPileChange(state: MatchState, before: AbilityWorld, source
 function abilityServices(state: MatchState) {
   return {
     roundHitCounts: getRoundHitCounts(state),
-    bustLimitFor: (owner: Actor, world: AbilityWorld) => getActiveBustLimit(commitAbilityWorld(state, world), owner),
-    forecastHitBust: (owner: Actor, world: AbilityWorld) => {
+    actionWindowFor: (owner: Actor, world: AbilityWorld): ActionWindow | undefined => {
+      if (state.playerSkills.drawOffer) return undefined;
+      if (state.round.phase === "roulette-reaction") return state.round.outcome?.penaltyTarget === owner ? "owner-roulette-reaction" : undefined;
+      const projected = { ...state, [owner]: { ...state[owner], stood: world.stood?.[owner] ?? state[owner].stood } };
+      return state.round.phase === "turns" && state.round.currentActor === owner && canReceiveTurn(projected, owner) ? "owner-turn" : undefined;
+    },
+    previewComparison: (world: AbilityWorld, runtime?: AbilityRuntimeState, pendingComparison?: PendingComparison) => withoutMatchFactEvidence(() => withoutRuleWindowCapture(() => {
+      const projected = invalidateBustLimits(commitAbilityWorld({ ...state, abilities: runtime ?? state.abilities }, world), ["player", "opponent"]);
+      const limits = { player: getActiveBustLimit(projected, "player"), opponent: getActiveBustLimit(projected, "opponent") };
+      const busted = {
+        player: projected.player.busted || handValueAtLimit(projected.player.hand, limits.player) > limits.player,
+        opponent: projected.opponent.busted || handValueAtLimit(projected.opponent.hand, limits.opponent) > limits.opponent
+      };
+      return { scores: pendingComparison?.scores ?? previewComparisonScores(projected).scores, busted };
+    })),
+    bustLimitFor: (owner: Actor, world: AbilityWorld, runtime?: AbilityRuntimeState) => getActiveBustLimit(invalidateBustLimits(commitAbilityWorld({ ...state, abilities: runtime ?? state.abilities }, world), ["player", "opponent"]), owner),
+    forecastHitBust: (owner: Actor, world: AbilityWorld, runtime?: AbilityRuntimeState) => {
       const card = world.shoe.cards[world.shoe.cursor];
       if (!card) throw new Error("Draw-pile top card is unavailable");
-      const projected = commitAbilityWorld(state, world);
+      const projected = invalidateBustLimits(commitAbilityWorld({ ...state, abilities: runtime ?? state.abilities }, world), ["player", "opponent"]);
       const limit = getActiveBustLimit(projected, owner);
       return handValueAtLimit(addCard(world.hands[owner], card), limit) > limit;
     }
@@ -208,8 +235,9 @@ function roundHadBust(state: MatchState): boolean {
 }
 function runAbilityEvent(state: MatchState, event: AbilityEventContext, pending: { turn?: PendingTurn; aiThreshold?: PendingAiThreshold; draw?: PendingDraw; load?: PendingLoad; bust?: PendingBustCheck; trigger?: PendingTrigger; defeat?: PendingDefeat; comparison?: PendingComparison; owners?: readonly Actor[] } = {}, directInstanceId?: string): { readonly state: MatchState; readonly pendingTurn?: PendingTurn; readonly pendingAiThreshold?: PendingAiThreshold; readonly pendingDraw?: PendingDraw; readonly pendingLoad?: PendingLoad; readonly pendingBust?: PendingBustCheck; readonly pendingTrigger?: PendingTrigger; readonly pendingDefeat?: PendingDefeat; readonly pendingComparison?: PendingComparison; readonly failed: boolean } {
   try {
-    const result = resolveAbilityEvent({ world: abilityWorld(state), runtime: state.abilities, event: { ...event, lastHitCardIds: lastHitCardIds(state), roundHadBust: roundHadBust(state) }, pendingTurn: pending.turn, pendingAiThreshold: pending.aiThreshold, pendingDraw: pending.draw, pendingLoad: pending.load, pendingBust: pending.bust, pendingTrigger: pending.trigger, pendingDefeat: pending.defeat, pendingComparison: pending.comparison, owners: pending.owners, directInstanceId, ...abilityServices(state) });
+    const result = resolveAbilityEvent({ world: abilityWorld(state), runtime: state.abilities, event: { ...event, roundHitCounts: event.roundHitCounts ?? getRoundHitCounts(state), lastHitCardIds: lastHitCardIds(state), roundHadBust: roundHadBust(state) }, pendingTurn: pending.turn, pendingAiThreshold: pending.aiThreshold, pendingDraw: pending.draw, pendingLoad: pending.load, pendingBust: pending.bust, pendingTrigger: pending.trigger, pendingDefeat: pending.defeat, pendingComparison: pending.comparison, owners: pending.owners, directInstanceId, ...abilityServices(state) });
     let next = commitAbilityWorld(state, result.world);
+    recordMatchRuleWindows(state, result, next.history.length - state.history.length);
     // Effects that grant Player Skill cards create their runtime instance in
     // the same transaction. Only legacy/newly-created card projections that
     // are not already represented by the resolver need instantiation here.
@@ -292,6 +320,10 @@ function comparisonScores(state: MatchState) {
 /** Dry-runs the normal comparison window so the table can project score
  * modifiers during play without consuming ability state or randomness. */
 export function previewComparisonScores(state: MatchState): ComparisonScorePreview {
+  return withoutRuleWindowCapture(() => previewComparisonScoresProjection(state));
+}
+
+function previewComparisonScoresProjection(state: MatchState): ComparisonScorePreview {
   const baseScores = comparisonBaseScores(state);
   const finalScores = state.round.outcome?.comparisonScores;
   if (finalScores) return { baseScores, scores: finalScores };
@@ -402,9 +434,9 @@ function canTakeAction(state: MatchState, actor: Actor, action: "hit" | "stand")
     && (action !== "hit" || (!state[actor].stood && shoeRemaining(state.shoe) > 0))
     && !isActionBlockedByStatus(abilityWorld(state), actor, action);
   if (!available) return false;
-  if (action === "hit" && actor === "player") {
+  if (action === "hit") {
     const limit = getActiveBustLimit(state, actor);
-    return handValueAtLimit(state.player.hand, limit) <= 3 * limit;
+    return handValueAtLimit(state[actor].hand, limit) <= 3 * limit;
   }
   return true;
 }
@@ -457,7 +489,9 @@ function standFor(state: MatchState, actor: Actor): MatchState {
   if (!canTakeAction(state, actor, "stand")) return state;
   state = normalizeAbilityHands(state);
   if (state[actor].stood) return continueTurns(expireOwnerActionLifecycle(state, actor), actor === "player" ? "opponent" : "player");
-  let next = append(withRound(state, { ...state.round, [actor]: { ...state[actor], stood: true } } as RoundState), { type: actor === "player" ? "PLAYER_STOOD" : "OPPONENT_STOOD" });
+  const stoodEvent: GameEvent = { type: actor === "player" ? "PLAYER_STOOD" : "OPPONENT_STOOD" };
+  captureVoluntaryStand(stoodEvent);
+  let next = append(withRound(state, { ...state.round, [actor]: { ...state[actor], stood: true } } as RoundState), stoodEvent);
   next = runAbilityEvent(next, { trigger: "after-stand", sourceEventId: `stand:${state.roundIndex}:${state.history.length}`, eventActor: actor, roundHitCounts: getRoundHitCounts(next) }, {}).state;
   next = expireOwnerActionLifecycle(next, actor);
   const other = actor === "player" ? "opponent" : "player";
@@ -662,6 +696,10 @@ export function normalizeAbilityHands(state: MatchState): MatchState {
 /** Resolves the limit that would apply to an actor's next bust check without
  * committing ability events, counters, TTL or RNG changes to match state. */
 export function getActiveBustLimit(state: MatchState, actor: Actor): number {
+  return withoutMatchFactEvidence(() => withoutRuleWindowCapture(() => getActiveBustLimitProjection(state, actor)));
+}
+
+function getActiveBustLimitProjection(state: MatchState, actor: Actor): number {
   const pendingBust: PendingBustCheck = { id: `bust-preview:${state.roundIndex}:${actor}`, actor, limit: 21 };
   const preview = runAbilityEvent(state, {
     trigger: "before-bust-check",
@@ -682,9 +720,13 @@ function play(state: MatchState, instanceId: string): MatchState {
   if (!canPlayAbility(input)) return state;
   try {
     const result = playAbility(input);
-    if (result.triggered.length === 0) return { ...state, abilities: result.runtime };
+    if (result.triggered.length === 0) {
+      recordMatchRuleWindows(state, result);
+      return { ...state, abilities: result.runtime };
+    }
     const handChanges = changedHandActors(input.world, result.world);
     let next = commitAbilityWorld(state, result.world);
+    recordMatchRuleWindows(state, result, next.history.length - state.history.length);
     next = invalidateBustLimits(next, handChanges);
     next = { ...next, abilities: clearEventCounters({ ...result.runtime, statuses: result.world.statuses }, `ability:${instanceId}`) };
     next = { ...next, abilities: garbageCollectAbilityInstances(next.abilities, next.playerSkills.cards) };
@@ -798,6 +840,10 @@ function initializePlayerSkillCards(state: MatchState, bindings: readonly Abilit
 }
 
 export function createMatch(seed: string, options: CreateMatchOptions = {}): MatchState {
+  return captureMatchRuleWindows(undefined, () => createMatchState(seed, options));
+}
+
+function createMatchState(seed: string, options: CreateMatchOptions = {}): MatchState {
   for (const value of [options.initialSkillDraws, options.openingSkillCards])
     if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) throw new RangeError("Invalid initial skill resource count");
   if (options.playerCarryover && options.initialPlayerSkills) throw new RangeError("Cannot replace and inherit Player Skills together");
@@ -837,6 +883,10 @@ export function createMatch(seed: string, options: CreateMatchOptions = {}): Mat
 
 /** Reconcile optional automatic abilities before resuming a saved match. */
 export function reconcileMatchAbilities(state: MatchState, bindings: readonly AbilityBinding[]): MatchState {
+  return captureMatchRuleWindows(state, () => reconcileMatchAbilitiesState(state, bindings));
+}
+
+function reconcileMatchAbilitiesState(state: MatchState, bindings: readonly AbilityBinding[]): MatchState {
   const next = reconcileIntrinsicAbilities(state, state.status === "active" ? bindings : []);
   return next !== state && next.status === "active" && next.round.phase === "turns"
     ? normalizeAbilityHands(next) : next;
@@ -865,6 +915,16 @@ export function getLegalActions(state: MatchState): Action[] {
 }
 
 export function gameReducer(state: MatchState, action: Action): MatchState {
+  const after = captureMatchRuleWindows(state, () => gameReducerState(state, action));
+  const events = after.history.slice(state.history.length);
+  if (events.some(event => event.type === "PLAYER_HIT" || event.type === "OPPONENT_HIT"))
+    captureMatchHitResolution(events, { world: abilityWorld(after), busted: { player: after.player.busted, opponent: after.opponent.busted },
+      bustLimits: { player: after.player.bustLimit ?? getActiveBustLimit(after, "player"), opponent: after.opponent.bustLimit ?? getActiveBustLimit(after, "opponent") },
+      ...(after.outcome ? { outcome: after.outcome } : {}) });
+  return after;
+}
+
+function gameReducerState(state: MatchState, action: Action): MatchState {
   if (action.type === "CONFIGURE_INTRINSIC_ABILITY" || action.type === "INVOKE_INTRINSIC_ABILITY") {
     if (state.status !== "active" || state.scene !== "match" || state.view !== "table") return state;
     let next: MatchState;

@@ -1,6 +1,8 @@
+import { skipStory } from "./story-platform-fixture";
 import { expectSkillSheet } from "./skill-sheet-assertions";
 import { expect, test } from '@playwright/test';
 import builtinIndex from '../../public/characters/packages.json' with { type: 'json' };
+import { readFileSync } from 'node:fs';
 
 test('Core starts with the indexed built-in packages and keeps the adult confirmation', async ({ page }, testInfo) => {
   await page.goto('/');
@@ -16,11 +18,13 @@ test('Core starts with the indexed built-in packages and keeps the adult confirm
     const packageId = await card.getAttribute('data-package-id');
     await card.getByRole('button', { name: '详情', exact: true }).click();
     await expect(card.locator('.package-details dt').first()).toHaveText('许可证');
-    await expect(card.locator('.package-details dd').first()).toHaveText(packageId?.includes('official-built-in-') || packageId === 'hoc-core/official-factions' ? 'CC0' : ['hoc-core/character-tap', 'hoc-core/debug-engine'].includes(packageId ?? '') ? 'GPL-3.0-only AND CC-BY-NC-SA-4.0' : 'CC-BY-NC-SA 4.0');
+    const entry = builtinIndex.packages.find(entry => entry.packageId === packageId)!;
+    const manifest = JSON.parse(readFileSync(new URL(`../../public/characters/${entry.manifest}`, import.meta.url), 'utf8'));
+    await expect(card.locator('.package-details dd').first()).toHaveText(manifest.metadata.license);
   }
-  for (const packageId of ['hoc-core/official-built-in-talents', 'hoc-core/official-built-in-skills', 'hoc-core/character-tap', 'hoc-core/debug-engine']) {
+  for (const packageId of ['hoc-core/official-built-in-achievements', 'hoc-core/official-built-in-talents', 'hoc-core/official-built-in-skills', 'hoc-core/character-tap', 'hoc-core/debug-engine']) {
     const cover = page.locator(`.package-card[data-package-id="${packageId}"] [data-package-cover]`);
-    await expect(cover).toHaveAttribute('src', /^blob:/);
+    await expect(cover).toHaveAttribute('src', `/characters/${packageId.split('/')[1]}/cover.png`);
     await expect.poll(() => cover.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(512);
   }
   await page.screenshot({ path: testInfo.outputPath("official-plugin-covers-390.png") });
@@ -62,7 +66,10 @@ async function waitForInitialDeal(page: import('@playwright/test').Page): Promis
   await expect(page.locator('.skill-draw-modal')).toHaveCount(0);
 }
 
-test("四个普通 HoC art 角色可直接选择并逐个启动", async ({ page }, testInfo) => {
+test("四个已解锁的普通 HoC art 角色可选择并逐个启动", async ({ page }, testInfo) => {
+  await page.addLocatorHandler(page.locator('#tutorial-popover'), async tutorial => {
+    await tutorial.getByRole('button', { name: '跳过', exact: true }).click();
+  }, { noWaitAfter: true });
   test.setTimeout(120_000);
   const characters = [
     { id: "chatgpt", name: "ChatGPT", tier: "S" },
@@ -72,16 +79,18 @@ test("四个普通 HoC art 角色可直接选择并逐个启动", async ({ page 
   ] as const;
   const states = ["relaxed", "conflicted", "mocking", "threatened", "unconscious-reclined"] as const;
   await page.goto("/");
+  await unlockChatGPT(page);
   await page.getByRole("button", { name: "开始游戏", exact: true }).click();
   await page.locator("#adult-content-warning").getByRole("button", { name: "我已成年并继续" }).click();
   await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
   for (const [index, character] of characters.entries()) {
+    const characterFile = JSON.parse(readFileSync(new URL(`../../public/characters/${character.id}/resources/character-match.json`, import.meta.url), 'utf8'));
     await enterCharacterSelection(page);
     await ensureGuestCandidate(page, character.id);
     const card = page.locator(`[data-character-id='${character.id}']`);
     await expect(card).toContainText(`${character.name}`);
     await expect(card.locator(".eyebrow")).toContainText(`${character.tier}级`);
-    await expect(card.locator(".character-copy")).toContainText(character.id === "deepseek" ? "可恶，是偷吃token的大肥鱼！" : character.id === "gemini" ? "曾经被誉为最通人性的前端之神的哈吉米" : character.id === "chatgpt" ? "一条永远板着扑克脸、对你的要求有求必应的白色龙娘。" : character.id === "llama" ? "软乎乎的白色羊驼女孩" : "来自 Anthropic 家的高岭之花");
+    await expect(card.locator(".character-copy")).toContainText(characterFile.metadata.subtitle);
     if (index === 0 || character.id === "llama") {
       await card.screenshot({ path: testInfo.outputPath(`${character.id}-selection-390.png`) });
       await page.setViewportSize({ width: 320, height: 720 });
@@ -108,7 +117,7 @@ test("四个普通 HoC art 角色可直接选择并逐个启动", async ({ page 
       await expect(page.locator("#profile")).toContainText("减半额度，给用户发一次全量重置，就能让他们感恩戴德。");
     }
     if (character.id === "llama") {
-      await expect(page.locator("#profile")).toContainText("Llama 是你不知道从哪个仓库里捡回来的白色羊驼女孩。");
+      await expect(page.locator("#profile")).toContainText(characterFile.definition.profile.description);
       await expect(page.locator("#profile")).not.toContainText("占位");
       await page.setViewportSize({ width: 320, height: 720 });
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
@@ -116,7 +125,7 @@ test("四个普通 HoC art 角色可直接选择并逐个启动", async ({ page 
       await page.setViewportSize({ width: 390, height: 844 });
     }
     if (character.id === "gemini") {
-      await expect(page.locator("#profile")).toContainText("Gemini 是你免费捡来的小猫。");
+      await expect(page.locator("#profile")).toContainText(characterFile.definition.profile.description);
       await expect(page.locator("#profile")).not.toContainText("占位");
       await page.setViewportSize({ width: 320, height: 720 });
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
@@ -129,7 +138,7 @@ test("四个普通 HoC art 角色可直接选择并逐个启动", async ({ page 
     await expect(page.locator("main.table-shell")).toBeVisible({ timeout: 8_000 });
     await waitForInitialDeal(page);
     await expect(page.locator(".opponent-hand .hand-label")).toContainText(character.name);
-    await expect(page.locator("img.character-portrait")).toHaveAttribute("src", /^blob:/);
+    await expect(page.locator("img.character-portrait")).toHaveAttribute("src", new RegExp(`^/characters/${character.id}/`));
     const decoded = await page.evaluate(async ({ id, states: stateNames }) => {
       const images = await Promise.all(stateNames.map(async (state) => {
         const image = new Image();
@@ -150,7 +159,7 @@ test("四个普通 HoC art 角色可直接选择并逐个启动", async ({ page 
     await page.getByRole("button", { name: "离开牌桌" }).click();
     await expect(page.locator("main.summary-shell")).toBeVisible();
     if (character.id === "llama") {
-      await expect(page.locator("main.summary-shell")).toContainText("反正牌桌状态随时都可以重新初始化。");
+      await expect(page.locator("main.summary-shell")).toContainText(characterFile.definition.matchSummary.escaped);
     }
     await page.getByRole("button", { name: "返回大厅" }).click();
     await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
@@ -165,6 +174,7 @@ test('Core finishes a complete ChatGPT match and records its result', async ({ p
       nativeSetTimeout(handler, typeof timeout === 'number' && timeout >= 2_000 ? 25 : timeout, ...args)) as typeof window.setTimeout;
   });
   await page.goto('/');
+  await unlockChatGPT(page);
   await page.getByRole('button', { name: '开始游戏', exact: true }).click();
   await page.locator('#adult-content-warning').getByRole('button', { name: '我已成年并继续' }).click();
   await enterCharacterSelection(page);
@@ -248,4 +258,18 @@ test("退出保存失败后保留大厅、允许重试并能重新启动", async
   await expect(page.locator("main.launcher-shell")).toBeVisible();
   await page.getByRole("button", { name: "开始游戏", exact: true }).click();
   await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
+});
+
+async function unlockChatGPT(page: import('@playwright/test').Page): Promise<void> {
+  await expect(page.locator('[data-start-game]')).toBeEnabled();
+  await page.evaluate(async () => {
+    const load = (path: string): Promise<any> => import(/* @vite-ignore */ path);
+    const save = (await load('/src/persistence/boot.ts')).createDefaultSave();
+    save.defeats = ['llama', 'deepseek', 'chatgpt'].map(opponentId => ({ opponentId, timestamp: new Date().toISOString() }));
+    await (await load('/src/persistence/factory.ts')).createPersistenceService().saveLongTerm(save);
+  });
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.addLocatorHandler(page.locator("[data-story-player]"), async () => { await skipStory(page); });
 });

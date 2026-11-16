@@ -1,4 +1,4 @@
-import type { HocpkgManifest, HocpkgResourceDescriptor } from "./schema";
+import { HocpkgManifestSchema, type HocpkgManifest, type HocpkgResourceDescriptor } from "./schema";
 import type { HocpkgResourceHandler } from "./resources";
 import { assertContentJsonBudget } from "./json-budget";
 import { assertPresentationReferencesAllowed, createPresentationResolver, type CharacterPresentation, type PresentationContext } from "./character-presentation";
@@ -12,6 +12,7 @@ export interface HocpkgResourceResult {
   readonly reason?: HocpkgResourceReason;
   readonly value?: unknown;
   readonly error?: string;
+  readonly supportedApiVersions?: readonly number[];
   readonly presentation?: PresentationContext;
 }
 
@@ -42,6 +43,7 @@ export async function loadHocpkgResources(
   manifest: HocpkgManifest,
   options: LoadHocpkgResourcesOptions
 ): Promise<readonly HocpkgResourceResult[]> {
+  HocpkgManifestSchema.parse(manifest);
   const handlers = new Map(options.handlers.map((handler) => [handler.type, handler]));
   const descriptors = new Map(manifest.resources.map((descriptor) => [descriptor.id, descriptor]));
   const results = new Map<string, HocpkgResourceResult>();
@@ -63,7 +65,9 @@ export async function loadHocpkgResources(
       return dormant;
     }
     if (!handler.apiVersions.includes(descriptor.apiVersion)) {
-      const dormant: HocpkgResourceResult = { descriptor, state: "dormant", reason: "api-version-unsupported", error: descriptor.type === "game.character-dialogue" ? "对白资源需要兼容的 API 2 或 3，请重新打包并导入角色包。" : undefined };
+      const dormant: HocpkgResourceResult = { descriptor, state: "dormant", reason: "api-version-unsupported",
+        supportedApiVersions: handler.apiVersions,
+        error: `资源接口版本不兼容：${descriptor.type} 使用 API ${descriptor.apiVersion}，当前支持 API ${handler.apiVersions.join("、")}。` };
       results.set(descriptor.id, dormant);
       return dormant;
     }

@@ -1,8 +1,11 @@
+import { registerBackHandler } from "../platform/back-navigation";
 import "./tutorial.css";
-import { ADULT_CONTENT_WARNING_ID, completeTutorial, firstTutorialForCue, type TutorialCue, type TutorialResource } from "../tutorials/tutorials";
-import { pluginTutorialProgressId, validatePluginTutorialDefinition, type PluginTutorialApi, type PluginTutorialDefinition } from "../content/packages/plugin-tutorials";
+import { ADULT_CONTENT_WARNING_ID, completeTutorial } from "../tutorials/tutorials";
+import { pluginTutorialProgressId, validatePluginTutorialDefinition, type PluginTutorialApi, type PluginTutorialDefinition, type PluginTutorialResource } from "../content/packages/plugin-tutorials";
 import { TUTORIAL_AUTO_SKIP_MS, TUTORIAL_DISMISS_MS, escapeHtml } from "./view-helpers";
+import { isTutorialContextVisible } from "./tutorial-context";
 export interface TutorialControllerDependencies {
+    readonly isPresentationBlocked?: () => boolean;
     save: import("../persistence/schema").LongTermSave;
     root: HTMLDivElement;
     repository: import("../persistence/save-service").PersistenceService;
@@ -11,17 +14,26 @@ export interface TutorialControllerDependencies {
     pauseAutoActions?: () => () => void;
     flushPendingSaveWrites?: () => Promise<void>;
 }
+/** Presentation-only guards; never mutate gameplay or consume randomness. */
+export interface TutorialOfferOptions {
+    readonly isRelevant?: () => boolean;
+    readonly getContainer?: () => HTMLElement | null;
+    readonly signal?: AbortSignal;
+}
 interface TutorialRequest {
     readonly definition: PluginTutorialDefinition;
     readonly progressId: string;
     readonly replay: boolean;
     readonly release: () => void;
+    readonly options?: TutorialOfferOptions;
 }
 export class TutorialController {
+    private modalObserver?: MutationObserver;
     private disposed = false;
     private ready = false;
     private queue: TutorialRequest[] = [];
     private surface: HTMLElement | null = null;
+    private releaseBack?: () => void;
     private releasePause?: () => void;
     private returnFocus?: HTMLElement;
     private saving = false;
@@ -30,12 +42,18 @@ export class TutorialController {
     private finishAcknowledgement?: () => void;
     dispose = (): void => {
         this.disposed = true;
+        this.modalObserver?.disconnect();
         this.clearRequests();
         this.finishAcknowledgement?.();
         this.finishAcknowledgement = undefined;
         document.querySelector(".adult-content-warning-backdrop")?.remove();
     };
-    constructor(private readonly deps: TutorialControllerDependencies) { }
+    constructor(private readonly deps: TutorialControllerDependencies) {
+        if (typeof MutationObserver !== "undefined" && document.body) {
+            this.modalObserver = new MutationObserver(() => this.refreshTutorials());
+            this.modalObserver.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["open"] });
+        }
+    }
     activeTutorial: {
         readonly request: TutorialRequest;
         readonly definition: PluginTutorialDefinition;
@@ -95,11 +113,23 @@ export class TutorialController {
             if (this.disposed || lifetime.aborted || options.signal?.aborted) return () => {};
             const definition = validatePluginTutorialDefinition(input);
             const progressId = pluginTutorialProgressId(packageId, definition.id);
-            const signal = options.signal ? AbortSignal.any([lifetime, options.signal]) : lifetime;
-            return this.enqueue(definition, progressId, options.replay === true, signal);
+            let signal = options.signal ? AbortSignal.any([lifetime, options.signal]) : lifetime;
+            const ownModal = this.surface?.tagName === "DIALOG" ? this.surface as HTMLDialogElement : undefined;
+            const dialog = definition.presentation !== "modal"
+                ? [...document.querySelectorAll<HTMLDialogElement>("dialog[open]")].find(dialog => dialog !== ownModal && isTutorialContextVisible(dialog, ownModal))
+                : undefined;
+            if (!dialog) return this.enqueue(definition, progressId, options.replay === true, signal);
+            const scope = new AbortController();
+            signal = AbortSignal.any([signal, scope.signal]);
+            dialog.addEventListener("close", () => scope.abort(), { once: true, signal });
+            const cancel = this.enqueue(definition, progressId, options.replay === true, signal, {
+                signal, getContainer: () => dialog,
+                isRelevant: () => dialog.open && dialog.isConnected
+            });
+            return () => { scope.abort(); cancel(); };
         }
     });
-    private enqueue(definition: PluginTutorialDefinition, progressId: string, replay = false, signal?: AbortSignal): () => void {
+    private enqueue(definition: PluginTutorialDefinition, progressId: string, replay = false, signal?: AbortSignal, options?: TutorialOfferOptions): () => void {
         if (this.disposed || signal?.aborted || this.deps.save.skipTutorial
             || (!replay && this.deps.save.tutorialProgress.completedIds.includes(progressId))
             || this.activeTutorial?.request.progressId === progressId
@@ -114,17 +144,42 @@ export class TutorialController {
             }
             this.showNext();
         };
-        const request: TutorialRequest = { definition, progressId, replay, release: () => signal?.removeEventListener("abort", cancel) };
+        const request: TutorialRequest = { definition, progressId, replay, options, release: () => signal?.removeEventListener("abort", cancel) };
         signal?.addEventListener("abort", cancel, { once: true });
         this.queue.push(request);
         this.showNext();
         return cancel;
     }
+    private isRelevant(request: TutorialRequest): boolean {
+        try {
+            if (request.options?.signal?.aborted || request.options?.isRelevant?.() === false) return false;
+            if (request.options?.getContainer && !request.options.getContainer()?.isConnected) return false;
+            if (request.definition.presentation !== "modal" && !isTutorialContextVisible(request.options?.getContainer?.())) return false;
+            return true;
+        } catch {
+            // An obsolete UI scope must not break the game or consume tutorial progress.
+            return false;
+        }
+    }
+    refreshTutorials = (): void => {
+        this.queue = this.queue.filter(request => {
+            if (this.isRelevant(request)) return true;
+            request.release();
+            return false;
+        });
+        if (this.activeTutorial && (this.deps.save.skipTutorial || !this.isRelevant(this.activeTutorial.request))) {
+            this.activeTutorial.request.release();
+            this.activeTutorial = null;
+            this.clearTutorialSurface();
+        }
+        if (this.activeTutorial && this.surface && !this.surface.isConnected) this.renderTutorialSurface();
+        this.showNext();
+    };
     private showNext(): void {
-        if (this.disposed || !this.ready || this.activeTutorial || this.saving) return;
+        if (this.disposed || !this.ready || this.activeTutorial || this.saving || this.deps.isPresentationBlocked?.()) return;
         while (this.queue.length) {
             const request = this.queue.shift()!;
-            if (this.deps.save.skipTutorial || (!request.replay && this.deps.save.tutorialProgress.completedIds.includes(request.progressId))) {
+            if (!this.isRelevant(request) || this.deps.save.skipTutorial || (!request.replay && this.deps.save.tutorialProgress.completedIds.includes(request.progressId))) {
                 request.release();
                 continue;
             }
@@ -136,7 +191,7 @@ export class TutorialController {
             return;
         }
     }
-    tutorialResourceMarkup = (resource: TutorialResource): string => {
+    tutorialResourceMarkup = (resource: PluginTutorialResource): string => {
         return `<figure class="tutorial-resource"><img src="${escapeHtml(resource.src)}" alt="${escapeHtml(resource.alt)}">${resource.caption ? `<figcaption>${escapeHtml(resource.caption)}</figcaption>` : ""}</figure>`;
     };
     clearTutorialAutoSkip = (): void => {
@@ -147,6 +202,8 @@ export class TutorialController {
     };
     clearTutorialSurface = (finished = true): void => {
         this.clearTutorialAutoSkip();
+        this.releaseBack?.();
+        this.releaseBack = undefined;
         if (this.surface instanceof HTMLDialogElement && this.surface.open) this.surface.close();
         this.surface?.remove();
         this.surface = null;
@@ -197,6 +254,7 @@ export class TutorialController {
     finishActiveTutorial = (): void => {
         const active = this.activeTutorial;
         if (!active || this.saving) return;
+        if (!this.isRelevant(active.request)) { this.refreshTutorials(); return; }
         const { request } = active;
         this.clearTutorialAutoSkip();
         const current = this.deps.autosave?.getSave() ?? this.deps.save;
@@ -252,6 +310,7 @@ export class TutorialController {
     renderTutorialSurface = (): void => {
         this.clearTutorialSurface(false);
         if (!this.activeTutorial) return;
+        if (!this.isRelevant(this.activeTutorial.request)) { this.refreshTutorials(); return; }
         const { definition, pageIndex, autoSkipCancelled, request, error } = this.activeTutorial;
         const page = definition.pages[pageIndex];
         if (!page) return;
@@ -270,7 +329,13 @@ export class TutorialController {
         const resources = page.resources?.map(this.tutorialResourceMarkup).join("") ?? "";
         const disabled = this.saving ? " disabled" : "";
         surface.innerHTML = `<div class="tutorial-heading"><span>教程 · ${pageIndex + 1} / ${definition.pages.length}</span><h2 id="tutorial-title">${escapeHtml(definition.title)}</h2></div><div class="tutorial-content"><p id="tutorial-copy">${escapeHtml(page.body)}</p>${resources ? `<div class="tutorial-resources">${resources}</div>` : ""}</div><div class="tutorial-actions"><button type="button" class="tutorial-skip" data-tutorial-skip${disabled}>跳过</button>${pageIndex > 0 ? `<button type="button" class="tutorial-skip" data-tutorial-previous${disabled}>上一步</button>` : ""}<button type="button" class="tutorial-next" data-tutorial-next${disabled}>${lastPage ? "好的" : "下一步"}</button></div><p class="tutorial-status" role="status">${this.saving ? "正在保存……" : escapeHtml(error ?? "")}</p><span class="tutorial-auto-progress" aria-hidden="true"></span>`;
-        document.body.append(surface);
+        const container = request.options?.getContainer?.() ?? document.body;
+        if (container !== document.body) surface.dataset.container = "dialog";
+        container.append(surface);
+        if (mode !== "modal") this.releaseBack = registerBackHandler({
+            priority: 60, enabled: () => surface.isConnected && this.isRelevant(request),
+            handle: () => this.finishActiveTutorial()
+        });
         if (surface instanceof HTMLDialogElement) {
             this.returnFocus ??= document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
             this.releasePause ??= this.deps.pauseAutoActions?.();
@@ -299,10 +364,5 @@ export class TutorialController {
             else turnPage(pageIndex + 1);
         });
         this.startTutorialAutoSkip(surface);
-    };
-    offerTutorial = (cue: TutorialCue): void => {
-        if (this.disposed) return;
-        const definition = firstTutorialForCue(cue, this.deps.save.tutorialProgress, this.deps.save.skipTutorial);
-        if (definition) this.enqueue(definition, definition.id);
     };
 }

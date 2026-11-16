@@ -22,7 +22,7 @@ async function mount(page: Page, restore = false, talents = true, audioProbe = f
     await (await load("/src/content/packages/content-loader.ts")).bootstrapContent({ fetch: window.fetch.bind(window) });
     const repo = (await load("/src/persistence/factory.ts")).createPersistenceService();
     if (!restore) {
-      const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+      const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
       const { createMatch } = await load("/src/core/match/reducer.ts");
       const { PLAYER_SKILL_DEFINITIONS } = await load("/src/core/skills/definitions.ts");
       const activeIds = PLAYER_SKILL_DEFINITIONS.filter((s: any) => s.category === "active" && s.drop.enabled).map((s: any) => s.id);
@@ -121,7 +121,7 @@ test("官方天赋路线显示四项能力与十人预告", async ({ page }) => 
   await page.goto("/");
   await expect(page.getByRole("button", { name: "开始游戏", exact: true })).toBeEnabled();
   await page.evaluate(async () => {
-    const { createDefaultSave } = await import(/* @vite-ignore */ "/src/persistence/boot.ts");
+    const { createDefaultSave } = await import(/* @vite-ignore */ "/tests/e2e/runtime-fixture.ts");
     const { createPersistenceService } = await import(/* @vite-ignore */ "/src/persistence/factory.ts");
     const save = createDefaultSave(); save.skipTutorial = true; save.settings.reducedMotion = true;
     save.tutorialProgress.completedIds.push("adult-content-warning");

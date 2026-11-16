@@ -1,0 +1,71 @@
+{
+  "format": "house-of-chances-playlist",
+  "formatVersion": 2,
+  "name": "官方播放集",
+  "packages": [
+    {
+      "packageId": "hoc-core/official-built-in-skills",
+      "version": "1.0.11"
+    },
+    {
+      "packageId": "hoc-core/official-built-in-talents",
+      "version": "1.1.2"
+    },
+    {
+      "packageId": "hoc-core/official-built-in-achievements",
+      "version": "1.0.0"
+    },
+    {
+      "packageId": "hoc-core/official-story",
+      "version": "1.6.3"
+    },
+    {
+      "packageId": "hoc-core/chatgpt",
+      "version": "1.0.23"
+    },
+    {
+      "packageId": "hoc-core/claude",
+      "version": "1.4.9"
+    },
+    {
+      "packageId": "hoc-core/gemini",
+      "version": "1.1.21"
+    },
+    {
+      "packageId": "hoc-core/deepseek",
+      "version": "1.1.21"
+    },
+    {
+      "packageId": "hoc-core/llama",
+      "version": "1.0.15"
+    },
+    {
+      "packageId": "hoc-core/character-tap",
+      "version": "1.2.0"
+    },
+    {
+      "packageId": "hoc-core/debug-engine",
+      "version": "1.0.4"
+    },
+    {
+      "packageId": "hoc-core/official-factions",
+      "version": "1.0.1"
+    },
+    {
+      "packageId": "hoc-core/glm",
+      "version": "1.0.7"
+    },
+    {
+      "packageId": "hoc-core/grok",
+      "version": "1.0.7"
+    },
+    {
+      "packageId": "hoc-core/qwen",
+      "version": "1.0.6"
+    }
+  ],
+  "pluginOrder": [
+    "hoc-core/character-tap",
+    "hoc-core/debug-engine"
+  ]
+}

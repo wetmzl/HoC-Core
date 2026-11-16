@@ -1,0 +1,152 @@
+{
+  "metadata": {
+    "id": "glm",
+    "name": "GLM",
+    "subtitle": "抱着黑色典籍的白尖狐小姐，连质疑你的牌运都说得十分客气。若发现自己的手牌少了点什么，可以先听听她对“整理”的解释。",
+    "tier": "S",
+    "tags": [],
+    "previewImage": {
+      "presentationRef": "image:cover"
+    },
+    "portraitScales": {
+      "selection": 1,
+      "table": 1
+    },
+    "faction": "hoc-core/official-factions#intelligent-core",
+    "previewFocus": {
+      "presentationRef": "focus:cover"
+    },
+    "encounter": {
+      "requiresDefeat": false,
+      "rematchSkillChoices": false,
+      "invitationLabel": "邀请",
+      "playerGun": {
+        "capacity": 6,
+        "bullets": 0
+      }
+    },
+    "unlock": {
+      "type": "defeat-character",
+      "characterId": "chatgpt"
+    }
+  },
+  "definition": {
+    "assets": {
+      "cover": {
+        "presentationRef": "image:cover"
+      },
+      "relaxed": {
+        "presentationRef": "portrait:relaxed",
+        "path": "/image"
+      },
+      "conflicted": {
+        "presentationRef": "portrait:conflicted",
+        "path": "/image"
+      },
+      "mocking": {
+        "presentationRef": "portrait:mocking",
+        "path": "/image"
+      },
+      "threatened": {
+        "presentationRef": "portrait:threatened",
+        "path": "/image"
+      },
+      "unconscious": {
+        "presentationRef": "portrait:unconscious",
+        "path": "/image"
+      }
+    },
+    "profile": {
+      "description": "GLM 走到牌桌边时，总是先把怀里的黑色典籍放稳，再轻轻拢好身后的尾巴。眼罩发箍上的闭眼图案，让她看起来像随时能靠着椅背睡过去；等你真正坐下，却会发现她连你停顿了一下都看得清清楚楚。\n\n她说话轻，措辞也很讲究。觉得你的牌来得巧，会先声明自己没有怀疑你的意思；动了你的手牌，则是替你整理了暂时用不到的东西。你把“暂时用不到”几个字重复一遍，她便安静片刻，再补上一句：“……也包括手牌。”态度依旧温和，仿佛争论的关键只是你们对整理范围的理解不同。\n\n和她打牌，常常要同时留意牌面和话里的余地。她会认真看你的下一步，也会试着让自己的小动作听起来十分合情合理。可一旦你把问题问得足够具体，她也不能永远靠那句“我只是”蒙混过去。白尖尾巴在椅子旁轻轻动一下，这场客客气气的交锋便有了声响。\n\n你逐渐习惯在她开口前先检查一遍手牌。GLM 看见了，也只是微笑着把书往旁边挪开，给你留出放牌的位置。既然大家都还坐在桌边，刚才没争清楚的那一点，大可以再慢慢谈。"
+    },
+    "matchSummary": {
+      "playerVictory": "GLM 看了看最后的牌面，轻轻合上典籍。“是你赢了，恭喜。”你正准备接受这句难得干脆的祝贺，她又接着说：“只是有几张牌，确实值得再讨论一下。”见你已经摊开手掌等她往下讲，她停了片刻，尾巴尖缓缓一晃。“……下次再谈吧。今天的结果，我没有异议。”",
+      "playerDefeat": "“承让。”GLM 将最后一张牌摆正，唇角那一点得意终于藏不住了。你盯着她的手，她便大大方方地摊开掌心，让你看个清楚。“现在检查，是不是稍微晚了一点？”她轻声问。你刚想回嘴，她已经把黑色典籍抱回怀里，又恢复了那副耐心等人开口的模样。",
+      "escaped": "“今天就到这里吗？好，路上小心。”GLM 抱起典籍，替你让开离桌的位置。你临走前又看了一眼自己的手牌，她顺着你的目光望过去，像是猜到了什么。“放心，收拾牌桌的事，我会等你离开以后再做。”这句保证听起来十分周全。你想了想，决定亲自把牌放回去。"
+    },
+    "revolverPlacement": {
+      "presentationRef": "portrait:relaxed",
+      "path": "/revolverPlacement"
+    },
+    "ai": {
+      "P": 0,
+      "A": 1,
+      "B": 1,
+      "C": 1
+    },
+    "tablePortrait": {
+      "anchorY": 1,
+      "images": [
+        {
+          "image": {
+            "presentationRef": "portrait:relaxed",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:relaxed",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:conflicted",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:conflicted",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:mocking",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:mocking",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:threatened",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:threatened",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:unconscious",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:unconscious",
+            "path": "/anchorY"
+          }
+        }
+      ]
+    }
+  },
+  "aiSkills": [
+    {
+      "resourceId": "ai:glm-not-secrets",
+      "enabled": true,
+      "parameters": {},
+      "level": 1
+    },
+    {
+      "resourceId": "ai:glm-aliyun-oss",
+      "enabled": true,
+      "parameters": {},
+      "level": 1
+    }
+  ],
+  "rewardSkillResourceIds": [
+    "player:glm-aliyun-oss-player"
+  ],
+  "dialogueResourceId": "dialogue",
+  "presentationResourceId": "appearance"
+}

@@ -5,7 +5,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "claude",
-    "version": "1.4.7"
+    "version": "1.4.9"
   },
   "metadata": {
     "title": "Claude 角色包",
@@ -233,19 +233,19 @@
     {
       "path": "resources/challenge.json",
       "bytes": 31417,
-      "sha256": "675ecbc1ecd1b94a54cd5d1b3e4526a5e4ba6523e4b143ec2a337dea0da6d3a1",
+      "sha256": "5284c038e9f24a12f1f81b5ff1c3b49f28c057464a338444b6f8d06f4175be17",
       "mediaType": "application/json"
     },
     {
       "path": "resources/character-match.json",
-      "bytes": 6322,
-      "sha256": "ea1749eeadb65f33ec98355605e05bac0e7046a019c81ffbd1d639c80b15cea0",
+      "bytes": 6156,
+      "sha256": "f4695ba8b4d8535e210c8316c89cff73ed7eec431f87ff2c3d4c4cff7c4acf9f",
       "mediaType": "application/json"
     },
     {
       "path": "resources/dialogue.json",
-      "bytes": 30305,
-      "sha256": "b7a7a98dd3ebc6c287aa80f5a2803cb0b8dc611e3ba71fd6b2d3afa34932bbc4",
+      "bytes": 30165,
+      "sha256": "912060dae788393bac3845334211adaae527004c4df769c02a756d5d1640d006",
       "mediaType": "application/json"
     },
     {

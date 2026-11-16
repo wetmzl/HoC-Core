@@ -1,13 +1,14 @@
 import { previewPendingTrigger } from "../core/match/reducer";
-import { abilityExpiredNotices, abilityTriggerNotice, pendingTriggerAbilityNotices, type AbilityNotice } from "./ability-notices";
+import { abilityExpiredNotices, abilityExpiredNoticesFromFacts, abilityTriggerNotice, abilityTriggerNoticesFromFacts, pendingTriggerAbilityNotices, type AbilityNotice } from "./ability-notices";
 import { triggerResultText } from "./round-notice";
-import { ABILITY_NOTICE_TTL_MS, ABILITY_NOTICE_LEAVE_MS, MAX_ABILITY_NOTICES, legal } from "./view-helpers";
+import { ABILITY_NOTICE_TTL_MS, ABILITY_NOTICE_LEAVE_MS, MAX_ABILITY_NOTICES } from "./view-helpers";
 import type { MatchTransition } from "../runtime/match-transition";
+import type { MatchFactBatch } from "../core/events";
+import type { GameEvent, MatchState } from "../core/match/types";
 export interface NotificationControllerDependencies {
     root: HTMLDivElement;
     save: import("../persistence/schema").LongTermSave;
     currentCharacter: import("../content/characters/types").CharacterDefinition;
-    offerTutorial: (cue: "skill-draw-available") => void;
 }
 export class NotificationController {
     constructor(private readonly deps: NotificationControllerDependencies) { }
@@ -156,15 +157,22 @@ export class NotificationController {
         this.presentationTimer = window.setTimeout(() => { node.classList.add("show"); document.body.classList.remove("shake"); }, this.deps.save.settings.reducedMotion ? 0 : 40);
         this.presentationHideTimer = window.setTimeout(() => { node.textContent = node.dataset.default ?? ""; node.dataset.tone = "normal"; node.classList.remove("show"); document.body.classList.remove("shake"); }, durationMs);
     };
-    presentDelta = ({ after, events }: MatchTransition): void => {
+    presentDelta = (transition: Pick<MatchTransition, "before" | "after" | "events"> | MatchFactBatch): void => {
+        if ("facts" in transition) this.presentFacts(transition);
+        else this.presentEventDelta(transition.after, transition.events);
+    };
+    presentFacts = (batch: MatchFactBatch): void => {
+        this.presentEventDelta(batch.after, batch.facts.map(fact => fact.event), batch);
+    };
+    private presentEventDelta = (after: MatchState, events: readonly GameEvent[], batch?: MatchFactBatch): void => {
         const triggerWindowOpened = events.some((event) => event.type === "ROUND_RESULT_ACKNOWLEDGED")
             && (after.round.phase === "roulette-reaction" || after.round.phase === "roulette-trigger");
         const triggerPreview = triggerWindowOpened ? previewPendingTrigger(after) : null;
         const abilityNotices = after.scene === "match" && after.view === "table"
             ? [
-                ...abilityTriggerNotice(events, this.deps.currentCharacter.name, after),
+                ...(batch ? abilityTriggerNoticesFromFacts(batch, this.deps.currentCharacter.name) : abilityTriggerNotice(events, this.deps.currentCharacter.name, after)),
                 ...(triggerPreview ? pendingTriggerAbilityNotices(triggerPreview, this.deps.currentCharacter.name) : []),
-                ...abilityExpiredNotices(events)
+                ...(batch ? abilityExpiredNoticesFromFacts(batch) : abilityExpiredNotices(events))
             ]
             : [];
         if (abilityNotices.length > 0)
@@ -172,7 +180,5 @@ export class NotificationController {
         const trigger = events.find((candidate) => candidate.type === "TRIGGER_PULLED");
         if (trigger)
             this.present(triggerResultText(trigger, events.some(event => event.type === "DEFEAT_PREVENTED" && event.actor === trigger.actor)), trigger.fired ? "danger" : "gold");
-        if (legal(after, { type: "OPEN_SKILL_DRAW" }))
-            this.deps.offerTutorial("skill-draw-available");
     };
 }

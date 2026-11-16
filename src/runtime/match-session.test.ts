@@ -7,8 +7,10 @@ import { gameAudio } from "../audio/game-audio";
 import type { MatchOwner } from "./match-owner";
 import { DialogueSession } from "../dialogue/session";
 import { IncompleteSkillDeckError } from "../core/flow/initialization";
+import { RuntimeEventHub } from "./public-event-hub";
+import type { PublicEventBatch } from "../core/events/public-events";
 
-vi.mock("../audio/game-audio", () => ({ gameAudio: { play: vi.fn(), setBgmScene: vi.fn(), setMatchMusic: vi.fn(), preloadMatch: vi.fn(), startHeartbeat: vi.fn(), stopHeartbeat: vi.fn() } }));
+vi.mock("../audio/game-audio", () => ({ gameAudio: { updateMusicFacts: vi.fn(), updateMusicContext: vi.fn(), play: vi.fn(), setBgmScene: vi.fn(), setMatchMusic: vi.fn(), preloadMatch: vi.fn(), startHeartbeat: vi.fn(), stopHeartbeat: vi.fn() } }));
 afterEach(() => vi.restoreAllMocks());
 
 function testOwner(summary: () => void = () => {}): MatchOwner {
@@ -19,7 +21,7 @@ function harness() {
   const calls: string[] = [];
   const state = createMatch("session-transition");
   let current = state;
-  const session = new MatchSession({
+  const deps = {
     clearAiSchedule: () => calls.push("cancel-ai"),
     renderMatch: () => calls.push("render"),
     renderSummary: () => calls.push("summary"),
@@ -28,15 +30,16 @@ function harness() {
     save: createDefaultSave(),
     notifyExtensions: vi.fn(),
     runtimeContributions: [{ presentMatchEvents: () => { calls.push("plugin"); } }],
-  } as unknown as MatchSessionDependencies);
+  } as unknown as MatchSessionDependencies;
+  const session = new MatchSession(deps);
   session.autosave = {
     getState: () => current,
     dispatch: action => { calls.push("save-dispatch"); current = gameReducer(current, action); return current; },
     flush: async () => { calls.push("save-flush"); },
   } as NonNullable<MatchSession["autosave"]>;
-  session.dialogueSession = { transition: () => calls.push("dialogue"), dispose: async () => { calls.push("dialogue-dispose"); } } as unknown as NonNullable<MatchSession["dialogueSession"]>;
+  session.dialogueSession = { transitionFacts: () => calls.push("dialogue"), dispose: async () => { calls.push("dialogue-dispose"); } } as unknown as NonNullable<MatchSession["dialogueSession"]>;
   session.pluginMatchController = new AbortController();
-  return { session, calls };
+  return { session, calls, deps };
 }
 
 describe("match session lifecycle", () => {
@@ -64,7 +67,7 @@ describe("match session lifecycle", () => {
       renderMatch: () => { visible = true; calls.push("render-table"); },
       renderSummary: () => { visible = true; calls.push("render-summary"); },
       notifyExtensions: () => { expect(visible).toBe(true); calls.push("notify-plugins"); },
-      enqueueAbilityNotices() {}, offerTutorial() {},
+      enqueueAbilityNotices() {},
       scheduleAiTurn: () => { calls.push("schedule-ai"); }
     } as unknown as MatchSessionDependencies);
     session.prepareMatchResources = async () => {};
@@ -73,7 +76,7 @@ describe("match session lifecycle", () => {
     // Initialization belongs to the stored flow/table; absent current plugin defaults
     // must not erase node-provided abilities during a normal attachment or restoration.
     expect(session.autosave!.getState().abilities.instances.find(instance => instance.intrinsic)?.parameters.bustBonus).toBe(2);
-    expect(gameAudio.setMatchMusic).toHaveBeenLastCalledWith(character.matchMusicSources);
+    expect(gameAudio.setMatchMusic).toHaveBeenLastCalledWith(character.matchMusicSources, character.matchMusicPriorities);
     expect(calls).toEqual(view === "table"
       ? ["enter-screen", "dialogue-ready", "render-table", "notify-plugins", "schedule-ai"]
       : ["enter-screen", "dialogue-ready", "render-summary", "notify-plugins"]);
@@ -85,6 +88,68 @@ describe("match session lifecycle", () => {
     h.session.dispatch({ type: "PLAYER_STAND" });
     expect(h.calls).toEqual(["save-dispatch", "dialogue", "render", "notifications", "plugin", "ai"]);
     audio.mockRestore();
+  });
+  it("keeps public batches ordered when a legacy subscriber immediately dispatches another action", async () => {
+    const h = harness();
+    const events = new RuntimeEventHub();
+    Object.assign(h.deps, { events, eventScopes: { game: "reentrant-game" } });
+    const batches: PublicEventBatch[] = [];
+    events.subscribe("resolved", batch => { batches.push(batch); });
+    let reentered = false;
+    h.deps.notifyExtensions = () => {
+      if (reentered) return;
+      reentered = true;
+      h.session.dispatch({ type: "AI_STAND" });
+    };
+    const schedule = vi.fn();
+    h.deps.scheduleAiTurn = schedule;
+    h.session.dispatch({ type: "PLAYER_STAND" });
+    expect(batches).toHaveLength(2);
+    expect(batches[0].facts.some(fact => fact.type === "match.PLAYER_STOOD")).toBe(true);
+    expect(batches[0].facts.some(fact => fact.type === "match.OPPONENT_STOOD")).toBe(false);
+    expect(batches[1].facts.some(fact => fact.type === "match.OPPONENT_STOOD")).toBe(true);
+    expect(batches.every(batch => batch.facts.every(fact => fact.scopes.game === "reentrant-game"))).toBe(true);
+    const current = h.session.autosave!.getState();
+    expect(batches[1].context?.match).toEqual(current);
+    expect(schedule.mock.calls).toEqual([[current], [current]]);
+    await h.session.dispose();
+    events.dispose();
+  });
+
+  it.each([false, true])("publishes fresh initialization after the visible screen and before AI, without replay on restore=%s", async restored => {
+    const events = new RuntimeEventHub();
+    const calls: string[] = [];
+    const batches: PublicEventBatch[] = [];
+    const state = createMatch("fresh-public-initialization", { opponentId: DEFAULT_CHARACTER_ID });
+    vi.spyOn(DialogueSession.prototype, "start").mockResolvedValue(undefined);
+    events.subscribe("resolved", batch => { batches.push(batch); calls.push("public"); });
+    const session = new MatchSession({
+      events, eventScopes: { game: "initial-game" }, save: createDefaultSave(), runtimeContributions: [],
+      selectedCharacterId: state.opponentId, clearAiSchedule() {}, resetDialogue() {}, enqueueAbilityNotices() {},
+      enterMatch: async () => { calls.push("screen"); }, renderMatch: () => { calls.push("render"); },
+      notifyExtensions: () => { calls.push("legacy"); }, scheduleAiTurn: () => { calls.push("ai"); }
+    } as unknown as MatchSessionDependencies);
+    session.prepareMatchResources = async () => {};
+    const character = { id: state.opponentId, name: "Example", dialogue: { rules: [] } } as unknown as CharacterDefinition;
+    await session.resumeMatch(state, testOwner(), character, restored);
+    expect(calls).toEqual(["screen", "render", "public", "legacy", "ai"]);
+    expect(batches).toHaveLength(1);
+    if (restored) {
+      expect(batches[0].facts.map(fact => fact.type)).toEqual(["match.restored"]);
+    } else {
+      expect(batches[0].facts.some(fact => fact.type === "match.ROUND_STARTED")).toBe(true);
+      expect(batches[0].facts.some(fact => fact.type === "rule.before-round-deal")).toBe(true);
+      expect(batches[0].facts.every(fact => fact.scopes.game === "initial-game")).toBe(true);
+    }
+    await session.dispose();
+    events.dispose();
+  });
+  it("stops presentation and AI scheduling when required rendering fails", () => {
+    const h = harness();
+    h.deps.renderMatch = () => { h.calls.push("render-failed"); throw new Error("table render failed"); };
+    expect(() => h.session.dispatch({ type: "PLAYER_STAND" })).toThrow("table render failed");
+    expect(h.calls).toEqual(["save-dispatch", "dialogue", "render-failed"]);
+    expect(h.calls).not.toContain("ai");
   });
   it("disposes once, aborts plugin work, flushes saves and blocks late actions", async () => {
     const h = harness();

@@ -20,7 +20,7 @@ async function mountFixture(page: Page, missingSuit = false) {
     await (await load("/src/content/packages/content-loader.ts")).bootstrapContent({ fetch: window.fetch.bind(window) });
     const { createMatch, gameReducer } = await load("/src/core/match/reducer.ts");
     const { createCard } = await load("/src/core/blackjack/card.ts");
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const { INITIAL_PLAYER_SKILL_IDS } = await load("/src/core/skills/definitions.ts");
     const rewards = ["chatgpt-reset-player", "claude-account-ban", "gemini-vast-world", "deepseek-stealing-food-player"];
     const base = createMatch("reward-preview", { opponentId: "llama", skillDeckIds: [], unlockedPlayerSkillIds: [...INITIAL_PLAYER_SKILL_IDS, ...rewards] });
@@ -29,7 +29,7 @@ async function mountFixture(page: Page, missingSuit = false) {
     const opponent = { ...base.opponent, hand: { cards: cards.slice(2, 4) }, bustLimit: undefined };
     let match = { ...base, player, opponent, shoe: { cards, cursor: 4, shuffleIndex: 1 }, playerSkills: { ...base.playerSkills, drawOffer: null }, history: [{ type: "ROUND_STARTED", roundIndex: 0 }], round: { ...base.round, player, opponent, phase: "turns", currentActor: "player", outcome: null } };
     for (const id of rewards) match = gameReducer({ ...match, playerSkills: { ...match.playerSkills, drawCount: 1, drawOffer: { id: `preview-${id}`, refreshesRemaining: 0, candidateDefinitionIds: [id] } } }, { type: "SELECT_SKILL_DRAW", definitionId: id });
-    const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false;
+    const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false; save.tutorialProgress.completedIds.push("adult-content-warning");
     save.defeats = ["chatgpt", "claude", "gemini", "deepseek"].map(opponentId => ({ opponentId, timestamp: "2026-10-15T00:00:00.000Z" }));
     const repo = (await load("/src/persistence/factory.ts")).createPersistenceService();
     await repo.saveLongTerm(save); await repo.saveRuntime(createRuntimeSave(match));
@@ -37,6 +37,7 @@ async function mountFixture(page: Page, missingSuit = false) {
   }, missingSuit);
   const warning = page.locator("#adult-content-warning");
   if (await warning.isVisible()) await warning.getByRole("button", { name: "我已成年并继续" }).click();
+  await expect(page.locator("main.table-shell")).toBeVisible();
   await page.locator(".skill-drawer-toggle").click();
   await expect(page.locator('[data-skill-id="chatgpt-reset-player"]')).toBeVisible();
 }
@@ -99,7 +100,7 @@ for (const defeated of [false, true]) {
       const load = (path: string): Promise<any> => import(/* @vite-ignore */ path);
       await load("/src/table-screen-module.ts");
       await (await load("/src/content/packages/content-loader.ts")).bootstrapContent({ fetch: window.fetch.bind(window) });
-      const save = (await load("/src/persistence/boot.ts")).createDefaultSave();
+      const save = (await load("/tests/e2e/runtime-fixture.ts")).createDefaultSave();
       const { INITIAL_PLAYER_SKILL_IDS } = await load("/src/core/skills/definitions.ts");
       save.skipTutorial = true; save.settings.soundEnabled = false;
       save.profile.skillDeck = { carried: [...INITIAL_PLAYER_SKILL_IDS], reserve: [] };

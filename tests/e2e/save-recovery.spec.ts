@@ -1,7 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
+import { respondToOfficialPlaylistCopy } from "./playlist-fixture";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { zipSync } from "fflate";
+import { CURRENT_RUNTIME_SCHEMA_VERSION } from "../../src/persistence/schema";
 import archived from "../../src/test/fixtures/archived-long-term-save.json" with { type: "json" };
 
 async function writeSave(page: Page, id: "long-term" | "runtime", data: unknown) {
@@ -45,6 +47,7 @@ async function installPlugin(page: Page) {
   await page.locator("[data-import-file]").setInputFiles({ name: "recovery.hocpkg", mimeType: "application/zip", buffer: Buffer.from(zipSync({ "hocpkg-info.json": Buffer.from(JSON.stringify(manifest)), ...files })) });
   await page.locator("[data-import-next]").click();
   await page.locator('.package-card[data-package-id="example/recovery-plugin"]').getByRole("button", { name: "启用", exact: true }).click();
+  await respondToOfficialPlaylistCopy(page, "confirm");
   await page.getByRole("button", { name: "关闭资源管理" }).click();
 }
 
@@ -97,27 +100,47 @@ test("无法识别的长期档在第三方代码之前拦截，失败与取消�
   expect(await page.evaluate(() => (globalThis as any).__recoveryPluginRuns)).toBe(1);
 });
 
-test("归档版直接读取，旧运行时每个舍弃入口都须确认", async ({ page }) => {
+test("旧版运行时自动丢弃而归档长期档直接读取", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "开始游戏", exact: true }).click();
   await expect(page.locator("#adult-content-warning")).toBeVisible();
-  await writeSave(page, "long-term", archived);
-  const runtime = { format: "house-of-chances-runtime", schemaVersion: 8, marker: "archived-match" };
+  const historical = { ...archived, tutorialProgress: {
+    completedIds: [...archived.tutorialProgress.completedIds, "adult-content-warning"]
+  } };
+  await writeSave(page, "long-term", historical);
+  await writeSave(page, "runtime", { format: "house-of-chances-runtime", schemaVersion: 8, marker: "archived-match" });
+  await page.reload();
+  await page.getByRole("button", { name: "开始游戏", exact: true }).click();
+  await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
+  expect(await readSave(page, "long-term")).toEqual(historical);
+  expect(await readSave(page, "runtime")).toBeNull();
+});
+
+test("当前损坏运行时每个舍弃入口都须确认且归档长期档保留", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "开始游戏", exact: true }).click();
+  await expect(page.locator("#adult-content-warning")).toBeVisible();
+  // Acknowledgement is a deliberate write, so persist it before checking read-only recovery.
+  const historical = { ...archived, tutorialProgress: {
+    completedIds: [...archived.tutorialProgress.completedIds, "adult-content-warning"]
+  } };
+  await writeSave(page, "long-term", historical);
+  const runtime = { format: "house-of-chances-runtime", schemaVersion: CURRENT_RUNTIME_SCHEMA_VERSION, marker: "invalid-current-match" };
   await writeSave(page, "runtime", runtime);
   await page.reload();
   await page.getByRole("button", { name: "开始游戏", exact: true }).click();
   await expect(page.locator("[data-game-dialog]")).toContainText("只舍弃这局牌");
   await page.locator('[data-game-dialog-choice="cancel"]').click();
   await expect(page.locator("main.error-shell")).toBeVisible();
-  expect(await readSave(page, "long-term")).toEqual(archived);
+  expect(await readSave(page, "long-term")).toEqual(historical);
   expect(await readSave(page, "runtime")).toEqual(runtime);
   await page.locator("[data-reset-invalid-runtime]").click();
   await page.locator('[data-game-dialog-choice="cancel"]').click();
   expect(await readSave(page, "runtime")).toEqual(runtime);
   await page.locator("[data-reset-invalid-runtime]").click();
   await page.locator('[data-game-dialog-choice="confirm"]').click();
-  await expect(page.locator("#adult-content-warning")).toBeVisible();
-  expect(await readSave(page, "long-term")).toEqual(archived);
+  await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
+  expect(await readSave(page, "long-term")).toEqual(historical);
   expect(await readSave(page, "runtime")).toBeNull();
 });
 

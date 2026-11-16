@@ -1,0 +1,64 @@
+{
+  "id": "grok-is-it-true",
+  "name": "@grok是真的吗？",
+  "description": "玩家持有的所有衍生牌均视为 0 点，之后获得的衍生牌同样生效；保留原牌面与属性。",
+  "profileLore": "到底什么是假新闻？她有自己的看法。",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "cheater",
+  "activation": {
+    "type": "automatic"
+  },
+  "rules": [
+    {
+      "id": "exclude-derived-on-acquisition",
+      "trigger": "after-card-acquired",
+      "notify": false,
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "rival"
+        }
+      ],
+      "effects": [
+        {
+          "type": "set-matching-hand-cards-counted",
+          "target": "rival",
+          "attribute": "source",
+          "equals": {
+            "type": "literal",
+            "value": "derived"
+          },
+          "counted": false
+        }
+      ]
+    },
+    {
+      "id": "exclude-derived-on-hand-change",
+      "trigger": "after-hand-changed",
+      "notify": false,
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "rival"
+        }
+      ],
+      "effects": [
+        {
+          "type": "set-matching-hand-cards-counted",
+          "target": "rival",
+          "attribute": "source",
+          "equals": {
+            "type": "literal",
+            "value": "derived"
+          },
+          "counted": false
+        }
+      ]
+    }
+  ],
+  "tags": [
+    "ai-skill",
+    "blackjack",
+    "hand-point-value"
+  ]
+}

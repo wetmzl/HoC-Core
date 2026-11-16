@@ -1,3 +1,4 @@
+import { openUiDialog, closeUiDialog } from "./presentation/dialog-motion";
 import "./history-screen.css";
 import { getCharacterMetadata } from "./content/characters";
 import type { MatchHistoryRecord } from "./core/match/history";
@@ -49,7 +50,7 @@ function openDetail(context: HistoryScreenContext, id: string, signal: AbortSign
   const metadata = getCharacterMetadata(record.opponentId);
   const name = metadata?.name ?? `资源不可用 · ${record.opponentId}`;
   content.innerHTML = `<p class="eyebrow">${historyDate(record.timestamp)}</p><h2>${resultLabel(record)}</h2><p class="history-opponent">策展人 VS ${escapeHtml(name)}</p><dl class="history-stats"><dt>策展人最终左轮</dt><dd>${record.finalRoulette.player.bullets} / ${record.finalRoulette.player.capacity}</dd><dt>${escapeHtml(name)}最终左轮</dt><dd>${record.finalRoulette.opponent.bullets} / ${record.finalRoulette.opponent.capacity}</dd><dt>策展人爆牌</dt><dd>${record.busts.player} 次</dd><dt>${escapeHtml(name)}爆牌</dt><dd>${record.busts.opponent} 次</dd><dt>策展人黑杰克</dt><dd>${record.blackjacks.player} 次</dd><dt>${escapeHtml(name)}黑杰克</dt><dd>${record.blackjacks.opponent} 次</dd></dl>`;
-  dialog.showModal();
+  openUiDialog(dialog);
   for (const contribution of context.contributions) {
     if (!contribution.mountHistoryDetail) continue;
     const container = document.createElement("div");
@@ -84,7 +85,7 @@ export async function mountHistoryScreen(context: HistoryScreenContext, signal: 
   signal.addEventListener("abort", closeDetail, { once: true });
   context.root.querySelector<HTMLDialogElement>("#history-detail")?.addEventListener("close", (event) => { if (!(event.target as HTMLDialogElement).open) closeDetail(); }, { signal });
   context.root.querySelector<HTMLButtonElement>("[data-history-back]")?.addEventListener("click", () => { void context.navigateToLobby(); }, { signal });
-  context.root.querySelector<HTMLButtonElement>("[data-history-close]")?.addEventListener("click", () => context.root.querySelector<HTMLDialogElement>("#history-detail")?.close(), { signal });
+  context.root.querySelector<HTMLButtonElement>("[data-history-close]")?.addEventListener("click", () => void closeUiDialog(context.root.querySelector<HTMLDialogElement>("#history-detail")), { signal });
   context.root.querySelectorAll<HTMLButtonElement>("[data-history-id]").forEach((button) => button.addEventListener("click", () => {
     closeDetail();
     detailLifetime = new AbortController();

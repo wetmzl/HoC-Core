@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, sep } from "node:path";
 import { zip } from "fflate";
+import { createEmbeddedDefaultPlaylist } from "./default-playlist.mjs";
 
 const manifestName = "hocpkg-info.json";
 
@@ -57,6 +58,7 @@ export async function syncPackageIndex(charactersRoot, { check = false } = {}) {
   const index = await json(indexPath);
   let changed = false;
   const packages = [];
+  const manifests = [];
   for (const entry of index.packages) {
     const relativeManifest = entry.manifest;
     const manifestPath = join(charactersRoot, relativeManifest);
@@ -68,6 +70,7 @@ export async function syncPackageIndex(charactersRoot, { check = false } = {}) {
       else console.error(`Manifest 需要更新：${relativeManifest}`);
     }
     const manifest = check ? next : await json(manifestPath);
+    manifests.push(manifest);
     const canonicalManifest = { ...manifest, files: [...manifest.files].sort((left, right) => left.path.localeCompare(right.path)) };
     packages.push({
       manifest: relativeManifest,
@@ -82,6 +85,7 @@ export async function syncPackageIndex(charactersRoot, { check = false } = {}) {
     formatVersion: 2,
     abilityCatalogVersion: index.abilityCatalogVersion,
     defaultCharacterId: index.defaultCharacterId,
+    ...(index.defaultEnabled === undefined ? {} : { defaultEnabled: index.defaultEnabled }),
     playerSkillOrder: index.playerSkillOrder,
     packages
   };
@@ -90,6 +94,14 @@ export async function syncPackageIndex(charactersRoot, { check = false } = {}) {
     changed = true;
     if (!check) await writeFile(indexPath, stableJson(nextIndex));
     else console.error("内嵌包索引需要更新：packages.json");
+  }
+  const playlistPath = join(charactersRoot, "default-playlist.json");
+  const playlist = stableJson(createEmbeddedDefaultPlaylist(nextIndex, manifests));
+  const previousPlaylist = await readFile(playlistPath, "utf8").catch(error => { if (error.code === "ENOENT") return undefined; throw error; });
+  if (previousPlaylist !== playlist) {
+    changed = true;
+    if (!check) await writeFile(playlistPath, playlist);
+    else console.error("内嵌默认播放集需要更新：default-playlist.json");
   }
   return changed;
 }

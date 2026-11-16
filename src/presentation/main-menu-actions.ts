@@ -1,6 +1,7 @@
 import type { PluginUiAction, PluginUiSlot } from "../content/packages/plugin-ui";
 import type { PluginRuntimeContribution } from "../content/packages/plugin-contracts";
 import { LOBBY_INFO_PAGES } from "../content/lobby-info";
+import { achievementTrophy } from "./achievement-ui";
 
 export interface MainMenuAction {
   readonly id: string;
@@ -13,6 +14,8 @@ export interface MainMenuAction {
   readonly attributes?: Readonly<Record<string, string>>;
   readonly iconMarkup?: string;
   readonly className?: string;
+  /** Host-only placement below the header; plugin slots stay unchanged. */
+  readonly toolPlacement?: "aside";
   /** A portrait with unlock progress projected by the host; plugins cannot supply this view. */
   readonly portraitEntry?: { readonly character: import("../content/characters").CharacterMetadata; readonly current: number; readonly required: number; readonly unlocked: boolean; readonly label?: string; readonly subtitle?: string };
   activate(): void | Promise<void>;
@@ -32,6 +35,7 @@ export function builtinMainMenuActions(options: {
   openDialog(id: string): void;
   openSkills(): void;
   openHistory(): Promise<void>;
+  openNotebook?(): Promise<void>;
 }): MainMenuAction[] {
   return [
     { id: "rules", slot: "main-menu.secondary", label: "玩法说明", order: 10, attributes: { "data-open": "rules" }, activate: () => options.openDialog("rules") },
@@ -40,9 +44,14 @@ export function builtinMainMenuActions(options: {
     ...LOBBY_INFO_PAGES.map((page, index): MainMenuAction => ({
       id: page.id, slot: "main-menu.tools", label: `打开${page.buttonLabel}`, order: 10 + index * 10,
       attributes: { "data-open": page.id }, className: `lobby-${page.id}-button`,
-      iconMarkup: page.id === "about" ? '<span class="lobby-info-letter" aria-hidden="true">i</span>' : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${page.id === "community" ? "M4 5.5h16v10H9l-5 3.5V5.5Z" : "M12 20S4 15.3 4 9.4C4 6.4 7.7 4.8 10 7.2l2 2 2-2c2.3-2.4 6-0.8 6 2.2C20 15.3 12 20 12 20Z"}" /></svg>`,
+      iconMarkup: '<span class="lobby-info-letter" aria-hidden="true">i</span>',
       activate: () => options.openDialog(page.id)
     })),
-    { id: "settings", slot: "main-menu.tools", label: "打开设置", className: "lobby-settings-button", icon: "⚙", order: 40, attributes: { "data-open": "settings" }, activate: () => options.openDialog("settings") }
+    { id: "achievements", slot: "main-menu.tools", label: "打开成就", description: "查看成就", className: "lobby-achievements-button", iconMarkup: achievementTrophy, order: 35, activate: () => options.openDialog("achievements") },
+    { id: "settings", slot: "main-menu.tools", label: "打开设置", className: "lobby-settings-button", icon: "⚙", order: 40, attributes: { "data-open": "settings" }, activate: () => options.openDialog("settings") },
+    ...(options.openNotebook ? [{ id: "notebook", slot: "main-menu.tools" as const, label: "笔记本", description: "剧情档案馆与个人记录", order: 45,
+      attributes: { "data-open-notebook": "" }, className: "lobby-notebook-button",
+      iconMarkup: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="15" height="18" rx="2"/><path d="M9 3v18M3 7h4M3 12h4M3 17h4M12 8h5M12 12h5M12 16h3"/></svg>',
+      activate: options.openNotebook }] : [])
   ];
 }

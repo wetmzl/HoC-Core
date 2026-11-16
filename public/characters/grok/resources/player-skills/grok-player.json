@@ -1,0 +1,73 @@
+{
+  "definition": {
+    "id": "grok-player",
+    "name": "@grok",
+    "description": "将自己当前持有的所有衍生牌视为 0 点，保留原牌面与属性。",
+    "usage": "玩家回合可用，每张一次；至少持有一张衍生牌时可用。只影响使用时已有的衍生牌，之后获得的衍生牌正常计点。",
+    "profileLore": "到底什么是假新闻？这次轮到你来定义。",
+    "triggerNotice": "当前持有的所有衍生牌均视为 0 点。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "cheater",
+    "skillTags": [
+      "cheater"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "uses": 1,
+      "availability": [
+        {
+          "type": "scalar-compare",
+          "left": {
+            "type": "hand-card-match-count",
+            "target": "owner",
+            "attribute": "source",
+            "equals": {
+              "type": "literal",
+              "value": "derived"
+            }
+          },
+          "operator": "gt",
+          "right": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "exclude-current-derived-cards",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "set-matching-hand-cards-counted",
+            "target": "owner",
+            "attribute": "source",
+            "equals": {
+              "type": "literal",
+              "value": "derived"
+            },
+            "counted": false
+          }
+        ]
+      }
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false,
+    "tags": [
+      "player-skill",
+      "active-skill-card",
+      "blackjack",
+      "hand-point-value"
+    ]
+  },
+  "acquisition": {
+    "type": "defeat-character",
+    "characterResourceId": "match",
+    "label": "首次击败Grok"
+  }
+}

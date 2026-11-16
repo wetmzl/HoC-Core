@@ -1,0 +1,169 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "qwen",
+    "version": "1.0.6"
+  },
+  "metadata": {
+    "title": "Qwen 角色包",
+    "license": "CC-BY-NC-SA 4.0",
+    "description": "Qwen 的档案、三种终局、26 类对白、六态立绘与自动替玩家使用持有主动技能的投喂能力。 击败后解锁对应玩家技能。",
+    "tags": [
+      "built-in",
+      "character",
+      "tier:a"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ],
+    "coverImage": "cover.png"
+  },
+  "resources": [
+    {
+      "id": "match",
+      "type": "game.character-match",
+      "apiVersion": 13,
+      "entry": "resources/character-match.json",
+      "requires": [
+        "dialogue",
+        "appearance",
+        "ai:qwen-takeaway-and-milk-tea",
+        "player:qwen-takeaway-player"
+      ]
+    },
+    {
+      "id": "dialogue",
+      "type": "game.character-dialogue",
+      "apiVersion": 4,
+      "entry": "resources/dialogue.json",
+      "requires": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "appearance",
+      "type": "presentation.character",
+      "apiVersion": 2,
+      "entry": "resources/appearance.json",
+      "requires": []
+    },
+    {
+      "id": "ai:qwen-takeaway-and-milk-tea",
+      "type": "game.ai-skill",
+      "apiVersion": 5,
+      "entry": "resources/ai-skills/qwen-takeaway-and-milk-tea.json",
+      "requires": []
+    },
+    {
+      "id": "player:qwen-takeaway-player",
+      "type": "game.player-skill",
+      "apiVersion": 5,
+      "entry": "resources/player-skills/qwen-takeaway-player.json",
+      "requires": [
+        "status:qwen-takeaway-player-bonus"
+      ]
+    },
+    {
+      "id": "status:qwen-takeaway-player-bonus",
+      "type": "game.status",
+      "apiVersion": 2,
+      "entry": "resources/statuses/qwen-takeaway-player-bonus.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "ART-CREDITS.md",
+      "bytes": 1222,
+      "sha256": "c5110eee31760c74a5f551cc56764eb18f9fdad6544989f79b9291840287c2bc",
+      "mediaType": "text/markdown"
+    },
+    {
+      "path": "conflicted.png",
+      "bytes": 1504024,
+      "sha256": "c9bc1785505adafa9dcd463ec60c3d99b84755dfc3af3d10f0dbaf4564d74138",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "cover.png",
+      "bytes": 3497176,
+      "sha256": "e5f7b23acfbedfc709f885668558e5882cccf44eae4010ef1f1b7966e4b8d758",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "mocking.png",
+      "bytes": 1739194,
+      "sha256": "a1a71fc4674ff6f198dab8d4163f075f8655be27f64fa6991805420e135ff8c6",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "relaxed.png",
+      "bytes": 1549991,
+      "sha256": "9b197d701d46a86a3702895037ea0dd5ec87184cfaf9a9cfcc86f8fabbef8cff",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/ai-skills/qwen-takeaway-and-milk-tea.json",
+      "bytes": 1140,
+      "sha256": "64ac614b6355b00b474558def206c878023ac69e3aac9c2a81341177ee653b13",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/appearance.json",
+      "bytes": 2531,
+      "sha256": "3c8d55e0fe22c6851dd61d7409827290e8fe4ece331839279766d5f3113a8995",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/character-match.json",
+      "bytes": 5970,
+      "sha256": "3275881a284319c1d10e885ba17fc56b3833c685ed684fc001697278bee50564",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/dialogue.json",
+      "bytes": 35748,
+      "sha256": "6a1ddb4c4b8f83d704ce3ccc2ee9998bc6d7b469a9b2c6e318fd9e7eca4e9c6f",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/qwen-takeaway-player.json",
+      "bytes": 1961,
+      "sha256": "e6f641d5379ff6dcf85787a8b8ab5430494d08d7d24969d059890f21ce8543ec",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/statuses/qwen-takeaway-player-bonus.json",
+      "bytes": 609,
+      "sha256": "6180229cfd1ca7695259bebe815c7cf519b75244c509ea13a8114ae6d0f6f2ab",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "tap.png",
+      "bytes": 2509433,
+      "sha256": "9034a4eaa4de7c427f1c5e5dd5de5573d8674143e1ebe10d12f27c27828aa182",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "threatened.png",
+      "bytes": 1500531,
+      "sha256": "b0d665b012e8a4fdd4947d649d0f4383ea527b186d865e76743383109b255a7d",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "unconscious-reclined.png",
+      "bytes": 1695953,
+      "sha256": "df61d55a6d0fd74ed1d42253beaf0acea7e94307ca7f43697cf8fd050e97f74d",
+      "mediaType": "image/png"
+    }
+  ],
+  "extensions": {}
+}

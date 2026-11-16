@@ -7,6 +7,6 @@ export const capabilities = Object.freeze({
   abilityCatalogVersion: ABILITY_CATALOG_VERSION,
   pluginModuleApiVersions: [...SUPPORTED_PLUGIN_MODULE_API_VERSIONS],
   resourceApiVersions: Object.fromEntries(createHocpkgResourceHandlers().map(handler => [handler.type, [...handler.apiVersions]])),
-  authoringApiVersion: 1,
+  authoringApiVersion: 2,
   maxInputMiB: 512
 });

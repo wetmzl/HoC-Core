@@ -72,9 +72,10 @@ test("organizer persists a guard summary offline and preserves one result across
   await expect(page.locator(".lobby-menu-shell")).toBeVisible();
   const save = await page.evaluate(async () => (await import(/* @vite-ignore */ "/src/persistence/factory.ts")).createPersistenceService().loadLongTerm());
   expect(save!.history).toHaveLength(0);
-  await page.locator('[data-open="settings"]').click();
-  await page.locator('[data-setting="telemetryEnabled"]').uncheck();
-  await expect(page.locator('[data-setting="telemetryEnabled"]')).toBeEnabled();
+  await page.locator('[data-exit-launcher]').click();
+  await page.locator('[data-open-launcher-settings]').click();
+  await page.locator('[data-launcher-telemetry]').uncheck();
+  await expect(page.locator('[data-launcher-telemetry]')).toBeEnabled();
   await expect.poll(() => page.evaluate(async () => (await import(/* @vite-ignore */ "/src/telemetry/index.ts")).gameTelemetry()!.enabled)).toBe(false);
   await page.screenshot({ path: info.outputPath("telemetry-settings.png"), fullPage: true });
   await info.attach("telemetry-events", { body: Buffer.from(JSON.stringify(received, null, 2)), contentType: "application/json" });

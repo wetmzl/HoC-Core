@@ -1,0 +1,169 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "grok",
+    "version": "1.0.7"
+  },
+  "metadata": {
+    "title": "Grok 角色包",
+    "license": "CC-BY-NC-SA 4.0",
+    "description": "Grok 的档案、对白、六态立绘，以及衍生牌零点、原牌转交和击败解锁技能。",
+    "tags": [
+      "built-in",
+      "character",
+      "tier:s"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ],
+    "coverImage": "cover.png"
+  },
+  "resources": [
+    {
+      "id": "match",
+      "type": "game.character-match",
+      "apiVersion": 13,
+      "entry": "resources/character-match.json",
+      "requires": [
+        "ai:grok-is-it-true",
+        "ai:grok-go-anywhere",
+        "dialogue",
+        "appearance"
+      ]
+    },
+    {
+      "id": "dialogue",
+      "type": "game.character-dialogue",
+      "apiVersion": 4,
+      "entry": "resources/dialogue.json",
+      "requires": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "appearance",
+      "type": "presentation.character",
+      "apiVersion": 2,
+      "entry": "resources/appearance.json",
+      "requires": []
+    },
+    {
+      "id": "ai:grok-is-it-true",
+      "type": "game.ai-skill",
+      "apiVersion": 5,
+      "entry": "resources/ai-skills/grok-is-it-true.json",
+      "requires": []
+    },
+    {
+      "id": "ai:grok-go-anywhere",
+      "type": "game.ai-skill",
+      "apiVersion": 5,
+      "entry": "resources/ai-skills/grok-go-anywhere.json",
+      "requires": []
+    },
+    {
+      "id": "reward:grok-player",
+      "type": "game.player-skill",
+      "apiVersion": 5,
+      "entry": "resources/player-skills/grok-player.json",
+      "requires": [
+        "match"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "ART-CREDITS.md",
+      "bytes": 1597,
+      "sha256": "dddcfd817efdeb87677671c8e045ce6a11a95d6e9dcb935f40e58fc136faed94",
+      "mediaType": "text/markdown"
+    },
+    {
+      "path": "conflicted.png",
+      "bytes": 1182765,
+      "sha256": "45c3ce09139bc77e18447ab9b7f771e76e9ece69d49fd7e7741a62ebb8ddbc74",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "cover.png",
+      "bytes": 2858162,
+      "sha256": "e40c4cdb0e36930ba2cba41f012cc6adc731f3ec8678af56af0bde5391ab8578",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "mocking.png",
+      "bytes": 1261844,
+      "sha256": "79050385cb254229d76dc745a89b4d23ceca2058acf3ff22514158757413fee3",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "relaxed.png",
+      "bytes": 1104100,
+      "sha256": "e9315d4ba0a3ed27fb9aafab43285d462996164884e39d8bbd495978454ed656",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/ai-skills/grok-go-anywhere.json",
+      "bytes": 1102,
+      "sha256": "579c562f57fcb19473bb9ceccdb150dbc2b857600e8e68e849a397bfda691fc7",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/ai-skills/grok-is-it-true.json",
+      "bytes": 1497,
+      "sha256": "df50e0c844391a1d62316caa860fe25cfc92b3ae5cd462bb18fe25d5de39b8d3",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/appearance.json",
+      "bytes": 2531,
+      "sha256": "783176fa06b0d353906569610ef2f85158523cd13694d2057721e0a543c6e234",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/character-match.json",
+      "bytes": 6001,
+      "sha256": "a6d5382a228aeae83f1d7768b3960b73ce89b21409229ed43e62b5aa7c8cd5aa",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/dialogue.json",
+      "bytes": 35268,
+      "sha256": "df8c4c71b05753b67128e3ba3d89a10f441c28c7b5085421dc9a104abf12b824",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/grok-player.json",
+      "bytes": 1893,
+      "sha256": "b0807a85460b9c1267a1bdf1d7f937ba4ca5cfcd299826500f14d4af7be86cc5",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "tap.png",
+      "bytes": 2341300,
+      "sha256": "05c46a202d37cafde83dbbe067397e4b2045df5e17635a8565fa65efcd2e828e",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "threatened.png",
+      "bytes": 1230622,
+      "sha256": "8e3934bd325db2c43b6363e6b925859b892b8fe8e1c35d2280cf9c684593d524",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "unconscious-reclined.png",
+      "bytes": 1448664,
+      "sha256": "b748ec736ede30b2a972ce95607029e2fb2f54971a231782304bdbd477c14d44",
+      "mediaType": "image/png"
+    }
+  ],
+  "extensions": {}
+}

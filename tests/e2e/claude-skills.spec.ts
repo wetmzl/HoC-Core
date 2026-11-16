@@ -11,7 +11,7 @@ async function mountFixture(page: import("@playwright/test").Page, blockStand = 
     const { loadCharacter } = await load("/src/content/characters/loader.ts");
     const { createMatch, gameReducer } = await load("/src/core/match/reducer.ts");
     const { createCard } = await load("/src/core/blackjack/card.ts");
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const { createPersistenceService } = await load("/src/persistence/factory.ts");
     const { mountGameRuntime } = await load("/src/match-screen.ts");
     const character = await loadCharacter("claude");
@@ -31,12 +31,11 @@ async function mountFixture(page: import("@playwright/test").Page, blockStand = 
       match = { ...match, abilities: { ...runtime, statuses: [{ statusDefinitionId: "example-block-stand", owner: "player", sourceInstanceId: instance.instanceId, stacks: 1, duration: "round", parameters: {}, createdAtSequence: 1 }] } };
     } else match = gameReducer(match, { type: "OPPONENT_HIT" });
     const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false;
+    save.tutorialProgress.completedIds.push("adult-content-warning");
     const repo = createPersistenceService();
     await repo.saveLongTerm(save); await repo.saveRuntime(createRuntimeSave(match));
     void mountGameRuntime({ root: document.querySelector<HTMLElement>("#app")!, onExitRequest: async () => {} });
   }, blockStand);
-  const warning = page.locator("#adult-content-warning");
-  if (await warning.isVisible()) await warning.getByRole("button", { name: "我已成年并继续" }).click();
   await expect(page.locator("main.table-shell")).toBeVisible();
 }
 

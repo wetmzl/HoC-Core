@@ -1,4 +1,6 @@
+import { openUiDialog, closeUiDialog } from "../presentation/dialog-motion";
 import { ProgramSession } from "./program-session";
+import { confirmGameDialog } from "../game-dialog";
 import type { MatchOwner } from "./match-owner";
 import type { EncounterTablePresentation } from "../presentation/encounter-table";
 import { loadCharacter, type CharacterDefinition } from "../content/characters";
@@ -20,6 +22,8 @@ import type { LongTermSave, RuntimeSave } from "../persistence/schema";
 import type { PersistenceService } from "../persistence/save-service";
 import type { MatchSession } from "./match-session";
 import type { RuntimeScreenLoader } from "./contracts";
+import type { RuntimeEventHub } from "./public-event-hub";
+import type { PublicEventScopes } from "../core/events/public-events";
 import { gameAudio } from "../audio/game-audio";
 import { standaloneCharacter } from "./standalone-encounter";
 import type { SummaryDestination, SummarySettlement } from "../screens/summary-view";
@@ -27,11 +31,15 @@ import "../screens/challenge.css";
 import "../lobby-screen.css";
 
 export interface EncounterControllerDependencies {
+  readonly isInteractionBlocked?: () => boolean;
   readonly root: HTMLDivElement;
   save: LongTermSave;
   readonly repository: PersistenceService;
   readonly session: MatchSession;
   readonly telemetry?: import("../telemetry/types").EncounterTelemetry;
+  readonly events?: RuntimeEventHub;
+  readonly eventScopes?: PublicEventScopes;
+  isDebugEnabled?(): boolean;
   navigateScreen(loader: RuntimeScreenLoader): Promise<void>;
   renderLobby(): Promise<void>;
   showHistory(): Promise<void>;
@@ -44,18 +52,48 @@ export interface EncounterControllerDependencies {
 export class EncounterController {
   private sessionState: ProgramSession | undefined;
   private get state(): ProgramSession {
-    return this.sessionState ??= new ProgramSession(this.deps.repository, { get: () => this.deps.save, set: save => { this.deps.save = save; } }, this.deps.telemetry);
+    return this.sessionState ??= new ProgramSession(this.deps.repository, { get: () => this.deps.save, set: save => { this.deps.save = save; } }, this.deps.telemetry, this.deps.isDebugEnabled, this.deps.events, this.deps.eventScopes);
   }
   private get run(): ProgramRun | null { return this.state.run; }
+  get storySnapshot(): RuntimeSave | null { return this.sessionState?.snapshot ?? null; }
+  closingPublicEvents = () => this.sessionState?.closingPublicEvents() ?? [];
+  /** After flush and successful save replacement, invalidate old owners without writing or navigating. */
+  resetAfterSaveReplacement = (): void => {
+    this.sessionState?.adoptCheckpoint(null);
+    this.deps.session.clearActiveMatch();
+    this.deps.invalidateProfile();
+  };
+  adoptStoryCheckpoint = async (snapshot: RuntimeSave | null): Promise<void> => {
+    const checkpoint = JSON.stringify(snapshot);
+    // A long-term-only unlock does not invalidate the live table's persistence handle.
+    if (JSON.stringify(this.sessionState?.snapshot ?? null) === checkpoint) return;
+    await this.flushSaveWrites();
+    // Opening the table produces a newer checkpoint. A repeated or delayed command
+    // callback must not replace it with the original invitation's empty table.
+    if (JSON.stringify(await this.deps.repository.loadRuntime()) !== checkpoint
+      || JSON.stringify(this.sessionState?.snapshot ?? null) === checkpoint) return;
+    this.state.adoptCheckpoint(snapshot);
+    this.deps.session.clearActiveMatch();
+    try { await this.showCurrent(); }
+    catch (error) { await this.showRetry(error); }
+  };
+  get publicEventScopes(): PublicEventScopes {
+    const run = this.sessionState?.run;
+    return { ...this.deps.eventScopes, ...(run ? { program: run.id } : {}) };
+  }
   get tablePresentation(): EncounterTablePresentation | undefined {
     const node = this.state.node, presentation = node?.type === "match" ? node.presentation : undefined;
     return presentation ? { titleSuffix: presentation.tableTitle ?? "对局", ...(presentation.exit ? { exit: { label: presentation.exit.label, title: presentation.exit.title } } : {}) } : undefined;
   }
   private busy = false;
+  private requestingBack = false;
   private disposed = false;
   private paused = false;
   private pending: Promise<void> = Promise.resolve();
   constructor(private readonly deps: EncounterControllerDependencies) {}
+  // Save coordination must not await navigation, which can itself flush tutorials.
+  flushSaveWrites = (): Promise<void> => this.sessionState?.flush() ?? Promise.resolve();
+  runtimeClosed = (): void => { this.sessionState?.runtimeClosed(); };
   setPaused = (paused: boolean): void => { this.paused = paused; };
   flush = async (): Promise<void> => {
     // Result callbacks may enqueue a transition after the table attachment resolves.
@@ -65,7 +103,12 @@ export class EncounterController {
       if (pending === this.pending) return;
     }
   };
-  dispose = async (): Promise<void> => { this.disposed = true; this.deps.invalidateProfile(); await this.flush(); };
+  dispose = async (): Promise<void> => {
+    this.disposed = true;
+    this.deps.invalidateProfile();
+    try { await this.flush(); }
+    finally { await this.sessionState?.dispose(); }
+  };
   private owner(run: ProgramRun): MatchOwner {
     return {
       attach: (match, source) => this.state.attach(this.state.run ?? run, match, source),
@@ -77,7 +120,7 @@ export class EncounterController {
           await this.state.completeMatch();
           this.deps.session.clearActiveMatch();
           await this.showCurrent();
-        })).catch(error => {
+        }, true)).catch(error => {
           if (!this.disposed && this.state.match) this.deps.renderSummary(this.state.match, { recordResult: false,
             actions: [{ destination: "continue", label: "重试结算", primary: true }] });
           this.report(error);
@@ -85,8 +128,9 @@ export class EncounterController {
       }
     };
   }
-  private act(operation: () => Promise<void>): Promise<void> {
-    if (this.busy || this.disposed || this.paused) return Promise.resolve();
+  private act(operation: () => Promise<void>, acceptedContinuation = false): Promise<void> {
+    // Finishing an already accepted match result must survive a story reserving its aftermath.
+    if (this.busy || this.disposed || this.paused || !acceptedContinuation && this.deps.isInteractionBlocked?.()) return Promise.resolve();
     this.busy = true;
     const buttons = [...this.deps.root.querySelectorAll<HTMLButtonElement>("button")].map(button => ({ button, disabled: button.disabled }));
     buttons.forEach(({ button }) => button.disabled = true);
@@ -219,9 +263,9 @@ export class EncounterController {
       this.deps.root.querySelectorAll<HTMLButtonElement>("[data-flow-info]").forEach(button => button.onclick = () => {
         if (!dialog || !legacy) return;
         dialog.querySelector<HTMLElement>("#challenge-compare-title")!.textContent = button.dataset.comparisonTitle ?? "效果变化";
-        dialog.querySelector<HTMLElement>("[data-compare-body]")!.innerHTML = renderFlowSkillComparison(legacy.definition, button.dataset.flowInfo!, legacy); dialog.showModal();
+        dialog.querySelector<HTMLElement>("[data-compare-body]")!.innerHTML = renderFlowSkillComparison(legacy.definition, button.dataset.flowInfo!, legacy); openUiDialog(dialog);
       });
-      dialog?.querySelector<HTMLButtonElement>("[data-compare-close]")?.addEventListener("click", () => dialog.close());
+      dialog?.querySelector<HTMLButtonElement>("[data-compare-close]")?.addEventListener("click", () => { void closeUiDialog(dialog); });
       this.deps.root.querySelectorAll<HTMLButtonElement>("[data-flow-node]").forEach(button => {
         const option = available.get(button.dataset.flowNode!); button.disabled = !option;
         button.onclick = () => {
@@ -233,7 +277,7 @@ export class EncounterController {
           else void this.act(() => this.choose(run, option.id)).catch(this.report);
         };
       });
-      this.deps.root.querySelector<HTMLButtonElement>("[data-abandon]")!.onclick = () => void this.act(async () => { await this.state.abandon(); this.deps.session.clearActiveMatch(); await this.deps.renderLobby(); }).catch(this.report);
+      this.deps.root.querySelector<HTMLButtonElement>("[data-abandon]")!.onclick = () => void this.requestBack().catch(this.report);
     });
   };
   private async showSettlement(run: ProgramRun): Promise<void> {
@@ -259,15 +303,67 @@ export class EncounterController {
       recordResult: node.effects.some(effect => effect.type === "record-result" && evaluateProgramCondition(run, effect.when, this.state.facts) && programResult(run, effect.source)?.id === receipt.id), rewards,
       ...((continuing || run.definition.presentation?.resultActions === "return") ? { actions: [{ destination: continuing ? "continue" : "lobby", label: node.continueLabel ?? (continuing ? "继续" : "返回大厅"), primary: true }] } : {})
     });
+    // A settlement owns the completed receipt after the active table has been cleared.
+    // Publish that presentation snapshot too, including when restoring a saved settlement.
+    gameAudio.setMatchMusic(character.matchMusicSources, character.matchMusicPriorities);
+    gameAudio.setBgmScene("match");
+    gameAudio.updateMusicContext(receipt.match, [], true);
   }
-  exitTable = (): void => {
+  /** Back never confirms a result or discards an active program implicitly. */
+  requestBack = async (): Promise<void> => {
+    if (this.requestingBack || this.busy || this.disposed || this.paused) return;
+    this.requestingBack = true;
+    let navigationPaused = false;
+    try {
+      const run = this.run, match = this.state.match, node = this.state.node;
+      if (!run) { await this.deps.renderLobby(); return; }
+      if (node?.type === "settlement" || (node?.type === "match" && match?.status === "finished")) {
+        // The program owns reward requirements and the next destination. A continuing
+        // settlement still proceeds to its next node, even when the fallback is lobby.
+        await this.completeMatch("lobby");
+        return;
+      }
+      if (node?.type === "match") {
+        if (!match || match.playerSkills.drawOffer) {
+          this.report(new Error("请先完成技能选牌，再离开本场"));
+          return;
+        }
+        this.deps.session.pauseForNavigation();
+        navigationPaused = true;
+        const confirmed = await confirmGameDialog("离开本场牌局", "确认离开本场牌局？将按当前流程的离席规则处理。", "离开牌局");
+        this.deps.session.resumeAfterNavigation();
+        navigationPaused = false;
+        if (confirmed && !this.disposed && this.state.isCurrent(run) && this.state.match?.id === match.id) await this.exitTable();
+        return;
+      }
+      if (await confirmGameDialog("放弃当前流程", "确认放弃当前流程并返回大厅？尚未完成的流程进度将被清除。", "放弃流程")) {
+        if (!this.disposed && this.state.isCurrent(run)) await this.abandon();
+      }
+    } catch (error) {
+      this.report(error);
+      throw error;
+    } finally {
+      if (navigationPaused) this.deps.session.resumeAfterNavigation();
+      this.requestingBack = false;
+    }
+  };
+  private abandon = (): Promise<void> => this.act(async () => {
+    await this.state.abandon();
+    this.deps.session.clearActiveMatch();
+    await this.deps.renderLobby();
+  });
+  exitTable = async (): Promise<void> => {
     const node = this.state.node;
-    if (node?.type === "match" && node.escapePresentation === "immediate") void this.act(async () => {
+    if (node?.type === "match" && node.escapePresentation === "immediate") await this.act(async () => {
       this.deps.session.pauseForNavigation();
       try { await this.state.completeMatch(true); this.deps.session.clearActiveMatch(); await this.showCurrent(); }
       finally { this.deps.session.resumeAfterNavigation(); }
     }).catch(this.report);
-    else this.deps.session.dispatch({ type: "ESCAPE_MATCH" });
+    else {
+      this.deps.session.dispatch({ type: "ESCAPE_MATCH" });
+      // A synchronous dispatch can schedule its result callback in the next microtask.
+      await this.flush();
+    }
   };
   claimReward = (rewardId: string): Promise<void> => this.act(async () => { await this.state.claim(rewardId); await this.showCurrent(); });
   completeMatch = (destination: SummaryDestination): Promise<void> => this.act(async () => {

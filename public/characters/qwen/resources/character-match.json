@@ -1,0 +1,146 @@
+{
+  "metadata": {
+    "id": "qwen",
+    "name": "Qwen",
+    "subtitle": "拿着折扇来打牌的本地伙伴，语气温和，主意却拿得很稳。休息时能聊许多奶茶口味，一到发牌便收好手机，认真琢磨你刚才是怎么赢的。",
+    "tier": "A",
+    "tags": [],
+    "previewImage": {
+      "presentationRef": "image:cover"
+    },
+    "portraitScales": {
+      "selection": 1,
+      "table": 1
+    },
+    "faction": "hoc-core/official-factions#intelligent-core",
+    "previewFocus": {
+      "presentationRef": "focus:cover"
+    },
+    "encounter": {
+      "requiresDefeat": false,
+      "rematchSkillChoices": false,
+      "invitationLabel": "邀请",
+      "playerGun": {
+        "capacity": 6,
+        "bullets": 0
+      }
+    },
+    "unlock": {
+      "type": "defeat-character",
+      "characterId": "chatgpt"
+    }
+  },
+  "definition": {
+    "assets": {
+      "cover": {
+        "presentationRef": "image:cover"
+      },
+      "relaxed": {
+        "presentationRef": "portrait:relaxed",
+        "path": "/image"
+      },
+      "conflicted": {
+        "presentationRef": "portrait:conflicted",
+        "path": "/image"
+      },
+      "mocking": {
+        "presentationRef": "portrait:mocking",
+        "path": "/image"
+      },
+      "threatened": {
+        "presentationRef": "portrait:threatened",
+        "path": "/image"
+      },
+      "unconscious": {
+        "presentationRef": "portrait:unconscious",
+        "path": "/image"
+      }
+    },
+    "profile": {
+      "description": "Qwen 在你这台机器上就能找到。到了牌桌边，她会把白色手提包放在身侧，拢好华服的衣袖，再合起折扇，腾出手来看牌。她说话温温和和，围着桌子争论的声音再响，也不妨碍她等人说完，再把自己的问题问清楚。\n\n她确实想知道你是怎么赢的。是最后一张牌来得巧，还是前面那一步另有打算，她都会好奇地追问。可追问归追问，眼前的胜负也不能装作没有发生。别人还在拉人评理，她便已经点头：“可是他真的赢了呀。”语气那么自然，连被她拆了台的人都得停一下，才想起该如何接话。\n\n休息的时候，奶茶是个能让她打开话匣子的话题。你若问她杯子上的店名，她会很乐意告诉你，顺带翻出优惠券，说到可以怎样用淘金币兑换。折扇在旁边轻轻晃着，她将手机上的页面指给你看，连该选什么口味也有自己的推荐。等桌边开始准备发牌，她便把手机收回包里，端正地坐好。\n\n和她坐在一起，输赢可以讲清楚，喜欢什么也可以大大方方地说。你不必为了顾及她的情绪，硬把一局输牌夸成胜利；她也不会为了附和谁，把亲眼看到的结果说成另一回事。新一手牌到面前，她便合起折扇，仔细看过自己的点数，再抬眼打量你的神情。刚才学到的办法，这回也许就能试一试。"
+    },
+    "matchSummary": {
+      "playerVictory": "Qwen 将牌放回桌上，认真看了一遍结果。“嗯，是你赢了。”她拿折扇轻轻点了点刚才那张牌，想问你为什么会在那时停下。你解释到一半，她便笑着点头：“原来是这样，我下次也试试。”等问题问完，她又想起什么，把手机拿了出来：“对了，刚才那家奶茶的优惠券，我找到了。”",
+      "playerDefeat": "“这回是我赢了呢。”Qwen 看着牌面笑起来，又向你确认了一遍刚才的过程。你说这次接得漂亮，她便坦然收下这句夸奖，把折扇重新打开。“那我可要记住，不能下回又忘了。”她想了想，抬眼问你还想不想继续；桌边的奶茶还没喝完，下一局的办法倒已经开始琢磨了。",
+      "escaped": "Qwen 合起折扇，点点头：“好呀，先忙你的。”她将手机收回手提包，忽然又抬头提醒你，刚才问过的奶茶店名别记错了。你表示已经记下，她才放心地笑起来。“下次喝到的话，告诉我你觉得怎么样。还有刚才那几张牌，我回去也想再想想。”"
+    },
+    "revolverPlacement": {
+      "presentationRef": "portrait:relaxed",
+      "path": "/revolverPlacement"
+    },
+    "ai": {
+      "P": 0,
+      "A": 1,
+      "B": 1,
+      "C": 1
+    },
+    "tablePortrait": {
+      "anchorY": 1,
+      "images": [
+        {
+          "image": {
+            "presentationRef": "portrait:relaxed",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:relaxed",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:conflicted",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:conflicted",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:mocking",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:mocking",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:threatened",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:threatened",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:unconscious",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:unconscious",
+            "path": "/anchorY"
+          }
+        }
+      ]
+    }
+  },
+  "aiSkills": [
+    {
+      "resourceId": "ai:qwen-takeaway-and-milk-tea",
+      "enabled": true,
+      "parameters": {},
+      "level": 1
+    }
+  ],
+  "rewardSkillResourceIds": [
+    "player:qwen-takeaway-player"
+  ],
+  "dialogueResourceId": "dialogue",
+  "presentationResourceId": "appearance"
+}

@@ -14,6 +14,13 @@ export const LAUNCHER_BACKGROUNDS: readonly LauncherBackground[] = [
     title: "卓越挑战者",
     imageUrl: "/assets/backgrounds/launcher-ai-hall.png",
     position: "center"
+  },
+  {
+    id: "v0.3.0-beta1-bank-heist",
+    version: "0.3.0-beta1",
+    title: "美好时光只在昨日",
+    imageUrl: "/assets/backgrounds/launcher-v0.3.0-beta1.png",
+    position: "center"
   }
 ];
 

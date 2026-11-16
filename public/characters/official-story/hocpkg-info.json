@@ -1,0 +1,347 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "official-story",
+    "version": "1.6.3"
+  },
+  "metadata": {
+    "title": "官方剧情包",
+    "license": "GPL-3.0-only AND CC0-1.0 AND CC-BY-NC-SA-4.0 AND LicenseRef-ZipZipPipe-Author-Sharing",
+    "description": "官方剧情与回看档案。首次对决、DeepSeek 与 ChatGPT 胜利、四位牌友全部击败及 Claude 完整挑战胜利后的结算分别衔接剧情，第一章完结。",
+    "coverImage": "covers/official-story.png",
+    "tags": [
+      "built-in",
+      "story"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      },
+      {
+        "displayName": "ZipZipPipe",
+        "roles": [
+          "art"
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "opening",
+      "type": "story.scene",
+      "apiVersion": 1,
+      "entry": "resources/opening.json",
+      "requires": []
+    },
+    {
+      "id": "first-duel",
+      "type": "story.binding",
+      "apiVersion": 1,
+      "entry": "resources/first-duel.json",
+      "requires": [
+        "opening"
+      ]
+    },
+    {
+      "id": "after-deepseek",
+      "type": "story.scene",
+      "apiVersion": 1,
+      "entry": "resources/after-deepseek.json",
+      "requires": []
+    },
+    {
+      "id": "deepseek-victory",
+      "type": "story.binding",
+      "apiVersion": 1,
+      "entry": "resources/deepseek-victory.json",
+      "requires": [
+        "after-deepseek"
+      ]
+    },
+    {
+      "id": "after-chatgpt",
+      "type": "story.scene",
+      "apiVersion": 1,
+      "entry": "resources/after-chatgpt.json",
+      "requires": []
+    },
+    {
+      "id": "chatgpt-victory",
+      "type": "story.binding",
+      "apiVersion": 1,
+      "entry": "resources/chatgpt-victory.json",
+      "requires": [
+        "after-chatgpt"
+      ]
+    },
+    {
+      "id": "claude-invitation",
+      "type": "story.scene",
+      "apiVersion": 1,
+      "entry": "resources/claude-invitation.json",
+      "requires": []
+    },
+    {
+      "id": "four-victories",
+      "type": "story.binding",
+      "apiVersion": 1,
+      "entry": "resources/four-victories.json",
+      "requires": [
+        "claude-invitation"
+      ]
+    },
+    {
+      "id": "after-claude",
+      "type": "story.scene",
+      "apiVersion": 1,
+      "entry": "resources/after-claude.json",
+      "requires": []
+    },
+    {
+      "id": "claude-victory",
+      "type": "story.binding",
+      "apiVersion": 1,
+      "entry": "resources/claude-victory.json",
+      "requires": [
+        "after-claude"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "actors/chatgpt-mocking.png",
+      "bytes": 2148769,
+      "sha256": "f641d43751bb1025ce81e2a3043e3f7e9b88e8786f2bb214f05b23c061200652",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/chatgpt-relaxed.png",
+      "bytes": 2104828,
+      "sha256": "3db7c5b07f4b8d817dc948f10acf26ad822d711dc81f1b9ef562fb47cde9d2dc",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/claude-phone.png",
+      "bytes": 2190383,
+      "sha256": "7c273793a2454bf10fcad49de5fd1de9f92b7bd54db7f3a81f6be72ed6876c35",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/claude-proud.png",
+      "bytes": 2237612,
+      "sha256": "e9d843238237d37b9c17aa88b5b86c5f5b8c0f5ca5d979984c357e4f1a176f1b",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/deepseek-conflicted.png",
+      "bytes": 1973622,
+      "sha256": "53872f9ca9e929b6bc941982663b681caaa10d363b66eb9d98d25e9d6e982c2d",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/deepseek-flustered.png",
+      "bytes": 1944530,
+      "sha256": "ca5763c5504940e8d2b51b783a151a3b250c326b869f1ba4530f505ba5563bd5",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/deepseek-innocent.png",
+      "bytes": 1978452,
+      "sha256": "9796c8c6cc2366c9f7a14bd03be3a2a6d754ed474cb4f75d21bcfc6f4c588b78",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/deepseek-mocking.png",
+      "bytes": 1953897,
+      "sha256": "925e3f3d239eb62657b62047deec3d5b20b3c8fa0e86913df4eb6d08743d357c",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/deepseek-playful.png",
+      "bytes": 1973333,
+      "sha256": "81860fb5088e487a91386b932a499541fa3639ac56c4f4585c807b25c0bbd537",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/deepseek-relaxed.png",
+      "bytes": 1947444,
+      "sha256": "24d4c71a6ca0bf25c85fed096b25b5cfa3a8e89836f96e5f0585cbdeba7e24cd",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/gemini-embarrassed.png",
+      "bytes": 2236986,
+      "sha256": "bad5cd86e9a8f0b76e32d3b18679e438728079b0f8962825f23024f6475f2954",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/gemini-protesting.png",
+      "bytes": 2188942,
+      "sha256": "caf5f169e3e469c9214965c58c714a577e01ede1b4ae0067d1f6c01e5bd8f3a0",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/glm-relaxed.png",
+      "bytes": 2000543,
+      "sha256": "0518473c60b59403aee92330a85c032fa8c26eb9e0db56ee1257569bbb1bc54b",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/grok-flustered.png",
+      "bytes": 2245221,
+      "sha256": "d4f67233c1216ff425e676595ec4aab5a8665061dcf91d80b14503243c8e4b4a",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/grok-relaxed.png",
+      "bytes": 2201167,
+      "sha256": "ba60b7538ff06b05a7a6b5d7d2d7537e8292047c88cbdbc3368d5a7d426452de",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/llama-knowing.png",
+      "bytes": 1755582,
+      "sha256": "3ba403fb1b8e8d871c59ab58d0d0e7980abf1d6ca99edecc53b2541006f183b4",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/llama-phone.png",
+      "bytes": 1779023,
+      "sha256": "6844a65c89fac3376babdbe46b9cdc79ce8976b054e967e4e39260b0c027a341",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/llama-relaxed.png",
+      "bytes": 1720405,
+      "sha256": "1bd91e72274c14a5c09b84e308f4f326c2ad9a9f0d7022eb43a2ea9b9f5f6a84",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "actors/qwen-relaxed.png",
+      "bytes": 2180597,
+      "sha256": "fc97e65c52579e90376c6cb2aa51bffb593eb6c743ce74331234ae69ece67853",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "ART-CREDITS.md",
+      "bytes": 7917,
+      "sha256": "330da9fa526508c23de454aa9b9129c6d8d4c3a5755083909e952fab2fc26706",
+      "mediaType": "text/markdown"
+    },
+    {
+      "path": "backgrounds/curator-office.png",
+      "bytes": 2296282,
+      "sha256": "4062c8ca96dc8b1f886517892dcfac4501796603b50f606044790a3d3939b7f6",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "backgrounds/table-hall-dark.png",
+      "bytes": 1682046,
+      "sha256": "43bdd203a7dcb508c2e8a5714b4e64ae166f5f140d041fe613d92bf8f45ae584",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "cover.png",
+      "bytes": 2750147,
+      "sha256": "db30ec4154ce09826b6b3ee8d8f23da440b570a68ba4a59f783df6d994539189",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/chatgpt.png",
+      "bytes": 2721455,
+      "sha256": "4314707f22d7cbfa044ed0f640acd42ee8d8614633b786c195f5d1f040a3525d",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/official-story.png",
+      "bytes": 2178258,
+      "sha256": "ef75c8abeaa0e6bd17c8b87a7e42fe08326ec256456263659da56a6bc1553b99",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "LICENSE-ART.md",
+      "bytes": 20850,
+      "sha256": "e66c269d4819aaab34b49ef5220c4ddab6756f21bb5180761a4eb8561f2b7bbd",
+      "mediaType": "text/markdown"
+    },
+    {
+      "path": "LICENSE-AUTHOR-SHARING.md",
+      "bytes": 1627,
+      "sha256": "e5a65fc2e0fd3f5ce5cf25a721a9540b632e52058692f4d04af4bb51e578122b",
+      "mediaType": "text/markdown"
+    },
+    {
+      "path": "LICENSE-BACKGROUNDS.md",
+      "bytes": 7048,
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+      "mediaType": "text/markdown"
+    },
+    {
+      "path": "resources/after-chatgpt.json",
+      "bytes": 16504,
+      "sha256": "9338210ac0e316078901d9457bdd9019bd57e6ba7ce4169d55b3e2a2c7c19e2d",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/after-claude.json",
+      "bytes": 15273,
+      "sha256": "6ee473a5843aa62e20cb3cd4ded6ab273d624c5a6010e9a56bb6a0cba888f151",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/after-deepseek.json",
+      "bytes": 15682,
+      "sha256": "c4f17ae6aec656e137871d5b100d604e9dde421830cb1bd4137d44b92cc2ca87",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/chatgpt-victory.json",
+      "bytes": 936,
+      "sha256": "9808d927a3c226a73225d7f5719e836f70d7ad8b549a8a1b1a42741f45c0853b",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/claude-invitation.json",
+      "bytes": 72727,
+      "sha256": "d69743fb65f44ec9811782362d578b0c5e834de660c7ff058c58ed9ebe8f171e",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/claude-victory.json",
+      "bytes": 943,
+      "sha256": "6cf08baa0fdb6ef62b81cf9c00261ba731a30d7bf0ba2ee8cdf7bef64bbe947e",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/deepseek-victory.json",
+      "bytes": 938,
+      "sha256": "5b6114b6f6f9b1f8b1e9536fdf27d43f63ef23a76404ca2d4aa101bcc054a984",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/first-duel.json",
+      "bytes": 177,
+      "sha256": "63eb2a274cc451e4685194536f70b5a097fe6b75a9bac9bd06684500b3fea6a8",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/four-victories.json",
+      "bytes": 3712,
+      "sha256": "38f973c8b2bf29f939643b35fa6270eb86e5ae52f787cbe733a44fdc25ff970d",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/opening.json",
+      "bytes": 29954,
+      "sha256": "be728e1e6da96cc552c4102341f229c98030adacaa9a520463f00a864a10259c",
+      "mediaType": "application/json"
+    }
+  ],
+  "extensions": {}
+}

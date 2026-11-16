@@ -19,7 +19,11 @@ import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.zip.*;
+import java.util.zip.CRC32;
+import java.util.regex.Pattern;
+import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.model.FileHeader;
+import net.lingala.zip4j.exception.ZipException;
 
 /** Raw file operations only. Package schemas, limits and catalog decisions stay shared. */
 @CapacitorPlugin(name = "ContentIo")
@@ -27,6 +31,8 @@ public class ContentIoPlugin extends Plugin {
     static final int BUFFER_BYTES = 256 * 1024;
     static final long MAX_ENTRY = 256L * 1024 * 1024;
     static final long MAX_INPUT = 512L * 1024 * 1024;
+    private static final Pattern PATH_SEGMENT = Pattern.compile("[A-Za-z0-9._-]+");
+    private static final char[] HEX = "0123456789abcdef".toCharArray();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Map<String, AtomicBoolean> jobs = new ConcurrentHashMap<>();
     private final Map<String, Long> progressTimes = new ConcurrentHashMap<>();
@@ -55,17 +61,29 @@ public class ContentIoPlugin extends Plugin {
                 call.resolve(result);
             } catch (Exception error) {
                 android.util.Log.w("ContentIo", call.getMethodName() + " elapsedMs=" + (android.os.SystemClock.elapsedRealtime() - started) + " error=" + error.getClass().getSimpleName());
-                call.reject(operationError(error), error);
+                call.reject(operationError(error), operationCode(error), error);
             } finally { jobs.remove(id); progressTimes.remove(id); }
         });
     }
     static void check(AtomicBoolean cancelled) throws IOException {
         if (cancelled.get()) throw new IOException("操作已取消。");
     }
+    static class ArchivePasswordException extends IOException { ArchivePasswordException() { super("此 ZIP 需要密码。"); } }
+    static String operationCode(Exception error) {
+        if (error instanceof ArchivePasswordException) return "ZIP_PASSWORD_REQUIRED";
+        if (error instanceof ZipException && ((ZipException)error).getType() == ZipException.Type.WRONG_PASSWORD) return "ZIP_INVALID_PASSWORD";
+        return "CONTENT_IO_ERROR";
+    }
     static String operationError(Exception error) {
+        if (error instanceof ZipException) {
+            ZipException.Type type = ((ZipException)error).getType();
+            if (type == ZipException.Type.WRONG_PASSWORD) return "密码不匹配，或加密内容已损坏。";
+            if (type == ZipException.Type.UNSUPPORTED_ENCRYPTION || type == ZipException.Type.UNKNOWN_COMPRESSION_METHOD) return "不支持此 ZIP 的加密或压缩方式。";
+            return "文件内容不完整或压缩包已损坏，请重新选择完整文件。";
+        }
         String message = error.getMessage();
         if (message != null && (message.contains("ENOSPC") || message.toLowerCase(Locale.ROOT).contains("no space left"))) return "存储空间不足，请释放空间后重试。";
-        if (error instanceof ZipException || error instanceof EOFException) return "文件内容不完整或压缩包已损坏，请重新选择完整文件。";
+        if (error instanceof java.util.zip.ZipException || error instanceof EOFException) return "文件内容不完整或压缩包已损坏，请重新选择完整文件。";
         if (error instanceof FileNotFoundException) return "无法打开所选文件，请重新选择。";
         return message == null ? "文件操作失败。" : message;
     }
@@ -98,17 +116,17 @@ public class ContentIoPlugin extends Plugin {
     }
     private File stored(String path) throws IOException {
         if (path == null || path.length() > 1024) throw new IOException("非法内容路径。");
-        for (String part : path.split("/", -1)) if (!part.matches("[A-Za-z0-9._-]+") || part.equals(".") || part.equals("..")) throw new IOException("非法内容路径。");
+        for (String part : path.split("/", -1)) if (!PATH_SEGMENT.matcher(part).matches() || part.equals(".") || part.equals("..")) throw new IOException("非法内容路径。");
         File root = getContext().getFilesDir().getCanonicalFile();
         File file = new File(root, path).getCanonicalFile();
         if (!file.getPath().startsWith(root.getPath() + File.separator)) throw new IOException("内容路径越界。");
         return file;
     }
-    private InputStream source(JSObject source) throws Exception {
+    private InputStream source(org.json.JSONObject source) throws Exception {
         if (source == null) throw new IOException("缺少内容来源。");
-        if ("stored".equals(source.getString("kind"))) return new FileInputStream(stored(source.getString("path")));
-        if ("asset".equals(source.getString("kind"))) {
-            String path = source.getString("path");
+        if ("stored".equals(source.optString("kind", null))) return new FileInputStream(stored(source.optString("path", null)));
+        if ("asset".equals(source.optString("kind", null))) {
+            String path = source.optString("path", null);
             // Asset references are relative to the web root, never arbitrary filesystem paths.
             if (path == null || !path.startsWith("/") || path.contains("..") || path.contains("\\") || path.contains(":")) throw new IOException("非法内嵌资源路径。");
             return getContext().getAssets().open("public" + path);
@@ -116,8 +134,12 @@ public class ContentIoPlugin extends Plugin {
         throw new IOException("不支持的内容来源。");
     }
     static JSObject transfer(InputStream input, OutputStream output, AtomicBoolean cancelled, long limit, Progress progress) throws Exception {
+        return transfer(input, output, cancelled, limit, progress, new byte[BUFFER_BYTES]);
+    }
+    // The caller owns this buffer for one serial operation, never across queued jobs.
+    static JSObject transfer(InputStream input, OutputStream output, AtomicBoolean cancelled, long limit, Progress progress, byte[] buffer) throws Exception {
+        if (buffer.length == 0) throw new IllegalArgumentException("传输缓冲区不能为空。");
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] buffer = new byte[BUFFER_BYTES];
         long bytes = 0;
         int count;
         while ((count = input.read(buffer)) != -1) {
@@ -129,9 +151,14 @@ public class ContentIoPlugin extends Plugin {
             if (progress != null) progress.update(bytes);
         }
         check(cancelled);
-        StringBuilder hash = new StringBuilder();
-        for (byte value : digest.digest()) hash.append(String.format(Locale.ROOT, "%02x", value & 255));
-        return new JSObject().put("bytes", bytes).put("sha256", hash.toString());
+        byte[] bytesHash = digest.digest();
+        char[] hash = new char[bytesHash.length * 2];
+        for (int index = 0; index < bytesHash.length; index++) {
+            int value = bytesHash[index] & 255;
+            hash[index * 2] = HEX[value >>> 4];
+            hash[index * 2 + 1] = HEX[value & 15];
+        }
+        return new JSObject().put("bytes", bytes).put("sha256", new String(hash));
     }
     interface Progress { void update(long bytes); }
     private Progress progress(PluginCall call, String phase, String path, long total) {
@@ -154,11 +181,12 @@ public class ContentIoPlugin extends Plugin {
         submit(call, cancelled -> {
             JSArray results = new JSArray();
             JSArray paths = call.getArray("paths");
+            byte[] buffer = new byte[BUFFER_BYTES];
             for (int i = 0; i < paths.length(); i++) {
                 String path = paths.getString(i);
                 File file = stored(path);
                 try (InputStream input = new FileInputStream(file)) {
-                    results.put(transfer(input, null, cancelled, MAX_ENTRY, progress(call, "verifying", path, file.length())));
+                    results.put(transfer(input, null, cancelled, MAX_ENTRY, progress(call, "verifying", path, file.length()), buffer));
                 }
             }
             return new JSObject().put("results", results);
@@ -178,21 +206,25 @@ public class ContentIoPlugin extends Plugin {
             JSArray files = call.getArray("files");
             if (files == null || files.length() > 1000) throw new IOException("文件数量超过限额。");
             JSArray results = new JSArray();
+            byte[] buffer = new byte[BUFFER_BYTES];
             for (int i = 0; i < files.length(); i++) {
                 check(cancelled);
-                JSObject entry = new JSObject(files.getJSONObject(i).toString());
-                File target = stored(entry.getString("destination"));
+                org.json.JSONObject entry = files.getJSONObject(i);
+                File target = stored(entry.optString("destination", null));
                 if (!target.getParentFile().isDirectory() && !target.getParentFile().mkdirs()) throw new IOException("无法创建内容目录。");
-                try (InputStream input = source(entry.getJSObject("source")); OutputStream output = new FileOutputStream(target)) {
-                    results.put(transfer(input, output, cancelled, MAX_ENTRY, progress(call, "copying", entry.getString("destination"), 0)));
+                try (InputStream input = source(entry.optJSONObject("source")); OutputStream output = new FileOutputStream(target)) {
+                    results.put(transfer(input, output, cancelled, MAX_ENTRY, progress(call, "copying", entry.optString("destination", null), 0), buffer));
                 } catch (Exception error) { target.delete(); throw error; }
             }
             return new JSObject().put("results", results);
         });
     }
     private ZipFile zip(File file) throws IOException {
-        try { return new ZipFile(file, StandardCharsets.UTF_8); }
-        catch (IllegalArgumentException | ZipException error) { return new ZipFile(file, StandardCharsets.ISO_8859_1); }
+        ZipFile zip = new ZipFile(file);
+        // UTF-8 flagged names are decoded by zip4j; retain legacy byte mapping otherwise.
+        zip.setCharset(StandardCharsets.ISO_8859_1);
+        if (zip.isSplitArchive()) { zip.close(); throw new IOException("不支持分卷 ZIP。"); }
+        return zip;
     }
     private File pngPayload(File file, AtomicBoolean cancelled) throws Exception {
         File target = new File(getContext().getCacheDir(), "content-archive-" + UUID.randomUUID() + ".zip");
@@ -230,20 +262,18 @@ public class ContentIoPlugin extends Plugin {
     @PluginMethod public void openArchive(PluginCall call) {
         submit(call, cancelled -> {
             JSObject source = call.getObject("source");
-            if (source == null || !"stored".equals(source.getString("kind"))) throw new IOException("归档必须来自受管文件。");
-            File input = stored(source.getString("path"));
+            if (source == null || !"stored".equals(source.optString("kind", null))) throw new IOException("归档必须来自受管文件。");
+            File input = stored(source.optString("path", null));
             if (input.length() > MAX_INPUT) throw new IOException("导入文件超过 512 MiB 限额。");
             File payload = pngPayload(input, cancelled);
             File file = payload == null ? input : payload;
             try (ZipFile zip = zip(file)) {
                 JSArray entries = new JSArray();
-                Enumeration<? extends ZipEntry> iterator = zip.entries();
                 int count = 0;
-                while (iterator.hasMoreElements()) {
+                for (FileHeader entry : zip.getFileHeaders()) {
                     check(cancelled);
-                    ZipEntry entry = iterator.nextElement();
-                    if (++count > 1000) throw new IOException("ZIP 条目数量超过限制。");
-                    if (!entry.isDirectory()) entries.put(new JSObject().put("path", entry.getName()).put("bytes", entry.getSize()).put("compressedBytes", entry.getCompressedSize()));
+                    if (++count > 4096) throw new IOException("ZIP 条目数量超过限制。");
+                    if (!entry.isDirectory()) entries.put(new JSObject().put("path", entry.getFileName()).put("bytes", entry.getUncompressedSize()).put("compressedBytes", entry.getCompressedSize()).put("encrypted", entry.isEncrypted()));
                 }
                 String token = UUID.randomUUID().toString();
                 archives.put(token, new Archive(file, payload != null));
@@ -251,20 +281,24 @@ public class ContentIoPlugin extends Plugin {
             } catch (Exception error) { if (payload != null) payload.delete(); throw error; }
         });
     }
-    private JSObject extractEntry(ZipFile zip, String path, String destination, PluginCall call, AtomicBoolean cancelled) throws Exception {
+    private JSObject extractEntry(ZipFile zip, String path, String destination, PluginCall call, AtomicBoolean cancelled, byte[] buffer) throws Exception {
         File target = stored(destination);
         try {
-            ZipEntry entry = zip.getEntry(path);
+            FileHeader entry = zip.getFileHeader(path);
             if (entry == null || entry.isDirectory()) throw new IOException("ZIP 条目不存在。");
-            if (entry.getSize() < 0 || entry.getSize() > MAX_ENTRY || entry.getCompressedSize() < 0
-                || (entry.getCompressedSize() > 0 && entry.getSize() / (double)entry.getCompressedSize() > 200)) throw new IOException("ZIP 条目超过限额。");
+            if (entry.getUncompressedSize() < 0 || entry.getUncompressedSize() > MAX_ENTRY || entry.getCompressedSize() < 0
+                || (entry.getCompressedSize() > 0 && entry.getUncompressedSize() / (double)entry.getCompressedSize() > 200)) throw new IOException("ZIP 条目超过限额。");
             if (!target.getParentFile().isDirectory() && !target.getParentFile().mkdirs()) throw new IOException("无法创建内容目录。");
-            CRC32 crc = new CRC32();
+            String password = call.getString("password");
+            if (entry.isEncrypted() && password == null) throw new ArchivePasswordException();
+            char[] credential = password == null ? null : password.toCharArray();
+            zip.setPassword(credential);
             JSObject result;
-            try (InputStream input = new CheckedInputStream(zip.getInputStream(entry), crc); OutputStream output = new FileOutputStream(target)) {
-                result = transfer(input, output, cancelled, entry.getSize(), progress(call, "extracting", entry.getName(), entry.getSize()));
-            }
-            if (result.getLong("bytes") != entry.getSize() || crc.getValue() != entry.getCrc()) throw new IOException("ZIP 条目校验失败。");
+            try (InputStream input = zip.getInputStream(entry); OutputStream output = new FileOutputStream(target)) {
+                result = transfer(input, output, cancelled, entry.getUncompressedSize(), progress(call, "extracting", entry.getFileName(), entry.getUncompressedSize()), buffer);
+            } finally { if (credential != null) Arrays.fill(credential, '\0'); }
+            // zip4j checks CRC / AES authentication before its stream reaches EOF.
+            if (result.getLong("bytes") != entry.getUncompressedSize()) throw new IOException("ZIP 条目校验失败。");
             return result;
         } catch (Exception error) { target.delete(); throw error; }
     }
@@ -273,7 +307,7 @@ public class ContentIoPlugin extends Plugin {
             Archive archive = archives.get(call.getString("token"));
             if (archive == null) throw new IOException("归档句柄已关闭。");
             try (ZipFile zip = zip(archive.file)) {
-                return extractEntry(zip, call.getString("path"), call.getString("destination"), call, cancelled);
+                return extractEntry(zip, call.getString("path"), call.getString("destination"), call, cancelled, new byte[BUFFER_BYTES]);
             }
         });
     }
@@ -284,11 +318,12 @@ public class ContentIoPlugin extends Plugin {
             JSArray files = call.getArray("files");
             if (files == null || files.length() > 1000) throw new IOException("文件数量超过限额。");
             JSArray results = new JSArray();
+            byte[] buffer = new byte[BUFFER_BYTES];
             try (ZipFile zip = zip(archive.file)) {
                 for (int i = 0; i < files.length(); i++) {
                     check(cancelled);
-                    JSObject entry = new JSObject(files.getJSONObject(i).toString());
-                    results.put(extractEntry(zip, entry.getString("path"), entry.getString("destination"), call, cancelled));
+                    org.json.JSONObject entry = files.getJSONObject(i);
+                    results.put(extractEntry(zip, entry.optString("path", null), entry.optString("destination", null), call, cancelled, buffer));
                 }
             }
             return new JSObject().put("results", results);

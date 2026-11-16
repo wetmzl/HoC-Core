@@ -1,0 +1,208 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "official-built-in-achievements",
+    "version": "1.0.0"
+  },
+  "metadata": {
+    "title": "官方内嵌成就包",
+    "license": "CC0 AND CC-BY-NC-SA-4.0",
+    "description": "随游戏安装的25项官方成就及其主题封面。",
+    "coverImage": "cover.png",
+    "tags": [
+      "built-in",
+      "achievements"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      },
+      {
+        "displayName": "ZipZipPipe",
+        "roles": [
+          "art"
+        ]
+      }
+    ]
+  },
+  "resources": [
+    {
+      "id": "achievements",
+      "type": "achievement.catalog",
+      "apiVersion": 1,
+      "entry": "resources/achievements.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "ART-CREDITS.md",
+      "bytes": 1631,
+      "sha256": "a4de378135d31d6567587988ab3b251c8e89ef5c2dcdfab86d10b67510b39e9c",
+      "mediaType": "text/markdown"
+    },
+    {
+      "path": "cover.png",
+      "bytes": 385636,
+      "sha256": "c315e37b39b4422e67803440a61717017ed88bbf80fd3092830e00300a5c27b3",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/borrowed-apple.png",
+      "bytes": 456621,
+      "sha256": "b97a4759667df769962722b13f68561a278e67783d7362c0f1d201696218bab3",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/clock-recovery.png",
+      "bytes": 457769,
+      "sha256": "aa82bab389387c1a425fc86badf593d06f915aa6c79ed95efd92cdbd6f6af51e",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/crafted-blackjack.png",
+      "bytes": 460746,
+      "sha256": "e2817bf9421e363ac958949e848b31ec4d925fbf14ecb380674b40f85d7aa970",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/direct-boss.png",
+      "bytes": 388594,
+      "sha256": "e296b5a8d5ba5e6860ccb3754951839a10c401070c4f421f19ef5e627eafb669",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/double-blackjack.png",
+      "bytes": 416371,
+      "sha256": "127d2d185d4dfc68775ef0eb4ee0009298c90d56b8a218c19db6adce60c3787b",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/double-bust.png",
+      "bytes": 440140,
+      "sha256": "8d0ca2f54aa4ab96eb46cf7a981f3791ef964ea0867b12e6a33aed3215ab1b8a",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/eight-skill-deck.png",
+      "bytes": 457001,
+      "sha256": "1398381da91a9e6511f875368e878c1906f0c061739661981b1d1ffdebd7aae3",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/exhaust-copy-replay.png",
+      "bytes": 348592,
+      "sha256": "ed27b7f1619d2bb06ec40b8c8337e6a7609e343af3d2c559bd672bc3ec6247c5",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/fair-play.png",
+      "bytes": 437148,
+      "sha256": "337c3e76cf8f026b11ee46a06d8ff70f224bfede9ac704a0517fb434a3c63de3",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/five-card-victory.png",
+      "bytes": 365695,
+      "sha256": "692fb20d2d2c7bf1ece64fbf6203ffea2d615d1bd131222fb1b7ef555ca031b6",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/four-domains.png",
+      "bytes": 429904,
+      "sha256": "ba8aff47b09c423f43919fa5e9c393f728463c147211ea47c00f93616d370f63",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/full-cylinder-misfire.png",
+      "bytes": 495763,
+      "sha256": "0d220b24453ae1f7eb9ff0553172890366b6502612400cfa79a6fccc340af3f2",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/gifted-bust.png",
+      "bytes": 426252,
+      "sha256": "330757a4f5b5633cf5bf106fe060571fcabde2c54fe64fa45fbd35038a4f0c0e",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/hands-off-match.png",
+      "bytes": 394232,
+      "sha256": "11a4d3955ddd67ac469481f3f4da1360f2dfdd1536209d02db3383d3084d07a1",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/last-slot-premium.png",
+      "bytes": 465956,
+      "sha256": "c9274cf761750a89012cf05187917201ecf4b66336bfc2862cf3c6bea1a26a1f",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/narrow-escape.png",
+      "bytes": 500821,
+      "sha256": "73f455b8a71a3e21c3b4418d17afcfb47292506416c7d1b9a4bfc22ab7a57c16",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/one-point-comeback.png",
+      "bytes": 286248,
+      "sha256": "cc96a7ca087b132da8a23dcbb6b20ef103cd56d5a7aa54cffc5463185dd75577",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/overflow-return.png",
+      "bytes": 422509,
+      "sha256": "379696421c1e55583e0d5a84a4b11b189698e616053f99a5c6e8a471578256a9",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/physical-twenty-one.png",
+      "bytes": 524073,
+      "sha256": "6ff1faac722d5b6ad24c908f98b7e5f79d0514ddfb5531eadff553ec43c42eb5",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/safe-hit.png",
+      "bytes": 396000,
+      "sha256": "228eb3c15539a4b6be0797069caa6d1ffb4ae30c1524c0808e3f32bd51ddb501",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/same-round-ammunition.png",
+      "bytes": 411434,
+      "sha256": "f0248aea86bca23b5a5d70550825ae8c46b3acc201dfe05b6b5a869b1c0756d6",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/selective-guard.png",
+      "bytes": 529927,
+      "sha256": "2462cdb72f1bbce0f944567da841d475fe1813dd6cdd841b1a53087fa1d7aa55",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/stand-then-edit.png",
+      "bytes": 376391,
+      "sha256": "bec48dd947d8a49b663d84a628069864a5f8ab07d25fa0326d7aa809f3504619",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "covers/triple-assessment.png",
+      "bytes": 398907,
+      "sha256": "3a9f8e68bfbba8ccf9ec6cba690bd3efb2f8e67e2370208fb8ce88c010ea7a2f",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/achievements.json",
+      "bytes": 70326,
+      "sha256": "965ed88dc0fc1d00a2e9c184874d220db0d8efe8f44ede145d98e66be8024192",
+      "mediaType": "application/json"
+    }
+  ],
+  "extensions": {}
+}

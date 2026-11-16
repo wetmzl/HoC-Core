@@ -29,7 +29,7 @@ async function mountTable(page: Page) {
     const cards = Array.from({ length: 4 }, (_, i) => registry.instantiateAbility({ definitionId: "critical-judgment", enabled: true, parameters: {} }, "player", `drawer-card-${i}`, match.abilities.sequence + i + 1, undefined, "player-skill"));
     for (const card of cards) match = { ...match, abilities: addAbilityInstance(match.abilities, card) };
     match = { ...match, playerSkills: { ...match.playerSkills, drawOffer: null, cards: cards.map(card => ({ instanceId: card.instanceId, definitionId: card.definitionId, owner: "player", kind: "player-skill" })) } };
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false;
     save.tutorialProgress.completedIds.push("adult-content-warning");
     const repo = (await load("/src/persistence/factory.ts")).createPersistenceService();
@@ -38,6 +38,8 @@ async function mountTable(page: Page) {
   });
   await expect(page.locator("main.table-shell")).toBeVisible();
   await expect(page.locator(".skill-draw-modal")).toHaveCount(0);
+  await expect.poll(() => page.locator(".character-portrait").evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
 }
 
 for (const [width, height] of [[390, 844], [320, 720], [1280, 800]]) test(`固定资源面板与技能吸附、键盘和触屏 ${width}`, async ({ page }, info) => {
@@ -59,12 +61,13 @@ for (const [width, height] of [[390, 844], [320, 720], [1280, 800]]) test(`固�
   await expect.poll(() => previousList!.evaluate(el => el.isConnected)).toBe(false);
   await expect(resources).toBeVisible();
   await expect(list).toHaveJSProperty("scrollTop", scrollTop);
-  expect((await resources.boundingBox())!.height).toBe(originalHeight);
+  expect((await resources.boundingBox())!.height).toBeCloseTo(originalHeight, 3);
   await page.screenshot({ path: info.outputPath(`resources-${width}.png`) });
   await page.locator("[data-close-packages]").click();
+  await expect(resources).not.toBeVisible();
   await page.locator("[data-open-packages]").click();
   await expect(resources).toBeVisible();
-  expect((await resources.boundingBox())!.height).toBe(originalHeight);
+  expect((await resources.boundingBox())!.height).toBeCloseTo(originalHeight, 3);
   await expect(list).toHaveJSProperty("scrollTop", scrollTop);
   await page.keyboard.press("Escape");
   await expect(resources).not.toBeVisible();

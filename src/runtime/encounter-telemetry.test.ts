@@ -10,6 +10,23 @@ import { EncounterSession } from "./encounter-session";
 import { challengeFlowRun, flowSnapshot, singleMatchFlow } from "./encounter-snapshot";
 
 describe("organizer-owned telemetry", () => {
+  it.each([false, true])("reports the live runtime debug flag %s instead of retained settings", async enabled => {
+    const save = createDefaultSave();
+    save.settings.debugEngineEnabled = !enabled;
+    save.settings.pluginSettings = { "hoc-core/debug-engine": { version: 1, values: { enabled: !enabled } } };
+    let debugEnabled = enabled;
+    const observe = vi.fn();
+    const session = new EncounterSession(new MemorySaveRepository({ longTerm: save }), { get: () => save, set: () => {} }, { observe }, () => debugEnabled);
+    const match = createMatch("debug-telemetry", { opponentId: "chatgpt", opponentAiSkills: [] });
+    session.restore(flowSnapshot(singleMatchFlow(match), match));
+    await session.flush();
+    expect(observe).toHaveBeenLastCalledWith(match, expect.anything(), { restored: true, debugUsed: enabled });
+    debugEnabled = !enabled;
+    session.restore(flowSnapshot(singleMatchFlow(match), match));
+    await session.flush();
+    expect(observe).toHaveBeenLastCalledWith(match, expect.anything(), { restored: true, debugUsed: !enabled });
+  });
+
   it("reports non-recorded guard nodes and makes no fictitious report on a failed withdrawal", async () => {
     let save = createDefaultSave(); const repository = new MemorySaveRepository({ longTerm: save });
     const observe = vi.fn(async (_match: import("../core/match/types").MatchState, _run: import("../core/flow/schema").FlowRun) => undefined);

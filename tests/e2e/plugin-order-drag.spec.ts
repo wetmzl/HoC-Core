@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { selectEditablePlaylistCopy } from "./playlist-fixture";
 
 const pluginCards = '[data-package-group="plugins"] .package-group-items > .package-card';
 async function open(page: Page, extra = 0): Promise<string[]> {
@@ -30,6 +31,8 @@ async function open(page: Page, extra = 0): Promise<string[]> {
     await page.reload();
     await expect(page.locator("[data-start-game]")).toBeEnabled();
   }
+  await page.locator("[data-open-packages]").click();
+  await selectEditablePlaylistCopy(page);
   await page.evaluate(async () => {
     const load = (path: string): Promise<any> => import(/* @vite-ignore */ path);
     const { ApplicationController } = await load("/src/application-controller.ts");
@@ -41,7 +44,6 @@ async function open(page: Page, extra = 0): Promise<string[]> {
       return original.call(this, order);
     };
   });
-  await page.locator("[data-open-packages]").click();
   return page.locator(pluginCards).evaluateAll(cards => cards.map(card => (card as HTMLElement).dataset.packageId!));
 }
 async function writes(page: Page) { return page.evaluate(() => (window as any).__sortWrites as string[][]); }

@@ -1,6 +1,7 @@
 import { Inflate } from "fflate";
 import type { ContentArchiveEntry } from "./contracts";
 import { MAX_CONTENT_ARCHIVE_ENTRIES } from "./contracts";
+import { INVALID_PASSWORD, PASSWORD_REQUIRED, passwordError } from "./archive-passwords";
 
 interface ZipEntry extends ContentArchiveEntry { readonly offset: number; readonly method: number; readonly crc: number; }
 const crcTable = Uint32Array.from({ length: 256 }, (_, value) => {
@@ -8,7 +9,7 @@ const crcTable = Uint32Array.from({ length: 256 }, (_, value) => {
   return value;
 });
 function updateCrc(crc: number, bytes: Uint8Array): number {
-  for (const byte of bytes) crc = (crc >>> 8) ^ crcTable[(crc ^ byte) & 255]!;
+  for (let index = 0; index < bytes.length; index++) crc = (crc >>> 8) ^ crcTable[(crc ^ bytes[index]!) & 255]!;
   return crc;
 }
 export function crc32(bytes: Uint8Array): number { return (updateCrc(0xffffffff, bytes) ^ 0xffffffff) >>> 0; }
@@ -62,7 +63,7 @@ export async function zipIndex(blob: Blob): Promise<readonly ZipEntry[]> {
     // Match fflate's legacy Latin-1 decoding; bundle labels recover UTF-8 separately.
     const path = flags & 0x800 ? new TextDecoder().decode(name) : Array.from(name, n => String.fromCharCode(n)).join("");
     if (!path.endsWith("/")) {
-      if ((flags & 1) || (method !== 0 && method !== 8)) throw new Error("不支持加密或此压缩方式的 ZIP。");
+      if (method !== 0 && method !== 8 && !(method === 99 && (flags & 1))) throw new Error("不支持此 ZIP 压缩方式。");
       let expanded = directory.getUint32(cursor + 24, true), compressed = directory.getUint32(cursor + 20, true), offset = directory.getUint32(cursor + 42, true);
       if (expanded === 0xffffffff || compressed === 0xffffffff || offset === 0xffffffff) {
         let extra = cursor + 46 + nameLength;
@@ -83,15 +84,16 @@ export async function zipIndex(blob: Blob): Promise<readonly ZipEntry[]> {
         if (!found) throw new Error("ZIP64 条目缺少扩展字段。");
       }
       if (directory.getUint16(cursor + 34, true)) throw new Error("不支持分卷 ZIP。");
-      entries.push({ path, bytes: expanded, compressedBytes: compressed, offset, method, crc: directory.getUint32(cursor + 16, true) });
+      entries.push({ path, bytes: expanded, compressedBytes: compressed, offset, method, crc: directory.getUint32(cursor + 16, true), encrypted: Boolean(flags & 1) });
     }
     cursor = next;
   }
   return entries;
 }
 
-export async function extractZipEntry(blob: Blob, entry: ZipEntry, check: () => void = () => undefined): Promise<Uint8Array> {
+export async function extractZipEntry(blob: Blob, entry: ZipEntry, check: () => void = () => undefined, password?: string): Promise<Uint8Array> {
   if (entry.bytes > 256 * 1024 * 1024 || (entry.compressedBytes > 0 && entry.bytes / entry.compressedBytes > 200)) throw new Error("ZIP 条目超过限额。");
+  if (entry.encrypted) return extractEncryptedEntry(blob, entry, check, password);
   const header = await slice(blob, entry.offset, entry.offset + 30);
   const view = new DataView(header.buffer);
   if (header.length !== 30 || view.getUint32(0, true) !== 0x04034b50) throw new Error("ZIP 本地条目损坏。");
@@ -121,6 +123,39 @@ export async function extractZipEntry(blob: Blob, entry: ZipEntry, check: () => 
   check();
   if (crc32(bytes) !== entry.crc) throw new Error("ZIP 条目校验失败。");
   return bytes;
+}
+
+async function extractEncryptedEntry(blob: Blob, entry: ZipEntry, check: () => void, password?: string): Promise<Uint8Array> {
+  if (password === undefined) throw passwordError(PASSWORD_REQUIRED);
+  const zip = await import("@zip.js/zip.js/lib/zip-native.js");
+  const reader = new zip.ZipReader(new zip.BlobReader(blob), { useWebWorkers: false });
+  let zipCrypto = false;
+  try {
+    const entries = await reader.getEntries({ filenameEncoding: "iso-8859-1" });
+    const file = entries.find(file => file.filename === entry.path);
+    if (!file || file.directory) throw new Error("ZIP 条目不存在。");
+    zipCrypto = file.zipCrypto;
+    // Reject wrong credentials before reserving a potentially large output buffer.
+    let bytes: Uint8Array | undefined;
+    let written = 0;
+    await file.getData(new WritableStream<Uint8Array>({ write(chunk) {
+      check();
+      if (written + chunk.length > entry.bytes) throw new Error("ZIP 条目大小不符。");
+      bytes ??= new Uint8Array(entry.bytes);
+      bytes.set(chunk, written); written += chunk.length;
+    } }), { password, checkCrc32: true, checkAuthenticationCode: true, onprogress: () => check() });
+    check();
+    if (written !== entry.bytes) throw new Error("ZIP 条目大小不符。");
+    return bytes ?? new Uint8Array(0);
+  } catch (error) {
+    check();
+    // Traditional encryption only checks one password byte up front. A wrong
+    // candidate can pass that check and fail later; never accept it without CRC.
+    if (error instanceof Error && (error.message === zip.ERR_INVALID_PASSWORD || (zipCrypto &&
+      [zip.ERR_INVALID_CRC32, zip.ERR_INVALID_COMPRESSED_DATA, zip.ERR_INVALID_UNCOMPRESSED_SIZE].includes(error.message)))) throw passwordError(INVALID_PASSWORD);
+    if (error instanceof Error && [zip.ERR_INVALID_CRC32, zip.ERR_INVALID_AUTHENTICATION_CODE].includes(error.message)) throw new Error("加密 ZIP 内容校验失败，文件可能已损坏。");
+    throw error;
+  } finally { await reader.close(); }
 }
 
 export async function archiveBlob(blob: Blob): Promise<Blob> {

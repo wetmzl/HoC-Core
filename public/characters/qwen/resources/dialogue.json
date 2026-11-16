@@ -1,0 +1,1302 @@
+{
+  "pools": {
+    "MATCH_START": [
+      "今天天气真好呀，能和你坐在这里打牌，我很开心呢。",
+      "先把奶茶放稳，我们认真打一局吧。等休息的时候，再慢慢聊口味。",
+      "手提包我放到旁边啦，两只手都空出来，好好看看这一局的牌。",
+      "不用有压力呀，输赢都是图个乐呵，只要我们都开心就是最好的结果啦。",
+      "折扇摇起来好凉快呀……那，我们开始发第一手牌咯！"
+    ],
+    "PLAYER_HIT": [
+      "还要再拿一张吗？好呀，递给你，小心卡牌边沿有点锋利别划到手哦。",
+      "不管你最后摸到什么点数，在我心里你永远都是最棒的牌友呢！",
+      "需要帮忙加把劲祈祷一下吗？呼——祝你拿到最想要的那张牌！",
+      "继续要牌呀？嗯！我相信你的直觉一定不会错的！",
+      "拿一张没关系，要是万一摸大了，我等会儿多点一杯焦糖布丁安慰你～"
+    ],
+    "PLAYER_STAND": [
+      "停下来了吗？看起来是很让人安心的点数呢！",
+      "好呀，那你就安心喝一口旁边的杨枝甘露歇会儿吧，接下来看我的！",
+      "锁定好咯？那我就要小心翼翼地开始追赶你的脚步啦。",
+      "你的表情看起来好从容呀，一定已经胸有成竹了吧？",
+      "停得好早呀，是不是藏着一张很厉害的王牌想要吓唬我呢？"
+    ],
+    "OPPONENT_FIRST_HIT": [
+      "那我也稍微试着再拿一张吧。",
+      "希望发牌的运气能对我温柔一点呢……我要牌。",
+      "既然你都拿得这么坦然，那我也陪你再摸一张看看！",
+      "唔……感觉这个数字还有点小，稍微鼓起勇气再要一张！",
+      "摸牌之前先摇摇扇子招点好运来～请发牌吧！"
+    ],
+    "OPPONENT_FIRST_STAND": [
+      "我觉得这样刚刚好啦，就停在这里吧。",
+      "不继续要了哦，做人要懂得知足常乐嘛。",
+      "停牌！希望这个点数待会儿不会拖我的后腿呢。",
+      "嗯……就这么决定吧！接下来大家平平安安交卷就好。",
+      "好像差不多够用了呢，再摸我怕小小心脏要扑通乱跳了呀。"
+    ],
+    "OPPONENT_REPEAT_HIT_AFTER_PLAYER_STAND": [
+      "你都安心捧着奶茶看戏了，我这边可得加把劲追上来才行呀！",
+      "哎呀，还差了那么一点点……麻烦再给我一张小小的牌吧！",
+      "再来一张。……天呐，我手心都稍微有点紧张了呢。",
+      "怎么觉得你那边的底牌气场好强呀，我只能继续勇敢往前摸了！",
+      "呜，希望能刚好追平或者多出一点点，拜托了！"
+    ],
+    "PLAYER_BLACKJACK": [
+      "哇——！！是整整二十一点呢！！手气真好，这手牌我可得好好看看！",
+      "Blackjack！天呐，太棒了！快让我用折扇给你扇风鼓鼓掌！",
+      "我就知道你聪明绝顶，连老天爷都偏心给你发最好的牌呢！"
+    ],
+    "OPPONENT_BLACKJACK": [
+      "呀……摸出二十一点了！这回我的手气不错呢。",
+      "咦？正好卡在二十一吗？好像是用光了今天的运气呢，好神奇呀。",
+      "正好二十一点，真让人高兴！这手牌我很喜欢，接下来可要认真看你的牌了。"
+    ],
+    "PLAYER_BUST": [
+      "呜啊，一不小心超过二十一了！没关系的没关系的，游戏嘛，谁都会有手滑的时候！摸摸头，下一把一定能顺顺利利赢回来！",
+      "哎呀呀，看来牌堆今天有点淘气，专门发大牌来欺负你。快喝一口甜甜的奶茶消消气！",
+      "摸大了一点点，真可惜。别急着懊恼，想想刚才停在哪一步更合适，下回还有机会呢。",
+      "摸大了一点点太可惜啦！下回我悄悄帮你数着点数提示你好不好？",
+      "没关系！刚才的失误风一吹就散掉啦，我们笑着开始下一把吧！"
+    ],
+    "OPPONENT_BUST": [
+      "呜……爆、爆掉了呀！果然还是太贪心了呢……",
+      "哎呀，超出上限了。看来小脑瓜今天算数学题有点卡壳，真笨呀。",
+      "呜哇，翻车了呢……刚才那张我拿得太急了，下回得想清楚再要。",
+      "这轮是你赢了，我认输。等会儿可要告诉我，你是怎么判断该停手的呀？",
+      "看来刚才多喝的那口甜茶让我晕乎乎了，居然莫名其妙就摸爆了呢。"
+    ],
+    "PLAYER_WIN_ROUND": [
+      "太棒啦，你的点数比我高，恭喜你赢下这一轮！",
+      "果然还是你比较厉害呢，从头到尾我都看得眼花缭乱的。",
+      "赢得这么漂亮，待会儿的甜品配额必须由我亲自给你升级成豪华双拼！",
+      "真开心呀！看着你赢牌，比我自己拿到大奖还要高兴一万倍！",
+      "好稳健的牌技，这一手我服气得五体投地呢！"
+    ],
+    "OPPONENT_WIN_ROUND": [
+      "欸，是我的点数多出来了一点呢！这回赢得真不容易。",
+      "这一局是我赢了呢。刚才那张来得正合适，下次我也想试着接得这么稳。",
+      "我拿下这一轮啦！刚才停牌的时机选得不错，下次也得这么仔细才行。",
+      "嗯……虽然我赢了，但我绝对不会得意的！你的那几张牌其实也很厉害呢！",
+      "险胜一筹呢。如果觉得有点懊恼的话，要不要吸一口刚送到的芒果沙冰？"
+    ],
+    "PUSH_ROUND": [
+      "咦，我们的点数完全一样耶！真是心有灵犀一点通！",
+      "平局啦！先别急着松口气，还得看看这一轮的惩罚怎么安排呢。",
+      "这么默契吗？不愧是一起喝过这么多杯奶茶的好搭档！",
+      "一模一样的数字呢，就像两杯一样甜的波霸奶茶碰在一起！"
+    ],
+    "SPECIAL_TWENTY_ONE_PUSH": [
+      "哇！我们居然同时拿到了完美的二十一点？！这也太浪漫太奇迹了吧！今天注定是大吉大利的一天！",
+      "双双顶峰相见却又平分秋色……老实说，这比单方面赢了还要让人开心一万倍呢！"
+    ],
+    "SPECIAL_LOW_PUSH": [
+      "哈哈，两个人都卡在这么小的地方不敢动弹，我们真是互相迁就的笨蛋组合呀！",
+      "都不敢再往上摸牌吗？没关系，平平安安保住平局就很好啦！"
+    ],
+    "PLAYER_TRIGGER_READY": [
+      "呀……轮到你按下去了吗？小心一点呀，还不知道会不会响，我的心都揪起来了呢！",
+      "别害怕，不管发生什么我都会陪在你身边的！先把这只护身平安扣握在手里吧？",
+      "深吸一口气，想着自己最喜欢喝的奶茶口味按下去，肯定会没事的！",
+      "呜，如果怕声响太大的话，要不要我用折扇稍微帮你挡一下耳朵？"
+    ],
+    "OPPONENT_TRIGGER_READY": [
+      "到、到我了吗……好吧，说好陪朋友玩到底的，我不会退缩的！",
+      "请稍等一下，让我把披风往后理一理……哎呀，心跳好像真的有点加快了呢。",
+      "你可要好好看着我哦。我有点紧张，不过既然说好了要玩，就该轮到我自己来。",
+      "闭上眼睛数一二三……希望这次能平安过关吧？"
+    ],
+    "PLAYER_SURVIVED_TRIGGER": [
+      "咔哒！太好了！！吓死我了，幸好平安无事！快让我拍拍胸口顺口气！",
+      "哇！空的！我刚才连救护车和急救箱的电话都快翻出来了，你没事真是太好啦！",
+      "我就知道老天爷舍不得惩罚这么温柔的你呢！来，喝口热茶压压惊！",
+      "虚惊一场呀，继续开开心心地玩下一局吧！"
+    ],
+    "OPPONENT_SURVIVED_TRIGGER": [
+      "呼……是空的呢。吓得我差点把折扇都捏弯啦，还好还好！",
+      "安全过关！你看我刚才是不是表现得特别镇定特别勇敢？",
+      "太好了，发簪上的小流苏都没掉下来！幸亏这把枪对我也很温柔呢。",
+      "逃过一劫啦！谢谢你在旁边一直看着我给我打气！"
+    ],
+    "PLAYER_TRIGGER_HIT": [
+      "呀！！吓我一跳！！……那个，你有没有被上面掉下来的碎屑刮伤呀？先坐稳，别急着起来。",
+      "呜哇，好响的声音！震得人家手心都在抖……你的耳朵没事吧？先坐一会儿，缓过来再说。",
+      "天呐，吊灯都在晃！快别站在正下方啦，到这边坐下缓一缓，你人没事才最重要呀！"
+    ],
+    "OPPONENT_TRIGGER_HIT": [
+      "呜哇！！好大好吓人的一声响！！吓得我手里的紫金折扇差点掉地上……这、这一下真把我吓得站不稳了……好吧，这场是你赢了！不管不管，你得凑过来喝一口我手里的奶茶哄哄我才行！",
+      "呀啊——！耳朵被吓得嗡嗡直叫……好吧，这局是我输了。等我缓过来，还想问问你刚才那几张牌呢。"
+    ],
+    "PLAYER_DEFEAT_PREVENTED": [
+      "太好了！！看见你居然平安挡住了那一下，我悬着的一颗心总算落回肚子里啦！太棒了，我们继续玩吧！",
+      "真让人松了一口气呢！幸好你早有准备，差点把我吓出眼泪来了。"
+    ],
+    "OPPONENT_DEFEAT_PREVENTED": [
+      "咦？我竟然一点事都没有呀？刚才那一下竟然被挡住了，真是太走运了！",
+      "呼……吓我一跳，看来我今天福气还挺厚实的，还能再陪你多玩好久好久呢！"
+    ],
+    "CHARACTER_TAP": [
+      "咦？怎么突然伸手戳我呀？是我的紫色帽檐歪了，还是脸上沾了饼干碎屑吗？",
+      "嘻嘻，有点痒呢……如果觉得脸颊软软的很好捏，只要你开口说一声，我可以乖乖让你捏一会儿哦？",
+      "想拉我的麻花辫玩吗？小心不要把发梢缠在手腕上啦，刚编好的呢。",
+      "哎呀，你一直戳我的小提包干嘛？想问优惠券的话，等休息时我拿给你看。现在先让我把牌看清楚呀。"
+    ],
+    "CHARACTER_TAP_ROULETTE": [
+      "先别逗我笑啦，本来人家在举起这玩意儿的时候手心就在微微冒汗嘛……等这一声顺利过去了，你想怎么捏我的脸我都乖乖站着不动好不好？",
+      "嘘……稍微等我十秒钟，你拉着我的披风角在旁边陪我一起等结果，我就一点都不觉得害怕了呢。"
+    ],
+    "CHARACTER_TAP_DEFEATED": [
+      "哎呀，我已经输得一塌糊涂了，你还要这样欺负戳着我玩呀？真拿你这个调皮的朋友没办法……",
+      "好啦好啦，别一直戳脸颊啦，奶茶里的芋圆和布丁都要被你晃洒出来了呢～",
+      "好啦，知道这次是你赢了。我想先歇一会儿，刚才那局还有好几处没想明白呢。"
+    ]
+  },
+  "rules": [
+    {
+      "id": "character-tap-defeated",
+      "on": [
+        {
+          "type": "hoc-core/character-tap#tap",
+          "apiVersion": 1
+        }
+      ],
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "roulette-result"
+            }
+          },
+          {
+            "primitive": "core.trigger-actor",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "opponent"
+            }
+          },
+          {
+            "primitive": "core.trigger-result",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "fired"
+            }
+          },
+          {
+            "not": {
+              "primitive": "core.defeat-prevented",
+              "apiVersion": 1,
+              "args": {
+                "actor": "opponent"
+              },
+              "test": {
+                "eq": true
+              }
+            }
+          }
+        ]
+      },
+      "poolId": "CHARACTER_TAP_DEFEATED",
+      "portrait": {
+        "presentationRef": "portrait:unconscious"
+      }
+    },
+    {
+      "id": "character-tap-roulette",
+      "on": [
+        {
+          "type": "hoc-core/character-tap#tap",
+          "apiVersion": 1
+        }
+      ],
+      "when": {
+        "any": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "roulette-reaction"
+            }
+          },
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "roulette-trigger"
+            }
+          }
+        ]
+      },
+      "poolId": "CHARACTER_TAP_ROULETTE"
+    },
+    {
+      "id": "character-tap",
+      "on": [
+        {
+          "type": "hoc-core/character-tap#tap",
+          "apiVersion": 1
+        }
+      ],
+      "when": {
+        "primitive": "hoc-core/character-tap#region",
+        "apiVersion": 1,
+        "args": {
+          "id": "full-portrait"
+        },
+        "test": {
+          "eq": "full-portrait"
+        }
+      },
+      "poolId": "CHARACTER_TAP",
+      "portrait": {
+        "presentationRef": "portrait:tap"
+      }
+    },
+    {
+      "id": "PLAYER_TRIGGER_READY",
+      "when": {
+        "primitive": "core.phase",
+        "apiVersion": 1,
+        "args": {},
+        "test": {
+          "eq": "roulette-reaction"
+        }
+      },
+      "poolId": "PLAYER_TRIGGER_READY",
+      "anchor": "round-acknowledged",
+      "on": [
+        {
+          "type": "core.trigger-ready",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "PLAYER_DEFEAT_PREVENTED",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "roulette-result"
+            }
+          },
+          {
+            "primitive": "core.defeat-prevented",
+            "apiVersion": 1,
+            "args": {
+              "actor": "player"
+            },
+            "test": {
+              "eq": true
+            }
+          }
+        ]
+      },
+      "poolId": "PLAYER_DEFEAT_PREVENTED",
+      "anchor": "trigger-result",
+      "on": [
+        {
+          "type": "core.trigger-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "PLAYER_TRIGGER_HIT",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "roulette-result"
+            }
+          },
+          {
+            "primitive": "core.trigger-actor",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "player"
+            }
+          },
+          {
+            "primitive": "core.trigger-result",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "fired"
+            }
+          },
+          {
+            "not": {
+              "primitive": "core.defeat-prevented",
+              "apiVersion": 1,
+              "args": {
+                "actor": "player"
+              },
+              "test": {
+                "eq": true
+              }
+            }
+          }
+        ]
+      },
+      "poolId": "PLAYER_TRIGGER_HIT",
+      "anchor": "trigger-result",
+      "on": [
+        {
+          "type": "core.trigger-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "PLAYER_SURVIVED_TRIGGER",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "roulette-result"
+            }
+          },
+          {
+            "primitive": "core.trigger-actor",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "player"
+            }
+          },
+          {
+            "not": {
+              "primitive": "core.trigger-result",
+              "apiVersion": 1,
+              "args": {},
+              "test": {
+                "eq": "fired"
+              }
+            }
+          }
+        ]
+      },
+      "poolId": "PLAYER_SURVIVED_TRIGGER",
+      "anchor": "trigger-result",
+      "on": [
+        {
+          "type": "core.trigger-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "OPPONENT_TRIGGER_READY",
+      "when": {
+        "primitive": "core.phase",
+        "apiVersion": 1,
+        "args": {},
+        "test": {
+          "eq": "roulette-trigger"
+        }
+      },
+      "poolId": "OPPONENT_TRIGGER_READY",
+      "anchor": "round-acknowledged",
+      "on": [
+        {
+          "type": "core.trigger-ready",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "OPPONENT_DEFEAT_PREVENTED",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "roulette-result"
+            }
+          },
+          {
+            "primitive": "core.defeat-prevented",
+            "apiVersion": 1,
+            "args": {
+              "actor": "opponent"
+            },
+            "test": {
+              "eq": true
+            }
+          }
+        ]
+      },
+      "poolId": "OPPONENT_DEFEAT_PREVENTED",
+      "anchor": "trigger-result",
+      "on": [
+        {
+          "type": "core.trigger-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "OPPONENT_TRIGGER_HIT",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "roulette-result"
+            }
+          },
+          {
+            "primitive": "core.trigger-actor",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "opponent"
+            }
+          },
+          {
+            "primitive": "core.trigger-result",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "fired"
+            }
+          },
+          {
+            "not": {
+              "primitive": "core.defeat-prevented",
+              "apiVersion": 1,
+              "args": {
+                "actor": "opponent"
+              },
+              "test": {
+                "eq": true
+              }
+            }
+          }
+        ]
+      },
+      "poolId": "OPPONENT_TRIGGER_HIT",
+      "anchor": "trigger-result",
+      "on": [
+        {
+          "type": "core.trigger-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "OPPONENT_SURVIVED_TRIGGER",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "roulette-result"
+            }
+          },
+          {
+            "primitive": "core.trigger-actor",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "opponent"
+            }
+          },
+          {
+            "not": {
+              "primitive": "core.trigger-result",
+              "apiVersion": 1,
+              "args": {},
+              "test": {
+                "eq": "fired"
+              }
+            }
+          }
+        ]
+      },
+      "poolId": "OPPONENT_SURVIVED_TRIGGER",
+      "anchor": "trigger-result",
+      "on": [
+        {
+          "type": "core.trigger-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "SPECIAL_TWENTY_ONE_PUSH",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "round-reveal"
+            }
+          },
+          {
+            "primitive": "core.round-winner",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": null
+            }
+          },
+          {
+            "primitive": "core.hand-total",
+            "apiVersion": 1,
+            "args": {
+              "actor": "player",
+              "snapshot": "round-result"
+            },
+            "test": {
+              "eq": 21
+            }
+          },
+          {
+            "primitive": "core.hands-total-equal",
+            "apiVersion": 1,
+            "args": {
+              "snapshot": "round-result"
+            },
+            "test": {
+              "eq": true
+            }
+          }
+        ]
+      },
+      "poolId": "SPECIAL_TWENTY_ONE_PUSH",
+      "anchor": "round-result",
+      "on": [
+        {
+          "type": "core.round-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "SPECIAL_LOW_PUSH",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "round-reveal"
+            }
+          },
+          {
+            "primitive": "core.round-winner",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": null
+            }
+          },
+          {
+            "primitive": "core.hand-total",
+            "apiVersion": 1,
+            "args": {
+              "actor": "player",
+              "snapshot": "round-result"
+            },
+            "test": {
+              "range": {
+                "min": 12,
+                "max": 16
+              }
+            }
+          },
+          {
+            "primitive": "core.hands-total-equal",
+            "apiVersion": 1,
+            "args": {
+              "snapshot": "round-result"
+            },
+            "test": {
+              "eq": true
+            }
+          }
+        ]
+      },
+      "poolId": "SPECIAL_LOW_PUSH",
+      "anchor": "round-result",
+      "on": [
+        {
+          "type": "core.round-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "PLAYER_BLACKJACK",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "round-reveal"
+            }
+          },
+          {
+            "primitive": "core.round-reason",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "blackjack"
+            }
+          },
+          {
+            "primitive": "core.round-winner",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "player"
+            }
+          }
+        ]
+      },
+      "poolId": "PLAYER_BLACKJACK",
+      "anchor": "round-result",
+      "on": [
+        {
+          "type": "core.round-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "PLAYER_BUST",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "round-reveal"
+            }
+          },
+          {
+            "primitive": "core.round-reason",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "bust"
+            }
+          },
+          {
+            "primitive": "core.penalty-target",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "player"
+            }
+          }
+        ]
+      },
+      "poolId": "PLAYER_BUST",
+      "anchor": "round-result",
+      "on": [
+        {
+          "type": "core.round-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "PLAYER_WIN_ROUND",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "round-reveal"
+            }
+          },
+          {
+            "primitive": "core.round-reason",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "comparison"
+            }
+          },
+          {
+            "primitive": "core.round-winner",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "player"
+            }
+          }
+        ]
+      },
+      "poolId": "PLAYER_WIN_ROUND",
+      "anchor": "round-result",
+      "on": [
+        {
+          "type": "core.round-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "OPPONENT_BLACKJACK",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "round-reveal"
+            }
+          },
+          {
+            "primitive": "core.round-reason",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "blackjack"
+            }
+          },
+          {
+            "primitive": "core.round-winner",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "opponent"
+            }
+          }
+        ]
+      },
+      "poolId": "OPPONENT_BLACKJACK",
+      "anchor": "round-result",
+      "on": [
+        {
+          "type": "core.round-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "OPPONENT_BUST",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "round-reveal"
+            }
+          },
+          {
+            "primitive": "core.round-reason",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "bust"
+            }
+          },
+          {
+            "primitive": "core.penalty-target",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "opponent"
+            }
+          }
+        ]
+      },
+      "poolId": "OPPONENT_BUST",
+      "anchor": "round-result",
+      "on": [
+        {
+          "type": "core.round-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "OPPONENT_WIN_ROUND",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "round-reveal"
+            }
+          },
+          {
+            "primitive": "core.round-reason",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "comparison"
+            }
+          },
+          {
+            "primitive": "core.round-winner",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "opponent"
+            }
+          }
+        ]
+      },
+      "poolId": "OPPONENT_WIN_ROUND",
+      "anchor": "round-result",
+      "on": [
+        {
+          "type": "core.round-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "PUSH_ROUND",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "round-reveal"
+            }
+          },
+          {
+            "primitive": "core.round-winner",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": null
+            }
+          }
+        ]
+      },
+      "poolId": "PUSH_ROUND",
+      "anchor": "round-result",
+      "on": [
+        {
+          "type": "core.round-result",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "PLAYER_HIT",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "turns"
+            }
+          },
+          {
+            "primitive": "core.last-action-actor",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "player"
+            }
+          },
+          {
+            "primitive": "core.last-action",
+            "apiVersion": 1,
+            "args": {
+              "actor": "any"
+            },
+            "test": {
+              "eq": "hit"
+            }
+          }
+        ]
+      },
+      "poolId": "PLAYER_HIT",
+      "anchor": "last-action",
+      "on": [
+        {
+          "type": "core.action",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "PLAYER_STAND",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "turns"
+            }
+          },
+          {
+            "primitive": "core.last-action-actor",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "player"
+            }
+          },
+          {
+            "primitive": "core.last-action",
+            "apiVersion": 1,
+            "args": {
+              "actor": "any"
+            },
+            "test": {
+              "eq": "stand"
+            }
+          }
+        ]
+      },
+      "poolId": "PLAYER_STAND",
+      "anchor": "last-action",
+      "on": [
+        {
+          "type": "core.action",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "OPPONENT_FIRST_STAND",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "turns"
+            }
+          },
+          {
+            "primitive": "core.last-action-actor",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "opponent"
+            }
+          },
+          {
+            "primitive": "core.last-action",
+            "apiVersion": 1,
+            "args": {
+              "actor": "any"
+            },
+            "test": {
+              "eq": "stand"
+            }
+          },
+          {
+            "primitive": "core.action-count",
+            "apiVersion": 1,
+            "args": {
+              "actor": "opponent",
+              "kind": "all"
+            },
+            "test": {
+              "eq": 1
+            }
+          }
+        ]
+      },
+      "poolId": "OPPONENT_FIRST_STAND",
+      "anchor": "last-action",
+      "on": [
+        {
+          "type": "core.action",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "OPPONENT_REPEAT_HIT_AFTER_PLAYER_STAND",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "turns"
+            }
+          },
+          {
+            "primitive": "core.last-action-actor",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "opponent"
+            }
+          },
+          {
+            "primitive": "core.last-action",
+            "apiVersion": 1,
+            "args": {
+              "actor": "any"
+            },
+            "test": {
+              "eq": "hit"
+            }
+          },
+          {
+            "primitive": "core.action-count",
+            "apiVersion": 1,
+            "args": {
+              "actor": "opponent",
+              "kind": "hit"
+            },
+            "test": {
+              "range": {
+                "min": 2
+              }
+            }
+          },
+          {
+            "primitive": "core.action-count",
+            "apiVersion": 1,
+            "args": {
+              "actor": "player",
+              "kind": "stand"
+            },
+            "test": {
+              "range": {
+                "min": 1
+              }
+            }
+          }
+        ]
+      },
+      "poolId": "OPPONENT_REPEAT_HIT_AFTER_PLAYER_STAND",
+      "anchor": "last-action",
+      "on": [
+        {
+          "type": "core.action",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "OPPONENT_FIRST_HIT",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "turns"
+            }
+          },
+          {
+            "primitive": "core.last-action-actor",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "opponent"
+            }
+          },
+          {
+            "primitive": "core.last-action",
+            "apiVersion": 1,
+            "args": {
+              "actor": "any"
+            },
+            "test": {
+              "eq": "hit"
+            }
+          },
+          {
+            "primitive": "core.action-count",
+            "apiVersion": 1,
+            "args": {
+              "actor": "opponent",
+              "kind": "all"
+            },
+            "test": {
+              "eq": 1
+            }
+          }
+        ]
+      },
+      "poolId": "OPPONENT_FIRST_HIT",
+      "anchor": "last-action",
+      "on": [
+        {
+          "type": "core.action",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "PLAYER_HIT-retained",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "turns"
+            }
+          },
+          {
+            "primitive": "core.last-action",
+            "apiVersion": 1,
+            "args": {
+              "actor": "player"
+            },
+            "test": {
+              "eq": "hit"
+            }
+          }
+        ]
+      },
+      "poolId": "PLAYER_HIT",
+      "anchor": "last-player-action",
+      "on": [
+        {
+          "type": "core.action",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "PLAYER_STAND-retained",
+      "when": {
+        "all": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "turns"
+            }
+          },
+          {
+            "primitive": "core.last-action",
+            "apiVersion": 1,
+            "args": {
+              "actor": "player"
+            },
+            "test": {
+              "eq": "stand"
+            }
+          }
+        ]
+      },
+      "poolId": "PLAYER_STAND",
+      "anchor": "last-player-action",
+      "on": [
+        {
+          "type": "core.action",
+          "apiVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "MATCH_START",
+      "when": {
+        "any": [
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "dealing"
+            }
+          },
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "initial-blackjack-check"
+            }
+          },
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "settlement"
+            }
+          },
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "round-end"
+            }
+          },
+          {
+            "primitive": "core.phase",
+            "apiVersion": 1,
+            "args": {},
+            "test": {
+              "eq": "turns"
+            }
+          }
+        ]
+      },
+      "poolId": "MATCH_START",
+      "anchor": "round-start",
+      "on": [
+        {
+          "type": "core.round-start",
+          "apiVersion": 1
+        }
+      ]
+    }
+  ],
+  "fallbackPoolId": "MATCH_START",
+  "poolPortraits": {
+    "MATCH_START": {
+      "presentationRef": "portrait:relaxed"
+    }
+  }
+}

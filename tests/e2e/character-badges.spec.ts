@@ -1,3 +1,4 @@
+import { skipStory } from "./story-platform-fixture";
 import { expect, test } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -24,7 +25,11 @@ test("directory badges load with packages, stay in portrait corners and honor mo
     await page.locator("[data-load-more-defeated]").scrollIntoViewIfNeeded();
     await page.waitForTimeout(200);
   }
-  await expect(page.locator(".character-badge")).toHaveCount(6);
+  const factionCharacters = await page.evaluate(async () => {
+    const { CHARACTER_CATALOG } = await import(/* @vite-ignore */ "/src/content/characters/catalog.ts");
+    return CHARACTER_CATALOG.filter(character => character.faction).map(character => character.id).sort();
+  });
+  await expect.poll(() => page.locator(".character-card:has(.character-badge)").evaluateAll(cards => cards.map(card => card.getAttribute("data-character-id")).sort())).toEqual(factionCharacters);
   const output = resolve("output/character-badges"); mkdirSync(output, { recursive: true });
   for (const width of [1280, 390, 320]) {
     await page.setViewportSize({ width, height: width === 320 ? 720 : 844 });
@@ -108,4 +113,8 @@ test("all six tier treatments keep the icon still and progressively decorate its
   await page.setViewportSize({ width: 1280, height: 900 });
   mkdirSync(resolve("output/character-badges"), { recursive: true });
   await page.screenshot({ path: resolve("output/character-badges/tiers.png"), fullPage: true });
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.addLocatorHandler(page.locator("[data-story-player]"), async () => { await skipStory(page); });
 });

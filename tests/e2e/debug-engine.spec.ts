@@ -1,4 +1,5 @@
 import { expect, test as base, type Page } from "@playwright/test";
+import { respondToOfficialPlaylistCopy } from "./playlist-fixture";
 
 const test = base.extend<{ browserErrors: void }>({
   browserErrors: [async ({ page }, use) => {
@@ -37,7 +38,7 @@ async function mountMatch(page: Page, actor = "player"): Promise<void> {
     await bootstrapContent({ fetch: window.fetch.bind(window) });
     const { createMatch } = await load("/src/core/match/reducer.ts");
     const { createCard } = await load("/src/core/blackjack/card.ts");
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const { createPersistenceService } = await load("/src/persistence/factory.ts");
     const base = createMatch("debug-ui", { opponentId: "chatgpt", intrinsicAbilities: [{ definitionId: "builtin-debug-control", enabled: true, parameters: {} }], aiProfile: { P: 0, A: 0, B: 0, C: 0 } });
     const cards = Array.from({ length: 52 }, (_, i) => createCard("spades", i === 0 || i === 2 ? "10" : i === 1 ? "7" : i === 3 ? "8" : "2", `debug-ui-${i}`));
@@ -46,6 +47,7 @@ async function mountMatch(page: Page, actor = "player"): Promise<void> {
     const match = { ...base, player, opponent, shoe: { cards, cursor: 4, shuffleIndex: 1 }, history: [{ type: "ROUND_STARTED", roundIndex: 0 }], round: { ...base.round, player, opponent, phase: "turns", currentActor: actor, outcome: null } };
     const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false;
     save.settings.debugEngineEnabled = true; save.settings.reducedMotion = true;
+    save.settings.pluginSettings = { ...save.settings.pluginSettings, "hoc-core/debug-engine": { version: 1, values: { enabled: true } } };
     save.tutorialProgress.completedIds.push("adult-content-warning");
     const repository = createPersistenceService();
     await repository.saveLongTerm(save); await repository.saveRuntime(createRuntimeSave(match));
@@ -137,6 +139,37 @@ test("top gestures open and close, and the panel pauses then resumes automatic A
   await expect.poll(async () => (await runtime(page))?.history.some((event: any) => event.type === "AI_DECISION")).toBe(true);
 });
 
+test("a native dialog above the debug panel consumes Escape before browser Back closes the panel", async ({ page }) => {
+  await mountMatch(page);
+  await page.locator("[data-debug-handle]").click();
+  const panel = page.locator("#debug-engine-panel");
+  await expect(panel).toBeVisible();
+  await page.evaluate(() => {
+    const dialog = document.createElement("dialog");
+    dialog.id = "debug-back-test-dialog";
+    dialog.innerHTML = '<button type="button">模态操作</button>';
+    document.body.append(dialog);
+    dialog.showModal();
+  });
+  await expect(page.locator("#debug-back-test-dialog")).toBeVisible();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#debug-back-test-dialog")).toBeHidden();
+  await expect(panel).toBeVisible();
+  expect(await page.locator("#app").evaluate(element => (element as HTMLElement).inert)).toBe(true);
+  await page.evaluate(() => history.back());
+  await expect(panel).toBeHidden();
+  expect(await page.locator("#app").evaluate(element => (element as HTMLElement).inert)).toBe(false);
+  await page.locator("[data-debug-handle]").click();
+  await expect(panel).toBeVisible();
+  await page.getByRole("button", { name: "玩家点数优势增加1", exact: true }).click();
+  await expect(page.locator('[data-debug-field="playerAdvantage"] output')).toHaveText("1");
+  await page.locator("[data-debug-close]").click();
+  await expect(page.locator(".player-zone .hand-score")).toContainText("+1");
+  await page.getByRole("button", { name: "Hit 要牌", exact: true }).click();
+  await expect.poll(async () => (await runtime(page))?.player.hand.cards.length).toBe(3);
+});
+
 test("disabling removes continuous effects but preserves bullet edits and persists the disabled toggle", async ({ page }) => {
   await mountMatch(page);
   await page.locator("[data-debug-handle]").click();
@@ -184,7 +217,7 @@ test("native touch drag works and lowered limits update bust flags immediately",
   await session.detach();
 });
 
-test("official plugin is imported once and disabling or removing it removes the entry and continuous effects", async ({ page }, testInfo) => {
+test("embedded official plugin keeps its disabled state and removes the entry and continuous effects", async ({ page }, testInfo) => {
   await mountMatch(page);
   await page.locator("[data-debug-handle]").click();
   await page.getByRole("button", { name: "玩家点数优势增加10", exact: true }).click();
@@ -198,6 +231,7 @@ test("official plugin is imported once and disabling or removing it removes the 
   await expect(card).toHaveCount(1);
   await expect(card).toHaveAttribute("data-package-state", "enabled");
   await card.getByRole("button", { name: "禁用", exact: true }).click();
+  await respondToOfficialPlaylistCopy(page, "confirm");
   await expect(card).toHaveAttribute("data-package-state", "disabled");
   await page.screenshot({ path: testInfo.outputPath("debug-official-plugin.png") });
   await page.getByRole("button", { name: "关闭资源管理", exact: true }).click();
@@ -212,18 +246,18 @@ test("official plugin is imported once and disabling or removing it removes the 
   await page.reload();
   await page.getByRole("button", { name: "资源管理", exact: true }).click();
   await expect(card).toHaveAttribute("data-package-state", "disabled");
-  await card.getByRole("button", { name: "删除", exact: true }).click();
-  await page.locator("[data-game-dialog]").getByRole("button", { name: "删除", exact: true }).click();
-  await expect(card).toHaveAttribute("data-package-state", "not-installed");
+  await expect(card.getByRole("button", { name: "删除", exact: true })).toHaveCount(0);
   await page.reload();
   await page.getByRole("button", { name: "资源管理", exact: true }).click();
-  await expect(card).toHaveAttribute("data-package-state", "not-installed");
+  await expect(card).toHaveAttribute("data-package-state", "disabled");
+
 });
 
 test("disabled plugin does not handle version clicks or expose its hidden toggle in settings", async ({ page }) => {
   await launcher(page);
   await page.getByRole("button", { name: "资源管理", exact: true }).click();
   await page.locator('.package-card[data-package-id="hoc-core/debug-engine"] [data-package-action="disable"]').click();
+  await respondToOfficialPlaylistCopy(page, "confirm");
   await page.getByRole("button", { name: "关闭资源管理", exact: true }).click();
   await enterLobby(page);
   await taps(page, 5);

@@ -11,6 +11,8 @@ export default defineConfig({
   outputDir: "output/playwright",
   reporter: "line",
   use: {
+    actionTimeout: 15_000,
+    navigationTimeout: 30_000,
     baseURL: `http://127.0.0.1:${port}`,
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -21,7 +23,7 @@ export default defineConfig({
   webServer: {
     command: `npm run dev -- --host 127.0.0.1 --port ${port} --strictPort`,
     url: `http://127.0.0.1:${port}`,
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 30_000
   }
 });

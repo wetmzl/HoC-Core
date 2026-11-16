@@ -7,10 +7,10 @@ import { abilityWorld, createMatch, gameReducer } from "../match/reducer";
 import { createRuntimeSave } from "../../persistence/boot";
 import { validateRuntimeSave } from "../../persistence/schema";
 import { resolveAbilityEvent } from "./engine";
-import { ABILITY_REGISTRY, createStandaloneAbilityRegistry, installAbilityRegistry, instantiateAbility } from "./registry";
+import { ABILITY_REGISTRY, createStandaloneAbilityRegistry, getAbilityDefinition, installAbilityRegistry, instantiateAbility } from "./registry";
 import { addAbilityInstance, createAbilityRuntime } from "./runtime";
 import { AbilityDefinitionSchema, AbilityDisplaySchema, AbilityRuleSchema, SkillCardFilterSchema } from "./schema";
-import { selectSkillCards } from "./skill-card-selection";
+import { matchesSkillCard, selectSkillCards, type SkillCardFilterSubject } from "./skill-card-selection";
 import type { Rank } from "../blackjack/types";
 import type { AbilityRule, AbilityWorld, PlayerSkillAbilityDefinition, SkillCardInstance, SkillCardFilter } from "./types";
 
@@ -44,6 +44,38 @@ function fixture(rules: readonly AbilityRule[] = [removal]) {
 const ids = (cards: readonly SkillCardInstance[]) => cards.map(card => card.instanceId);
 
 describe("generic skill inventory operations", () => {
+  it("matches a detached immutable skill snapshot without consulting live inventory", () => {
+    const subject: SkillCardFilterSubject = Object.freeze({ instanceId: "removed-card", definitionId: active.id,
+      primaryDomain: active.primaryDomain, skillTags: Object.freeze([...active.skillTags]), tags: Object.freeze([...active.tags]), activation: active.activation.type });
+    const filter: SkillCardFilter = Object.freeze({ definitionIds: Object.freeze(["other", active.id]), instanceIds: Object.freeze(["removed-card"]),
+      primaryDomains: Object.freeze(["gambler"] as const), skillTags: Object.freeze(["cheater", "gunslinger"] as const), tags: Object.freeze(["unknown", "neutral"]), activation: "action" });
+    expect(matchesSkillCard(subject, filter)).toBe(true);
+    expect(matchesSkillCard(subject, { ...filter, activation: "passive" })).toBe(false);
+    expect(matchesSkillCard(subject, { instanceIds: ["other"] })).toBe(false);
+    expect(matchesSkillCard(subject)).toBe(true);
+    expect(subject.tags).toEqual(active.tags);
+  });
+
+  it("resolves the selected card's level before matching definition metadata", () => {
+    const definition = { ...passive, levels: [{ level: 2, activation: { type: "automatic" as const } }] };
+    const registry = createStandaloneAbilityRegistry([definition], []);
+    const input = fixture(), card: SkillCardInstance = { ...input.world.cards[1], level: 2 };
+    const world = { ...input.world, cards: [card] };
+    expect(selectSkillCards(world, "player", { activation: "automatic" }, registry)).toEqual([card]);
+    expect(selectSkillCards(world, "player", { activation: "passive" }, registry)).toEqual([]);
+    expect(getAbilityDefinition(passive.id, registry)?.activation.type).toBe("passive");
+    expect(() => selectSkillCards({ ...world, cards: [{ ...card, level: 3 }] }, "player", {}, registry)).toThrow(`Unknown Player Skill card: ${passive.id}`);
+  });
+
+  it("keeps missing and non-player definitions strict before applying filters", () => {
+    const input = fixture(), card = input.world.cards[0];
+    for (const definitionId of ["unknown-skill", input.controller.id]) {
+      const world = { ...input.world, cards: [{ ...card, definitionId }] };
+      expect(() => selectSkillCards(world, "player", { definitionIds: [active.id] }, input.registry)).toThrow(`Unknown Player Skill card: ${definitionId}`);
+      expect(selectSkillCards(world, "opponent", {}, input.registry)).toEqual([]);
+    }
+  });
+
   it("shares deterministic intersection/alternative filters across count, effects and markers", () => {
     const input = fixture();
     const queries: [SkillCardFilter, string[]][] = [

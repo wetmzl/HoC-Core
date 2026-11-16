@@ -38,7 +38,8 @@ describe("current ability contract", () => {
   it("rejects the retired scalar and resource API versions", () => {
     expect(ScalarSchema.safeParse({ type: "hand-card-status-suit-count", target: "owner", statusTarget: "rival", statusDefinitionId: "state" }).success).toBe(false);
     for (const type of ["game.player-skill", "game.ai-skill", "game.talent"])
-      expect(createHocpkgResourceHandlers().find(handler => handler.type === type)?.apiVersions).toEqual([4]);
+      expect(createHocpkgResourceHandlers().find(handler => handler.type === type)?.apiVersions).toEqual([4, 5]);
+    expect(createHocpkgResourceHandlers().find(handler => handler.type === "game.status")?.apiVersions).toEqual([1, 2]);
   });
   it("compares typed values without coercion and fails closed for unavailable values", () => {
     const context = { ability: { owner: "player" }, world: { statuses: [{ owner: "player", statusDefinitionId: "state", stacks: 1, parameters: { rank: "Q", ready: true } }] } } as unknown as ConditionContext;

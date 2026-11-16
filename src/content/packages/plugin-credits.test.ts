@@ -39,14 +39,14 @@ it("merges modules by host package identity and follows plugin order with stable
   expect(collectPluginCredits([], [])).toEqual([]);
 });
 
-it("appends escaped plugin sections after the complete built-in credits only", () => {
+it("appends escaped plugin sections after the source notice in the about page", () => {
   const markup = renderLobbyMarkup({ menuActions: [], save: createDefaultSave(), layer: "menu", guests: [], defeated: [], visibleDefeated: [], defeatedRemaining: 0,
     pluginCredits: [{ packageId: "test/credits", title: "<b>示例</b>", paragraphs: [[{ text: '<img src=x onerror="alert(1)">' }, { text: "链接", href: 'https://example.com/?a=1&b=2' }]] }]
   });
   expect(markup).toContain("&lt;b&gt;示例&lt;/b&gt;");
   expect(markup).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
   expect(markup).toContain('href="https://example.com/?a=1&amp;b=2" target="_blank" rel="noopener noreferrer"');
-  expect(markup.indexOf('data-plugin-credits="test/credits"')).toBeGreaterThan(markup.indexOf("谢谢你们让HoC项目继续运转！"));
+  expect(markup.indexOf('data-plugin-credits="test/credits"')).toBeGreaterThan(markup.indexOf("提供源代码是本项目的义务。"));
   expect(markup.match(/data-plugin-credits=/g)).toHaveLength(1);
 });
 

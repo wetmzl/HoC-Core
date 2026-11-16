@@ -1,6 +1,6 @@
 # House of Chances
 
-Android 竖屏优先的单机游戏，结合黑杰克、累积式俄罗斯轮盘、技能卡与角色叙事。可独立构建 Web/PWA 与 Android 应用。
+Android 竖屏优先的单机游戏，结合黑杰克、累积式俄罗斯轮盘、技能卡与角色叙事。可独立构建 Web/PWA、Android 与 Electron 桌面应用。
 
 ## 本地运行
 
@@ -20,7 +20,7 @@ npm run test:pwa
 
 内嵌内容按目录直接读取，媒体默认按需下载；可在设置中下载完整离线资源。用户导入内容继续使用 hocpkg／ZIP／PNG。
 
-构建输出为 `dist/`；基本 Web 与 Android 部署见 [部署说明](docs/deployment.md)。
+Web 构建输出为 `dist/`。运行 `npm run electron:start` 启动桌面版，`npm run electron:dist` 生成当前平台的桌面包；Windows、macOS、Linux 均提供 x64／ARM64 目标。基本构建与部署见 [部署说明](docs/deployment.md)。
 
 ## 匿名玩法统计
 
@@ -38,11 +38,13 @@ npm run test:pwa
 
 角色包 `claude/backgrounds/` 内的两张场景背景是下述 CC0 资源的原样副本；角色原画继续沿用原作者和许可证。
 
-内嵌角色包（`public/characters/chatgpt/`、`claude/`、`deepseek/`、`gemini/`、`llama/`）中的图片使用 **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International（CC BY-NC-SA 4.0，署名—非商业性使用—相同方式共享）**，原作者为 **ZipZipPipe**。网页与应用图标（`public/favicon.ico`、`public/favicon.svg`、`public/icons/`），以及 `android/app/src/main/res/` 下的 `ic_launcher*.png` 和 `splash.png`，基于 DeepSeek 角色美术经 AI 改绘为 Q 版铁盆造型，再缩放、补边及裁切，同样使用该许可证。完整条款见 [角色美术许可证](public/licenses/CC-BY-NC-SA-4.0.txt)。使用或改编这些图片时须保留作者署名和许可信息，标明修改，并遵守非商业性使用及相同方式共享条件。
+内嵌角色包（`public/characters/chatgpt/`、`claude/`、`deepseek/`、`gemini/`、`llama/`、`glm/`、`grok/`、`qwen/`）中的图片使用 **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International（CC BY-NC-SA 4.0，署名—非商业性使用—相同方式共享）**，原作者为 **ZipZipPipe**。网页与应用图标（`public/favicon.ico`、`public/favicon.svg`、`public/icons/`），以及 `android/app/src/main/res/` 下的 `ic_launcher*.png` 和 `splash.png`，基于 DeepSeek 角色美术经 AI 改绘为 Q 版铁盆造型，再缩放、补边及裁切，同样使用该许可证。完整条款见 [角色美术许可证](public/licenses/CC-BY-NC-SA-4.0.txt)。使用或改编这些图片时须保留作者署名和许可信息，标明修改，并遵守非商业性使用及相同方式共享条件。
 
 默认存档分享封面 `public/assets/save-share-cover.png` 参考上述五位角色美术，经 AI 改绘为五位 Q 版角色合照、调整背景与缩放，沿用 **CC BY-NC-SA 4.0**，保留 ZipZipPipe 的角色美术署名。
 
-五位内嵌角色的 `cover.png` 为基于原角色美术重新绘制动作、合成固定模糊机柜背景的1254×1254封面，角色改绘保留 ZipZipPipe 的署名与 CC BY-NC-SA 4.0 许可。封面与焦点由角色皮肤的表现资源声明，供大厅、个人档案与挑战预览使用；逐包改绘说明见各自 `ART-CREDITS.md`。
+八位内嵌角色的 `cover.png` 为基于原角色美术重新绘制动作、合成固定模糊机柜背景的1254×1254封面，角色改绘保留 ZipZipPipe 的署名与 CC BY-NC-SA 4.0 许可。封面与焦点由角色皮肤的表现资源声明，供大厅、个人档案与挑战预览使用；逐包改绘说明见各自 `ART-CREDITS.md`。
+
+`glm/`、`grok/`、`qwen/` 三个角色包提供档案、对白、封面和六态立绘。S 级 GLM 可根据玩家实际点数决定停牌，并偷走能让自己恰好达到爆牌上限的手牌；A 级 Qwen 从玩家本轮第二次 Hit 起随机使用玩家持有且可用的主动技能牌，正常消耗牌或使用次数。S 级 Grok 将玩家衍生牌视为 0 点，并把自己获得的衍生牌转交给玩家；首次击败可解锁主动技能「@grok」，将当前持有的衍生牌视为 0 点。三者各有首次击败解锁的玩家技能。图片依据用户提供的 ZipZipPipe 人设与同作者的 DeepSeek 画风经 AI 改绘；用户于 2026-11-16 确认，三位原画已获得与既有角色相同的口头许可和许可证，角色原画与改绘沿用 CC BY-NC-SA 4.0。三个封面均以透明人物层叠到前述同一张1254×1254固定模糊机柜背景；逐包记录见各自 `ART-CREDITS.md`。
 
 官方插件封面 `public/characters/character-tap/cover.png` 与 `public/characters/debug-engine/cover.png` 参考 DeepSeek 角色美术，经 AI 改绘为黑底 Q 版插画并缩放，沿用 **CC BY-NC-SA 4.0**，原作者为 **ZipZipPipe**；插件程序代码仍为 GPL-3.0-only，逐包说明见各自的 `ART-CREDITS.md`。
 
@@ -76,3 +78,5 @@ npm run test:pwa
 ## 内容契约升级
 
 当前能力目录为 `abilities-v50`，`game.player-skill`、`game.ai-skill` 和 `game.talent` 使用 API 4。旧复合操作和旧技能资源 API 已停止支持；内容作者须改用状态赋值、牌张变换、候选获牌、技能来源选择与类型值比较。`acquire-card` 可显式设置 `reportResult: true` 报告衍生牌结果。旧未完成牌局需要重新开始，长期进度继续按既有恢复规则读取。
+
+内嵌 `hoc-core/official-built-in-achievements` 独立内容包提供25项官方成就及512×512主题封面。成就定义使用CC0，封面基于ZipZipPipe角色美术经AI改绘，沿用CC BY-NC-SA 4.0，逐图声明见 [ART-CREDITS.md](public/characters/official-built-in-achievements/ART-CREDITS.md)。包可在资源管理中启停；新安装默认启用，已有内容库新增包遵循原有启停策略。

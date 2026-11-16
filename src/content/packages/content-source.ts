@@ -5,6 +5,8 @@ import { BuiltinPackageIndexSchema, HocpkgManifestSchema, type BuiltinPackageInd
 import { z } from "zod";
 import { encodeText, sha256 } from "../storage/encoding";
 import { boundedContentJson } from "./json-budget";
+import { PlaylistDocumentSchema, playlistDocument, type PlaylistDocument } from "../playlists/store";
+import { EMBEDDED_DEFAULT_PLAYLIST_NAME } from "../playlists/embedded-default";
 
 const embeddedDescriptorSchema = z.object({
   identity: z.unknown(), metadata: z.unknown(), resources: z.unknown(), files: z.unknown(), extensions: z.record(z.string(), z.unknown()),
@@ -67,6 +69,7 @@ export class EmbeddedContentSource implements ContentSource {
   assetFallback?: (packageId: string, file: HocpkgManifest["files"][number], url: string) => Promise<ResolvedContentAsset | undefined>;
   private indexPromise?: Promise<BuiltinPackageIndex>;
   private packagePromise?: Promise<readonly ContentPackageAccess[]>;
+  private defaultPlaylistPromise?: Promise<PlaylistDocument>;
   private document?: z.infer<typeof embeddedDocumentSchema>;
 
   constructor(private readonly options: EmbeddedContentSourceOptions = {}) {}
@@ -78,7 +81,8 @@ export class EmbeddedContentSource implements ContentSource {
         const indexUrl = this.options.indexUrl ?? "/embedded/content.json";
         let response = await requestFetch(indexUrl, { credentials: "same-origin" });
         // Development/test authoring inputs are not shipped as the runtime distribution.
-        if (response.status === 404 && !this.options.indexUrl && (import.meta.env.DEV || import.meta.env.MODE === "test")) {
+        const developmentFallback = response.status === 404 || response.headers.get("content-type")?.toLowerCase().includes("text/html");
+        if (developmentFallback && !this.options.indexUrl && (import.meta.env.DEV || import.meta.env.MODE === "test")) {
           response = await requestFetch("/characters/packages.json");
         }
         if (!response.ok) throw new Error(`内容索引读取失败 (${response.status})`);
@@ -96,6 +100,29 @@ export class EmbeddedContentSource implements ContentSource {
       })().catch(error => { this.indexPromise = undefined; this.document = undefined; throw error; });
     }
     return this.indexPromise;
+  }
+
+  /** A standard playlist is shipped beside the index, without extending its strict format. */
+  loadDefaultPlaylist(): Promise<PlaylistDocument> {
+    return this.defaultPlaylistPromise ??= (async () => {
+      const requestFetch = this.options.fetch ?? globalThis.fetch.bind(globalThis);
+      const base = this.options.indexUrl ? directoryUrl(this.options.indexUrl) : "/embedded/";
+      let response = await requestFetch(`${base}default-playlist.json`, { credentials: "same-origin" });
+      const missing = () => response.status === 404 || response.headers.get("content-type")?.toLowerCase().includes("text/html");
+      if (missing() && !this.options.indexUrl && (import.meta.env.DEV || import.meta.env.MODE === "test"))
+        response = await requestFetch("/characters/default-playlist.json", { credentials: "same-origin" });
+      if (!missing()) {
+        if (!response.ok) throw new Error(`默认播放集读取失败 (${response.status})`);
+        const document = PlaylistDocumentSchema.parse(await response.json());
+        const index = await this.loadIndex(), available = new Set(index.packages.map(entry => entry.packageId));
+        if (document.packages.some(entry => !available.has(entry.packageId))) throw new Error("默认播放集引用未内嵌的内容包。");
+        return document;
+      }
+      // Older distributors still declare the same default selection in their v2 index.
+      const index = await this.loadIndex(), selected = index.defaultEnabled ? new Set(index.defaultEnabled) : undefined;
+      return playlistDocument(EMBEDDED_DEFAULT_PLAYLIST_NAME,
+        index.packages.filter(entry => !selected || selected.has(entry.packageId)).map(({ packageId, version }) => ({ packageId, version })));
+    })().catch(error => { this.defaultPlaylistPromise = undefined; throw error; });
   }
 
   private manifestFor(entry: z.infer<typeof embeddedDescriptorSchema>): HocpkgManifest {

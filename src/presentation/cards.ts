@@ -1,4 +1,4 @@
-import { cardSource, cardSuit, cardRank } from "../core/blackjack/card";
+import { cardSource, cardSuit, cardRank, isCardCountedInPointTotal } from "../core/blackjack/card";
 import type { Card, Rank, Suit } from "../core/blackjack/types";
 
 export type CardSurface = "front" | "back";
@@ -53,6 +53,10 @@ export function diamondCardMarker(type: string, label: string): CardMarker {
 }
 
 export function describeCard(card: Card, visibility: CardVisibility): CardDisplayDescription {
+  const markers = [...(visibility.markers ?? [])];
+  if (!isCardCountedInPointTotal(card) && !markers.some(marker => marker.type === "point-total-exclusion")) {
+    markers.push({ type: "point-total-exclusion", position: "bottom-left", label: "视为0点", visual: { kind: "text", text: "0" } });
+  }
   return {
     cardId: card.id,
     source: cardSource(card),
@@ -60,7 +64,7 @@ export function describeCard(card: Card, visibility: CardVisibility): CardDispla
     surface: visibility.surface,
     rank: visibility.showRank ? cardRank(card) : null,
     suit: visibility.showSuit ? cardSuit(card) : null,
-    markers: [...(visibility.markers ?? [])],
+    markers,
     variant: visibility.variant
   };
 }

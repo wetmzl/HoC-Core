@@ -1,3 +1,4 @@
+import { haptics } from "../presentation/haptic-service";
 import { afterEach, expect, it, vi } from "vitest";
 import { gameAudio } from "../audio/game-audio";
 import { createMatch } from "../core/match/reducer";
@@ -61,7 +62,6 @@ function closingRuntime() {
   runtime.mounted = true;
   runtime.saveLoaded = true;
   runtime.save = save;
-  runtime.interactionHapticsAttached = true;
   return { runtime, deps, root, document, resources, audio, report, repository };
 }
 
@@ -143,9 +143,8 @@ it("finishes durable exit after plugin and host cleanup failures and reports all
   Reflect.set(runtime, "router", { dispose: navigation });
   const settingsRelease = vi.fn();
   Reflect.set(runtime, "releaseSettingsWriter", settingsRelease);
-  const hapticRelease = vi.fn(async () => { throw hapticFailure; });
+  const hapticRelease = vi.spyOn(haptics, "stop").mockRejectedValueOnce(hapticFailure);
   const nativeRelease = vi.fn(async () => {});
-  runtime.hapticLifecycleDisposer = hapticRelease;
   runtime.nativeLifecycleDisposer = nativeRelease;
   deps.disposeSession.mockRejectedValueOnce(sessionFailure);
   const signal = runtime.runtimeEventController!.signal;
@@ -161,7 +160,7 @@ it("finishes durable exit after plugin and host cleanup failures and reports all
   expect(deps.disposeSkills).toHaveBeenCalledOnce();
   expect(deps.disposeSession).toHaveBeenCalledOnce();
   expect(settingsRelease).toHaveBeenCalledOnce();
-  expect(document.removeEventListener).toHaveBeenCalledOnce();
+  expect(document.removeEventListener).not.toHaveBeenCalled();
   expect(hapticRelease).toHaveBeenCalledOnce();
   expect(nativeRelease).toHaveBeenCalledOnce();
   expect(presentation.clearMatch).toHaveBeenCalledExactlyOnceWith(deps.autosave.getState().id);
@@ -176,7 +175,6 @@ it("finishes durable exit after plugin and host cleanup failures and reports all
   expect(root.inert).toBe(false);
   expect(runtime.extensions).toBeUndefined();
   expect(runtime.runtimeEventController).toBeUndefined();
-  expect(runtime.hapticLifecycleDisposer).toBeUndefined();
   expect(runtime.nativeLifecycleDisposer).toBeUndefined();
   expect(report).toHaveBeenCalledOnce();
   const failure = report.mock.calls[0][1] as AggregateError;
@@ -221,4 +219,26 @@ it("retries a failed persistence flush without releasing the live runtime early"
   expect(resources).toHaveBeenCalledOnce();
   expect(audio).toHaveBeenCalledOnce();
   expect(report).not.toHaveBeenCalled();
+});
+
+
+it("releases the previous page back handler and keeps it when a new import fails", async () => {
+  const { requestBack } = await import("../platform/back-navigation");
+  const menu = vi.fn(async () => {}), exit = vi.fn(async () => {});
+  const runtime = new RuntimeController({ discardActiveTutorial() {}, renderLobby: menu } as unknown as RuntimeControllerDependencies);
+  const router = new RuntimeScreenRouter({ reportNavigationError() {} } as never, {});
+  Reflect.set(runtime, "router", router);
+  const loader = async () => ({ mount: async () => ({ dispose() {} }) });
+  await runtime.navigateScreen(loader, exit);
+  await requestBack("native");
+  expect(exit).toHaveBeenCalledOnce();
+  await runtime.navigateScreen(async () => { throw new Error("network"); });
+  await requestBack("browser");
+  expect(exit).toHaveBeenCalledTimes(2);
+  await runtime.navigateScreen(loader);
+  await requestBack("escape");
+  expect(menu).toHaveBeenCalledWith("menu");
+  expect(exit).toHaveBeenCalledTimes(2);
+  await router.dispose();
+  expect(await requestBack("native")).toBe(false);
 });

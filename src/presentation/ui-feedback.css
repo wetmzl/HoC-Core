@@ -1,0 +1,53 @@
+:root {
+  --ui-press-ms: 70;
+  --ui-release-ms: 220;
+  --ui-press-scale: .975;
+  --ui-release-scale: 1.008;
+  --ui-dialog-enter-ms: 240ms;
+  --ui-dialog-exit-ms: 150ms;
+  --ui-dialog-offset: 8px;
+  --ui-dialog-scale: .98;
+}
+
+:where(.icon-button, .modal-close, .playlist-icon, .playlist-manager-actions button, .password-book-action) {
+  --ui-press-scale: .95;
+  --ui-release-scale: 1.012;
+}
+:where(.launcher-start, .package-group-toggle, .playlist-menu button, .lobby-primary-action) {
+  --ui-press-scale: .99;
+  --ui-release-scale: 1.004;
+}
+:where(.danger-button) { --ui-release-scale: 1.003; }
+[data-ui-pressed] { filter: brightness(.92); }
+:where(button, summary, label:has(input[type="file"])):focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+}
+
+/* Native dialogs retain their original layout, palette and backdrop treatment. */
+dialog.ui-dialog[open] {
+  animation: ui-dialog-enter var(--ui-dialog-enter-ms) cubic-bezier(.2,.8,.25,1) both;
+}
+dialog.ui-dialog[open]::backdrop { animation: ui-backdrop-enter 180ms ease-out both; }
+/* Refreshing an already open host panel is a continuation, not a new entrance. */
+dialog.ui-dialog.ui-dialog-restored[open]:not(.ui-dialog-closing),
+dialog.ui-dialog.ui-dialog-restored[open]:not(.ui-dialog-closing)::backdrop { animation: none; }
+dialog.ui-dialog.ui-dialog-closing[open] {
+  animation: ui-dialog-exit var(--ui-dialog-exit-ms) ease-in both;
+}
+dialog.ui-dialog.ui-dialog-closing[open]::backdrop { animation: ui-backdrop-exit var(--ui-dialog-exit-ms) ease-in both; }
+.package-drawer.ui-dialog { --ui-dialog-enter-ms: 280ms; --ui-dialog-exit-ms: 180ms; --ui-dialog-offset: 36px; --ui-dialog-scale: 1; }
+@keyframes ui-dialog-enter {
+  from { opacity: 0; translate: 0 var(--ui-dialog-offset); scale: var(--ui-dialog-scale); }
+  75% { opacity: 1; translate: 0 -1px; scale: 1; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+@keyframes ui-dialog-exit {
+  to { opacity: 0; translate: 0 var(--ui-dialog-offset); scale: var(--ui-dialog-scale); }
+}
+@keyframes ui-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ui-backdrop-exit { from { opacity: 1; } to { opacity: 0; } }
+.reduced-motion dialog.ui-dialog[open], .reduced-motion dialog.ui-dialog[open]::backdrop { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  dialog.ui-dialog[open], dialog.ui-dialog[open]::backdrop { animation: none; }
+}

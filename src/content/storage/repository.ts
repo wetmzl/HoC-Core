@@ -1,16 +1,13 @@
+import { HocpkgContainerManifestSchema } from "../packages/container-schema";
 import { checkCancelled, copyFile, inspectFiles } from "./file-operations";
-import {
-  HocpkgManifestSchema,
-  HocpkgPortablePathSchema,
-  compareHocpkgPackages,
-  getHocpkgPackageId,
-  type HocpkgManifest
-} from "../packages";
+import { HocpkgPortablePathSchema, type HocpkgManifest } from "../packages/schema";
+import { compareHocpkgPackages, getHocpkgPackageId } from "../packages/package-state";
 import { commitCatalog, CONTENT_ROOT, emptyContentCatalog, readCurrentCatalog, type ContentCatalog } from "./catalog";
 import type {
   ContentFileEntry,
   ContentFileSource,
   ContentHost,
+  ContentInstallProgress,
   ContentInstallOptions,
   ContentInstallResult,
   ContentPackageMutationResult,
@@ -118,18 +115,25 @@ export class FileContentRepository implements ContentRepository {
 
   private async storedAccess(packageId: string, revision: string): Promise<ContentPackageAccess> {
     const fs = this.host.fileSystem, root = revisionRoot(packageId, revision);
-    const manifest = HocpkgManifestSchema.parse(JSON.parse(decodeText((await fs.read(`${root}/${MANIFEST_FILE}`))!)));
-    if (getHocpkgPackageId(manifest.identity) !== packageId || await getContentRevision(manifest) !== revision) throw new ContentPackageIntegrityError("历史副本描述与目录不一致。");
+    const bytes = await fs.read(`${root}/${MANIFEST_FILE}`);
+    if (!bytes) throw new ContentPackageIntegrityError(`内容包 Manifest 缺失：${packageId}`);
+    const manifest = HocpkgContainerManifestSchema.parse(JSON.parse(decodeText(bytes)));
+    if (getHocpkgPackageId(manifest.identity) !== packageId || await getContentRevision(manifest) !== revision) throw new ContentPackageIntegrityError(`内容包 Manifest 与 catalog 不一致：${packageId}`);
+    const files = new Map(manifest.files.map(file => [file.path, { ...file }]));
+    const declaredFile = (path: string) => {
+      const safePath = HocpkgPortablePathSchema.parse(path), file = files.get(safePath);
+      if (!file) throw new Error(`文件未在 Manifest 中声明：${packageId}#${safePath}`);
+      return file;
+    };
     const readFile = async (path: string) => {
-      const file = manifest.files.find(file => file.path === path);
-      if (!file) throw new Error("未声明归档文件。");
-      const bytes = await fs.read(`${root}/${path}`);
-      if (!bytes) throw new Error("归档文件缺失。");
+      const file = declaredFile(path);
+      const bytes = await fs.read(`${root}/${file.path}`);
+      if (!bytes) throw new Error(`内容文件缺失：${packageId}#${file.path}`);
       return bytes;
     };
     return { packageId, manifest, readFile, readJson: async path => JSON.parse(decodeText(await readFile(path))),
-      resolveAsset: async path => { const file = manifest.files.find(file => file.path === path); if (!file) throw new Error("未声明归档文件。"); return this.host.assetResolver.resolve(`${root}/${path}`, file.mediaType); },
-      async *files() { for (const file of manifest.files) yield { path: file.path, bytes: await readFile(file.path) }; }
+      resolveAsset: async path => { const file = declaredFile(path); return this.host.assetResolver.resolve(`${root}/${file.path}`, file.mediaType); },
+      async *files() { for (const file of files.values()) yield { path: file.path, bytes: await readFile(file.path) }; }
     };
   }
 
@@ -137,15 +141,17 @@ export class FileContentRepository implements ContentRepository {
     const operation = this.queue.catch(() => undefined).then(async () => {
       await this.open();
       const packages = { ...this.catalog.packages }, archives = { ...this.catalog.archives };
+      const retired: string[] = [];
       for (const [id, state] of Object.entries(packages)) if (this.embedded.has(canonicalBuiltinPackageId(id))) {
         if (!clean) archives[`${id}/${state.currentRevision}`] = { packageId: id, currentRevision: state.currentRevision, archivedAt: this.now() };
         delete packages[id];
+        retired.push(revisionRoot(id, state.currentRevision));
       }
       const next = { ...this.catalog, packages, archives };
       const committed = await commitCatalog(this.host.fileSystem, next, this.now);
       this.catalog = next;
       this.archivedFiles = undefined;
-      if (committed.mirrored) await this.cleanupUnreferencedRevisions().catch(() => undefined);
+      if (committed.mirrored) await this.removeUnreferencedRevisions(retired).catch(() => undefined);
     });
     this.queue = operation; return operation;
   }
@@ -182,11 +188,12 @@ export class FileContentRepository implements ContentRepository {
   async removeArchive(id: string): Promise<void> {
     const operation = this.queue.catch(() => undefined).then(async () => {
       await this.open(); if (!this.catalog.archives?.[id]) throw new Error("归档不存在。");
+      const retired = this.catalog.archives[id]!;
       const archives = { ...this.catalog.archives }; delete archives[id];
       const next = { ...this.catalog, archives }, committed = await commitCatalog(this.host.fileSystem, next, this.now);
       this.catalog = next;
       this.archivedFiles = undefined;
-      if (committed.mirrored) await this.cleanupUnreferencedRevisions().catch(() => undefined);
+      if (committed.mirrored) await this.removeUnreferencedRevisions([revisionRoot(retired.packageId, retired.currentRevision)]).catch(() => undefined);
     }); this.queue = operation; return operation;
   }
 
@@ -217,6 +224,10 @@ export class FileContentRepository implements ContentRepository {
 
   async listPackages(): Promise<readonly InstalledContentPackage[]> {
     await this.ready();
+    return this.listPackagesNow();
+  }
+
+  private listPackagesNow(): readonly InstalledContentPackage[] {
     return [...packageList(this.catalog).filter(entry => !this.embedded.has(canonicalBuiltinPackageId(entry.packageId))),
       ...[...this.embedded].map(([packageId, source]) => ({ packageId, currentRevision: source.revision, enabled: this.catalog.embedded?.[packageId]?.enabled ?? false, embedded: true }))];
   }
@@ -250,6 +261,11 @@ export class FileContentRepository implements ContentRepository {
     return this.readManifestNow(packageId);
   }
 
+  async readPackage(packageId: string): Promise<ContentPackageAccess> {
+    await this.ready();
+    return this.embedded.get(packageId) ?? this.storedAccess(packageId, this.currentRevision(packageId));
+  }
+
   private async readManifestNow(packageId: string): Promise<HocpkgManifest> {
     if (this.embedded.has(packageId)) return this.embedded.get(packageId)!.manifest;
     return this.readStoredManifestNow(packageId);
@@ -259,7 +275,7 @@ export class FileContentRepository implements ContentRepository {
     const root = revisionRoot(packageId, this.currentRevision(packageId));
     const bytes = await this.host.fileSystem.read(`${root}/${MANIFEST_FILE}`);
     if (!bytes) throw new Error(`内容包 Manifest 缺失：${packageId}`);
-    return HocpkgManifestSchema.parse(JSON.parse(decodeText(bytes)));
+    return HocpkgContainerManifestSchema.parse(JSON.parse(decodeText(bytes)));
   }
 
   async readFile(packageId: string, path: string): Promise<Uint8Array> {
@@ -285,40 +301,72 @@ export class FileContentRepository implements ContentRepository {
     return this.host.assetResolver.resolve(`${root}/${safePath}`, file.mediaType);
   }
 
-  async verifyPackage(packageId: string, onProgress?: (progress: import("./contracts").ContentInstallProgress) => void): Promise<void> {
-    await this.ready();
-    if (this.embedded.has(packageId)) return;
-    const currentRevision = this.currentRevision(packageId);
-    const manifest = await this.readManifestNow(packageId);
-    if (getHocpkgPackageId(manifest.identity) !== packageId || await getContentRevision(manifest) !== currentRevision) {
-      throw new ContentPackageIntegrityError(`内容包 Manifest 与 catalog 不一致：${packageId}`);
-    }
-    const root = revisionRoot(packageId, currentRevision);
-    const totalBytes = manifest.files.reduce((total, file) => total + file.bytes, 0);
-    let completedBytes = 0;
-    let offset = 0, reported = 0;
-    const offsets = new Map<string, { path: string; offset: number }>(manifest.files.map(file => {
-      const value = { path: file.path, offset };
-      offset += file.bytes;
-      return [`${root}/${file.path}`, value] as const;
-    }));
-    const digests = await inspectFiles(this.host.fileSystem, manifest.files.map(file => `${root}/${file.path}`), onProgress ? {
+  /**
+   * Verify every enabled stored file once and return accessors pinned to that revision.
+   * The controller excludes content mutations until these runtime accessors are released.
+   * Neither manifests nor integrity results survive into the next startup.
+   */
+  verifyEnabledPackages(onProgress?: (progress: ContentInstallProgress) => void): Promise<readonly ContentPackageAccess[]> {
+    const operation = this.queue.catch(() => undefined).then(async () => {
+      await this.open();
+      const installed = this.listPackagesNow().filter(entry => entry.enabled);
+      const accesses = await Promise.all(installed.map(entry => entry.embedded
+        ? this.embedded.get(entry.packageId)!
+        : this.storedAccess(entry.packageId, entry.currentRevision)));
+      await this.verifyStoredPackages(installed.flatMap((entry, index) => entry.embedded ? [] : [{
+        packageId: entry.packageId,
+        root: revisionRoot(entry.packageId, entry.currentRevision),
+        manifest: accesses[index]!.manifest
+      }]), onProgress);
+      return Object.freeze(accesses);
+    });
+    this.queue = operation.then(() => undefined, () => undefined);
+    return operation;
+  }
+
+  verifyPackage(packageId: string, onProgress?: (progress: ContentInstallProgress) => void): Promise<void> {
+    const operation = this.queue.catch(() => undefined).then(async () => {
+      await this.open();
+      if (this.embedded.has(packageId)) return;
+      const revision = this.currentRevision(packageId), access = await this.storedAccess(packageId, revision);
+      await this.verifyStoredPackages([{ packageId, root: revisionRoot(packageId, revision), manifest: access.manifest }], onProgress);
+    });
+    this.queue = operation;
+    return operation;
+  }
+
+  private async verifyStoredPackages(
+    packages: readonly { packageId: string; root: string; manifest: HocpkgManifest }[],
+    onProgress?: (progress: ContentInstallProgress) => void
+  ): Promise<void> {
+    const files = packages.flatMap(entry => {
+      const state = { packageId: entry.packageId, totalBytes: entry.manifest.files.reduce((sum, file) => sum + file.bytes, 0), reported: 0 };
+      let offset = 0;
+      return entry.manifest.files.map(file => {
+        const item = { file, absolutePath: `${entry.root}/${file.path}`, offset, state };
+        offset += file.bytes;
+        return item;
+      });
+    });
+    if (!files.length) return;
+    const byPath = new Map(files.map(file => [file.absolutePath, file]));
+    const report = (item: typeof files[number], completedBytes: number) => {
+      const state = item.state, completed = Math.min(state.totalBytes, Math.max(state.reported, completedBytes));
+      if (completed <= state.reported) return;
+      state.reported = completed;
+      onProgress?.({ packageId: state.packageId, path: item.file.path, completedBytes: completed, totalBytes: state.totalBytes });
+    };
+    const digests = await inspectFiles(this.host.fileSystem, files.map(file => file.absolutePath), onProgress ? {
       onProgress: progress => {
-        const file = offsets.get(progress.path);
-        if (!file) return;
-        reported = Math.max(reported, Math.min(totalBytes, file.offset + progress.completedBytes));
-        onProgress({ packageId, path: file.path, completedBytes: reported, totalBytes });
+        const item = byPath.get(progress.path);
+        if (item) report(item, item.offset + Math.min(item.file.bytes, progress.completedBytes));
       }
     } : undefined);
-    for (const [index, file] of manifest.files.entries()) {
-      const digest = digests[index]!;
-      if (digest.bytes !== file.bytes) throw new ContentPackageIntegrityError(`文件大小不符：${packageId}#${file.path}`);
-      if (digest.sha256 !== file.sha256) throw new ContentPackageIntegrityError(`文件摘要不符：${packageId}#${file.path}`);
-      completedBytes += digest.bytes;
-      if (completedBytes > reported) {
-        reported = completedBytes;
-        onProgress?.({ packageId, path: file.path, completedBytes: reported, totalBytes });
-      }
+    for (const [index, item] of files.entries()) {
+      const { file, state } = item, digest = digests[index]!;
+      if (digest.bytes !== file.bytes) throw new ContentPackageIntegrityError(`文件大小不符：${state.packageId}#${file.path}`);
+      if (digest.sha256 !== file.sha256) throw new ContentPackageIntegrityError(`文件摘要不符：${state.packageId}#${file.path}`);
+      report(item, item.offset + digest.bytes);
     }
   }
 
@@ -437,7 +485,7 @@ export class FileContentRepository implements ContentRepository {
   reidentifyPackage(packageId: string, input: HocpkgManifest): Promise<void> {
     const operation = this.queue.catch(() => undefined).then(async () => {
       await this.open();
-      const manifest = HocpkgManifestSchema.parse(input);
+      const manifest = HocpkgContainerManifestSchema.parse(input);
       const targetId = getHocpkgPackageId(manifest.identity);
       const current = this.catalog.packages[packageId];
       if (!current) return;
@@ -491,7 +539,7 @@ export class FileContentRepository implements ContentRepository {
     sources: readonly ContentPackageSource[],
     options: ContentInstallOptions
   ): Promise<ContentInstallResult> {
-    const manifests = sources.map((source) => HocpkgManifestSchema.parse(source.manifest));
+    const manifests = sources.map((source) => HocpkgContainerManifestSchema.parse(source.manifest));
     const ids = manifests.map((manifest) => getHocpkgPackageId(manifest.identity));
     if (new Set(ids).size !== ids.length) throw new ContentPackageConflictError("同一批安装包含重复 packageId");
 
@@ -618,15 +666,26 @@ export class FileContentRepository implements ContentRepository {
   }
 
   private async cleanupUnreferencedRevisions(): Promise<void> {
-    const files = await this.host.fileSystem.list(`${CONTENT_ROOT}/revisions`);
+    const fs = this.host.fileSystem, prefix = `${CONTENT_ROOT}/revisions`;
+    const roots = new Set<string>();
+    if (fs.listDirectories) {
+      for (const author of await fs.listDirectories(prefix)) {
+        for (const name of await fs.listDirectories(author)) {
+          for (const root of await fs.listDirectories(name)) roots.add(root);
+        }
+      }
+    } else {
+      for (const path of await fs.list(prefix)) {
+        const [author, name, revision] = path.slice(prefix.length + 1).split("/");
+        if (author && name && revision) roots.add(`${prefix}/${author}/${name}/${revision}`);
+      }
+    }
+    await this.removeUnreferencedRevisions(roots);
+  }
+
+  private async removeUnreferencedRevisions(roots: Iterable<string>): Promise<void> {
     const referenced = new Set(Object.entries(this.catalog.packages).map(([id, state]) => revisionRoot(id, state.currentRevision)));
     for (const entry of Object.values(this.catalog.archives ?? {})) referenced.add(revisionRoot(entry.packageId, entry.currentRevision));
-    const roots = new Set<string>();
-    for (const path of files) {
-      const relative = path.slice(`${CONTENT_ROOT}/revisions/`.length);
-      const [authorId, packageName, revision] = relative.split("/");
-      if (authorId && packageName && revision) roots.add(`${CONTENT_ROOT}/revisions/${authorId}/${packageName}/${revision}`);
-    }
     for (const root of roots) if (!referenced.has(root)) await this.host.fileSystem.remove(root);
   }
 }

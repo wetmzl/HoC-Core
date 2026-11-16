@@ -1,0 +1,2444 @@
+{
+  "achievements": [
+    {
+      "id": "first-victory",
+      "revision": 1,
+      "name": "小试牛刀",
+      "description": "完成第一场胜利对局。",
+      "category": "牌局成就",
+      "cover": "cover.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "match-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "fair-play",
+      "revision": 1,
+      "name": "公平竞技倡导",
+      "description": "一轮中不主动发动任何技能并获胜。",
+      "category": "牌局成就",
+      "cover": "covers/fair-play.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "round-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "roundActiveCount"
+                  },
+                  "operator": "eq",
+                  "right": 0
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "wholeRoundObserved"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "safe-hit",
+      "revision": 1,
+      "name": "只想确认一下",
+      "description": "用「临界判断」得到安全结果，随后不改变手牌或牌库，立即 Hit 并保持未爆牌。",
+      "category": "牌局成就",
+      "cover": "covers/safe-hit.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "forecast-hit"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "sourceDefinition"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "critical-judgment"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "safe"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "same-round-ammunition",
+      "revision": 1,
+      "name": "临时加码",
+      "description": "消耗抽卡次数取得「实弹加注」，在取得它的同一轮发动，并实际造成额外装填。",
+      "category": "牌局成就",
+      "cover": "covers/same-round-ammunition.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "extra-load"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "sourceDefinition"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "live-ammunition-bet"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "sourceDrawnThisRound"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "sourceActivatedThisRound"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "actualExtraLoad"
+                  },
+                  "operator": "gt",
+                  "right": 0
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "borrowed-apple",
+      "revision": 1,
+      "name": "别人咬过的苹果最好吃",
+      "description": "用「顺手牵羊」取得对手的一张实体牌，取得后自己的手牌仍未爆牌。",
+      "category": "牌局成就",
+      "cover": "covers/borrowed-apple.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "hand-transfer"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "sourceDefinition"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "sleight-of-hand"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "sourceOwner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "actor"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "from"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "opponent"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "cardSource"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "shoe"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "safe"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "physical-twenty-one",
+      "revision": 1,
+      "name": "拙劣的伪造",
+      "description": "结算时，以至少三张实体牌组成恰好 21 点并获胜。",
+      "category": "牌局成就",
+      "cover": "covers/physical-twenty-one.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "round-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "playerPhysicalCount"
+                  },
+                  "operator": "gte",
+                  "right": 3
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "playerDerivedCount"
+                  },
+                  "operator": "eq",
+                  "right": 0
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "playerBaseTotal"
+                  },
+                  "operator": "eq",
+                  "right": 21
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "crafted-blackjack",
+      "revision": 1,
+      "name": "人工天成",
+      "description": "结算时组成两张牌的天然 Blackjack，其中至少一张是技能生成的衍生牌，并凭它获胜。",
+      "category": "牌局成就",
+      "cover": "covers/crafted-blackjack.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "round-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "reason"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "blackjack"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "playerBlackjack"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "playerDerivedCount"
+                  },
+                  "operator": "gte",
+                  "right": 1
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "double-bust",
+      "revision": 1,
+      "name": "谁也别笑谁",
+      "description": "因双方同时爆牌而结算为平局。",
+      "category": "牌局成就",
+      "cover": "covers/double-bust.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "round-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "draw"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "playerBusted"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "opponentBusted"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      },
+      "hidden": true
+    },
+    {
+      "id": "one-point-comeback",
+      "revision": 1,
+      "name": "就差这一点",
+      "description": "双方均未爆牌、均无天然 Blackjack；自己的基础点数更低，却凭技能优势以最终恰好高 1 点获胜。",
+      "category": "牌局成就",
+      "cover": "covers/one-point-comeback.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "round-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "reason"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "comparison"
+                  }
+                },
+                {
+                  "type": "all",
+                  "conditions": [
+                    {
+                      "type": "value-compare",
+                      "left": {
+                        "type": "observation",
+                        "key": "playerBusted"
+                      },
+                      "operator": "eq",
+                      "right": {
+                        "type": "literal",
+                        "value": false
+                      }
+                    },
+                    {
+                      "type": "value-compare",
+                      "left": {
+                        "type": "observation",
+                        "key": "opponentBusted"
+                      },
+                      "operator": "eq",
+                      "right": {
+                        "type": "literal",
+                        "value": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "all",
+                  "conditions": [
+                    {
+                      "type": "value-compare",
+                      "left": {
+                        "type": "observation",
+                        "key": "playerBlackjack"
+                      },
+                      "operator": "eq",
+                      "right": {
+                        "type": "literal",
+                        "value": false
+                      }
+                    },
+                    {
+                      "type": "value-compare",
+                      "left": {
+                        "type": "observation",
+                        "key": "opponentBlackjack"
+                      },
+                      "operator": "eq",
+                      "right": {
+                        "type": "literal",
+                        "value": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "playerBaseTotal"
+                  },
+                  "operator": "lt",
+                  "right": {
+                    "type": "observation",
+                    "key": "opponentBaseTotal"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "subtract",
+                    "left": {
+                      "type": "observation",
+                      "key": "playerFinalScore"
+                    },
+                    "right": {
+                      "type": "observation",
+                      "key": "opponentFinalScore"
+                    }
+                  },
+                  "operator": "eq",
+                  "right": 1
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "playerPointAdvantage"
+                  },
+                  "operator": "gt",
+                  "right": {
+                    "type": "observation",
+                    "key": "opponentPointAdvantage"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "playerSkillComparisonAdvantage"
+                  },
+                  "operator": "gt",
+                  "right": 0
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "clock-recovery",
+      "revision": 1,
+      "name": "逆转时空",
+      "description": "爆牌后用「反方向的钟」将刚摸到的末牌替换，恢复合法点数。",
+      "category": "牌局成就",
+      "cover": "covers/clock-recovery.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "hand-replaced"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "sourceDefinition"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "counterclockwise-clock"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "actor"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "recoveredFromBust"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "lastHitReplaced"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "five-card-victory",
+      "revision": 1,
+      "name": "小牌开大会",
+      "description": "以至少五张手牌赢下一轮普通点数比较。",
+      "category": "牌局成就",
+      "cover": "covers/five-card-victory.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "round-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "reason"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "comparison"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "playerCardCount"
+                  },
+                  "operator": "gte",
+                  "right": 5
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "double-blackjack",
+      "revision": 1,
+      "name": "王牌撞王牌",
+      "description": "双方都以两张牌组成天然 Blackjack，结算为平局。",
+      "category": "牌局成就",
+      "cover": "covers/double-blackjack.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "round-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "draw"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "playerBlackjack"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "opponentBlackjack"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      },
+      "hidden": true
+    },
+    {
+      "id": "stand-then-edit",
+      "revision": 1,
+      "name": "我只说了不要牌",
+      "description": "在主动 Stand 后继续发动技能改变自己的手牌，最终赢下该轮。",
+      "category": "牌局成就",
+      "cover": "covers/stand-then-edit.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "round-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "changedAfterStand"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "gifted-bust",
+      "revision": 1,
+      "name": "这张送你",
+      "description": "用「偷梁换柱」把自己一张点数至少为 8 的实体牌放到牌库顶；对手随后 Hit 取得同一张牌，并因此爆牌。",
+      "category": "牌局成就",
+      "cover": "covers/gifted-bust.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "returned-card-bust"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "sourceDefinition"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "switcheroo"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "sourceOwner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "cardValue"
+                  },
+                  "operator": "gte",
+                  "right": 8
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "triple-assessment",
+      "revision": 1,
+      "name": "多次测量取平均值",
+      "description": "同一张「态势研判」技能卡的三次使用发生在同一轮次。",
+      "category": "牌局成就",
+      "cover": "covers/triple-assessment.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "ability-played"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "definitionId"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "situation-assessment"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "cardRoundUses"
+                  },
+                  "operator": "gte",
+                  "right": 3
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "eight-skill-deck",
+      "revision": 1,
+      "name": "八张够办事",
+      "description": "携带恰好八种技能开始一场对决，期间实际发动至少四种不同的主动技能，最终获胜。",
+      "category": "牌局成就",
+      "cover": "covers/eight-skill-deck.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "match-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "deckSize"
+                  },
+                  "operator": "eq",
+                  "right": 8
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "matchDistinctSkills"
+                  },
+                  "operator": "gte",
+                  "right": 4
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "wholeMatchObserved"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "exhaust-copy-replay",
+      "revision": 1,
+      "name": "刚才那招，再来一次",
+      "description": "一张主动技能卡耗尽后，立即用「拟态茄子」取得同名技能，再在本轮成功发动它。",
+      "category": "牌局成就",
+      "cover": "covers/exhaust-copy-replay.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "ability-played"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "sameDefinitionAfterExhaustion"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "previousDefinition"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "mimic-eggplant"
+                  }
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "four-domains",
+      "revision": 1,
+      "name": "四方会诊",
+      "description": "同一轮中，分别成功发动赌徒、老千、情报官、枪手各一种主动技能。",
+      "category": "牌局成就",
+      "cover": "covers/four-domains.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "ability-played"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "roundDomainCount"
+                  },
+                  "operator": "gte",
+                  "right": 4
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "overflow-return",
+      "revision": 1,
+      "name": "指数爆炸！",
+      "description": "发动「西萨的牌桌」，让收益超过衍生牌的 10 点上限，实际产生溢出的比较点数优势。",
+      "category": "牌局成就",
+      "cover": "covers/overflow-return.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "status-increased"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "sourceDefinition"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "sissas-table"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "statusDefinition"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player-point-advantage"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "statusStackDelta"
+                  },
+                  "operator": "gt",
+                  "right": 0
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "hands-off-match",
+      "revision": 1,
+      "name": "今天手不痒",
+      "description": "赢下一场至少持续三轮的对决，全场没有发动任何主动技能；允许被动技能自然生效。",
+      "category": "牌局成就",
+      "cover": "covers/hands-off-match.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "match-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "rounds"
+                  },
+                  "operator": "gte",
+                  "right": 3
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "matchActiveCount"
+                  },
+                  "operator": "eq",
+                  "right": 0
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "wholeMatchObserved"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "full-cylinder-misfire",
+      "revision": 1,
+      "name": "倒欠一条命",
+      "description": "扣扳机时自己的子弹已满，实际因技能导致哑火而生还；免罚和防败效果不算。",
+      "category": "牌局成就",
+      "cover": "covers/full-cylinder-misfire.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "trigger-result"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "actor"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "reason"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "misfire"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "beforeEmptySlots"
+                  },
+                  "operator": "eq",
+                  "right": 0
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "misfireChance"
+                  },
+                  "operator": "gt",
+                  "right": 0
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      },
+      "hidden": true
+    },
+    {
+      "id": "last-slot-premium",
+      "revision": 1,
+      "name": "相信后人的智慧",
+      "description": "自己枪膛只有一发空位时使用「预付保费」。",
+      "category": "牌局成就",
+      "cover": "covers/last-slot-premium.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "ability-played"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "definitionId"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "prepaid-premium"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "beforeEmptySlots"
+                  },
+                  "operator": "eq",
+                  "right": 1
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "narrow-escape",
+      "revision": 1,
+      "name": "狭路相逢",
+      "description": "最终赢下整场对决时，双方各自只剩至多一个空弹位。",
+      "category": "牌局成就",
+      "cover": "covers/narrow-escape.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "match-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "playerEmptySlots"
+                  },
+                  "operator": "lte",
+                  "right": 1
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "opponentEmptySlots"
+                  },
+                  "operator": "lte",
+                  "right": 1
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "direct-boss",
+      "revision": 1,
+      "name": "我找你们负责人",
+      "description": "在 Claude 挑战中，不击败任何守卫，直接挑战并击败 Claude。",
+      "category": "牌局成就",
+      "cover": "covers/direct-boss.png",
+      "tracking": {
+        "scope": "profile",
+        "completion": "immediate",
+        "continuity": "cumulative",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "match-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "flowId"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "intelligent-core-trial"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "nodeId"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "boss"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "completedNodeCount"
+                  },
+                  "operator": "eq",
+                  "right": 0
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "scalar-compare",
+          "left": {
+            "type": "metric",
+            "id": "earned"
+          },
+          "operator": "gte",
+          "right": 1
+        }
+      }
+    },
+    {
+      "id": "selective-guard",
+      "revision": 1,
+      "name": "其实我磕这一对",
+      "description": "在 Claude 挑战中，只击败对应「高岭之花」的 DeepSeek 守卫，保留其他三项技能的强化状态，随后击败 Claude。",
+      "category": "牌局成就",
+      "cover": "covers/selective-guard.png",
+      "tracking": {
+        "scope": "match",
+        "completion": "immediate",
+        "continuity": "continuous",
+        "allowDebug": false,
+        "tracks": [
+          {
+            "id": "earned",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "match-settled"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "winner"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "player"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "flowId"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "intelligent-core-trial"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "nodeId"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "boss"
+                  }
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "completedNodeCount"
+                  },
+                  "operator": "eq",
+                  "right": 1
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "completedNodeId"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "guard:deepseek"
+                  }
+                }
+              ]
+            },
+            "progress": {
+              "type": "count"
+            }
+          },
+          {
+            "id": "strong",
+            "on": [
+              {
+                "type": "core/gameplay",
+                "apiVersion": 1
+              }
+            ],
+            "when": {
+              "type": "all",
+              "conditions": [
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "event"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "ability-bound"
+                  }
+                },
+                {
+                  "type": "value-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "actor"
+                  },
+                  "operator": "eq",
+                  "right": {
+                    "type": "literal",
+                    "value": "opponent"
+                  }
+                },
+                {
+                  "type": "any",
+                  "conditions": [
+                    {
+                      "type": "value-compare",
+                      "left": {
+                        "type": "observation",
+                        "key": "definitionId"
+                      },
+                      "operator": "eq",
+                      "right": {
+                        "type": "literal",
+                        "value": "claude-ss-moment"
+                      }
+                    },
+                    {
+                      "type": "value-compare",
+                      "left": {
+                        "type": "observation",
+                        "key": "definitionId"
+                      },
+                      "operator": "eq",
+                      "right": {
+                        "type": "literal",
+                        "value": "claude-ss-constitution"
+                      }
+                    },
+                    {
+                      "type": "value-compare",
+                      "left": {
+                        "type": "observation",
+                        "key": "definitionId"
+                      },
+                      "operator": "eq",
+                      "right": {
+                        "type": "literal",
+                        "value": "claude-ss-reasoning"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "scalar-compare",
+                  "left": {
+                    "type": "observation",
+                    "key": "level"
+                  },
+                  "operator": "gte",
+                  "right": 2
+                }
+              ]
+            },
+            "progress": {
+              "type": "distinct",
+              "value": {
+                "type": "observation",
+                "key": "definitionId"
+              },
+              "limit": 3
+            }
+          }
+        ],
+        "completeWhen": {
+          "type": "all",
+          "conditions": [
+            {
+              "type": "scalar-compare",
+              "left": {
+                "type": "metric",
+                "id": "earned"
+              },
+              "operator": "gte",
+              "right": 1
+            },
+            {
+              "type": "scalar-compare",
+              "left": {
+                "type": "metric",
+                "id": "strong"
+              },
+              "operator": "eq",
+              "right": 3
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

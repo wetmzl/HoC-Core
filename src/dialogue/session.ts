@@ -1,8 +1,9 @@
 import type { MatchState } from "../core/match/types";
+import type { MatchFactBatch } from "../core/events";
 import type { CharacterInteraction, MountedDialogueSource } from "../content/packages/plugin-contracts";
 import type { DialogueEvent, DialogueSelection } from "./types";
 import { DialogueEngine, frozenSnapshot } from "./engine";
-import { activeDialogueEvents, extractDialogueEvents, restoreDialogueEvent } from "./events";
+import { activeDialogueEvents, extractDialogueEvents, extractDialogueEventsFromFacts, restoreDialogueEvent } from "./events";
 import { presentationStore, type PresentationStore } from "../persistence/presentation";
 
 /** One table session owns plugin lifetimes, event snapshots and asynchronous image commits. */
@@ -76,10 +77,15 @@ export class DialogueSession {
     this.present(restored);
   }
   transition(state: MatchState) {
-    const events = extractDialogueEvents(this.state, state);
+    this.transitionEvents(state, extractDialogueEvents(this.state, state));
+  }
+  transitionFacts(batch: MatchFactBatch) {
+    this.transitionEvents(batch.after, extractDialogueEventsFromFacts(batch), batch.restored);
+  }
+  private transitionEvents(state: MatchState, events: readonly DialogueEvent[], restored = false) {
     if (!events.length && state !== this.state) this.thinking = false;
     this.state = state;
-    if (events.length) void this.deliverEvents(events);
+    if (events.length) void this.deliverEvents(events, restored);
   }
   /** A temporary pose, without resampling dialogue or replaying its effects. */
   beginThinking(): boolean {

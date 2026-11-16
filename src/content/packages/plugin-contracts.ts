@@ -10,6 +10,10 @@ import type { SkillTag } from "../../core/skills/types";
 import type { MountedScreen } from "../../runtime/contracts";
 import type { HocpkgResourceHandler, ExtensionResource } from "./resources";
 import type { PluginSettingsApi } from "./plugin-declarations";
+import type { PublicEventBatch } from "../../core/events/public-events";
+import type { TriggerSpec } from "../../core/events/triggers";
+import type { PublicEventSubscription } from "../../runtime/public-event-hub";
+import type { FactDeliveryStage } from "../../runtime/fact-dispatcher";
 
 export interface PluginHostApi {
   /** Package-scoped preferences. API v3 declarations are validated before registration. */
@@ -86,10 +90,22 @@ export interface PluginDialoguePresentation extends DialogueSelection {
   readonly restored: boolean;
 }
 
+/** Read-only subscriptions, automatically limited to the owning game and plugin lifetime. */
+export interface PluginGameEventsApi {
+  subscribe(stage: FactDeliveryStage, listener: (batch: PublicEventBatch, signal: AbortSignal) => void | Promise<void>, options?: PublicEventSubscription): () => void;
+  subscribeTrigger(stage: FactDeliveryStage, trigger: TriggerSpec, listener: (batch: PublicEventBatch, signal: AbortSignal) => void | Promise<void>, options?: PublicEventSubscription): () => void;
+}
+
 export interface PluginGameRuntimeContext extends PluginRuntimeContext {
+  /** Declarative story requests are package-owned and share the host's stage. */
+  readonly stories?: import("../../runtime/story-host").PluginStoryApi;
+  /** Package-owned music requests and read-only condition notifications (API 13). */
+  readonly music?: import("../../audio/music-contracts").PluginMusicApi;
   /** Available to API 10 modules; completion and requests belong to this package. */
   readonly tutorials?: import("./plugin-tutorials").PluginTutorialApi;
   readonly game: {
+    /** Optional compatible extension; observations never run gameplay rule resolution. */
+    readonly events?: PluginGameEventsApi;
     getMatch(): import("../../core/match/types").MatchState | undefined;
     subscribe(listener: () => void): () => void;
     configureAbility(binding: import("../../core/abilities/types").AbilityBinding): void;
@@ -102,6 +118,9 @@ export interface PluginGameRuntimeContext extends PluginRuntimeContext {
 }
 
 export interface PluginRuntimeContribution {
+  /** Plain text main-menu quotation. Omit to leave the host default unchanged. API 13. */
+  readonly mainMenuQuote?: import("./plugin-ui").PluginMainMenuQuote;
+  readonly storyActions?: readonly import("../../core/story/types").StoryActionExtension[];
   presentDialogue?(context: PluginDialoguePresentation, signal: AbortSignal): void | Promise<void>;
   readonly uiActions?: readonly import("./plugin-ui").PluginUiAction[];
   mountRuntime?(context: PluginGameRuntimeContext, signal: AbortSignal): void | (() => void) | Promise<void | (() => void)>;

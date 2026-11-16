@@ -8,8 +8,11 @@ import { MemoryContentHostProvider } from "./content/storage/memory-host";
 import { FileContentRepository } from "./content/storage/repository";
 import * as pluginModules from "./content/packages/plugin-modules";
 import { PlaylistStore, playlistDocument } from "./content/playlists/store";
+import { EMBEDDED_DEFAULT_PLAYLIST_ID } from "./content/playlists/embedded-default";
 import { ApplicationController, ApplicationControllerBusyError } from "./application-controller";
 import builtinIndex from "../public/characters/packages.json";
+import { encodeText, sha256 } from "./content/storage/encoding";
+import { ContentStartupError } from "./content/packages/startup-error";
 
 vi.mock("./persistence/factory", () => ({
   createPersistenceService: () => ({ loadLongTerm: async () => null })
@@ -43,6 +46,206 @@ async function setup(custom = false) {
 }
 
 describe("ApplicationController", () => {
+  const defaultTemplate = () => JSON.parse(readFileSync(resolve(publicRoot, "characters/default-playlist.json"), "utf8"));
+  const templateFetch = (exclude: readonly string[] = []): typeof fetch => async (input, init) => {
+    const raw = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (new URL(raw, "https://game.test").pathname.endsWith("/default-playlist.json")) {
+      const document = defaultTemplate();
+      document.packages = document.packages.filter((entry: { packageId: string }) => !exclude.includes(entry.packageId));
+      document.pluginOrder = document.pluginOrder.filter((id: string) => !exclude.includes(id));
+      return new Response(JSON.stringify(document), { headers: { "content-type": "application/json" } });
+    }
+    return fileFetch(input, init);
+  };
+
+  it("updates the selected official template and forks an editable copy before a subsequent disable", async () => {
+    const provider = new MemoryContentHostProvider();
+    const old = new ApplicationController({ providers: [provider], embedded: { fetch: templateFetch(["hoc-core/official-story"]) } });
+    await old.initialize();
+    expect(await old.currentPlaylistId()).toBe(EMBEDDED_DEFAULT_PLAYLIST_ID);
+    expect((await old.listPackages()).find(entry => entry.packageId === "hoc-core/official-story")?.enabled).toBe(false);
+    const updated = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    await updated.initialize();
+    expect(await updated.currentPlaylistId()).toBe(EMBEDDED_DEFAULT_PLAYLIST_ID);
+    expect((await updated.listPackages()).find(entry => entry.packageId === "hoc-core/official-story")?.enabled).toBe(true);
+    await updated.disablePackage("hoc-core/official-story");
+    const editableId = await updated.currentPlaylistId();
+    expect(editableId).not.toBe(EMBEDDED_DEFAULT_PLAYLIST_ID);
+    const reopened = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    expect((await reopened.listPackages()).find(entry => entry.packageId === "hoc-core/official-story")?.enabled).toBe(false);
+    expect(await reopened.currentPlaylistId()).toBe(editableId);
+    expect((await reopened.listPlaylists()).find(entry => entry.id === EMBEDDED_DEFAULT_PLAYLIST_ID)?.document.packages
+      .some(entry => entry.packageId === "hoc-core/official-story")).toBe(true);
+  });
+
+  it("refreshes the noncurrent managed recipe without changing a selected custom snapshot", async () => {
+    const provider = new MemoryContentHostProvider();
+    const old = new ApplicationController({ providers: [provider], embedded: { fetch: templateFetch(["hoc-core/official-story"]) } });
+    await old.initialize();
+    const copy = await old.copyPlaylist(EMBEDDED_DEFAULT_PLAYLIST_ID);
+    await old.selectPlaylist(copy.id);
+    const updated = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    await updated.initialize();
+    expect(await updated.currentPlaylistId()).toBe(copy.id);
+    expect((await updated.listPackages()).find(entry => entry.packageId === "hoc-core/official-story")?.enabled).toBe(false);
+    expect((await updated.listPlaylists()).find(entry => entry.id === copy.id)).toEqual(copy);
+    expect((await updated.listPlaylists()).find(entry => entry.id === EMBEDDED_DEFAULT_PLAYLIST_ID)?.document.packages
+      .some(entry => entry.packageId === "hoc-core/official-story")).toBe(true);
+    await updated.selectPlaylist(EMBEDDED_DEFAULT_PLAYLIST_ID);
+    expect((await updated.listPackages()).find(entry => entry.packageId === "hoc-core/official-story")?.enabled).toBe(true);
+  });
+
+  it("forks once before reordering plugins while the official document remains unchanged", async () => {
+    const provider = new MemoryContentHostProvider(), controller = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    await controller.initialize();
+    const official = (await controller.listPlaylists()).find(entry => entry.id === EMBEDDED_DEFAULT_PLAYLIST_ID)!;
+    const order = ["hoc-core/debug-engine", "hoc-core/character-tap"];
+    await controller.setPluginOrder(order);
+    const copyId = await controller.currentPlaylistId();
+    expect(copyId).not.toBe(official.id);
+    expect((await controller.listPlaylists()).find(entry => entry.id === official.id)).toEqual(official);
+    expect((await controller.listPlaylists()).find(entry => entry.id === copyId)?.document.pluginOrder).toEqual(order);
+    await controller.disablePackage("hoc-core/official-story");
+    expect(await controller.currentPlaylistId()).toBe(copyId);
+    expect(await controller.listPlaylists()).toHaveLength(2);
+  });
+
+  it("renames and changes mode through ordinary copies instead of modifying the official entry", async () => {
+    const provider = new MemoryContentHostProvider(), controller = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    await controller.initialize();
+    const official = (await controller.listPlaylists()).find(entry => entry.id === EMBEDDED_DEFAULT_PLAYLIST_ID)!;
+    const renamed = await controller.renamePlaylist(official.id, "我的组合");
+    expect(renamed.id).not.toBe(official.id); expect(renamed.document.name).toBe("我的组合");
+    expect(await controller.currentPlaylistId()).toBe(renamed.id);
+    await controller.setPlaylistMode(official.id, "incremental");
+    const copyId = await controller.currentPlaylistId();
+    expect(copyId).not.toBe(official.id); expect(copyId).not.toBe(renamed.id);
+    expect((await controller.listPlaylists()).find(entry => entry.id === copyId)?.document.mode).toBe("incremental");
+    expect((await controller.listPlaylists()).find(entry => entry.id === official.id)).toEqual(official);
+    expect((await controller.listPlaylists()).find(entry => entry.id === renamed.id)).toEqual(renamed);
+  });
+
+  it("leaves package switches and current selection untouched if creating the edit copy fails, then retries", async () => {
+    const provider = new MemoryContentHostProvider(), controller = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    await controller.initialize();
+    const before = (await controller.listPackages()).map(entry => ({ id: entry.packageId, enabled: entry.enabled }));
+    const official = (await controller.listPlaylists())[0]!;
+    provider.fileSystem.failNext("write", /playlists-[ab]\.json$/, 1);
+    await expect(controller.disablePackage("hoc-core/official-story")).rejects.toThrow("injected write failure");
+    expect(await controller.currentPlaylistId()).toBe(official.id);
+    expect(await controller.listPlaylists()).toEqual([official]);
+    expect((await controller.listPackages()).map(entry => ({ id: entry.packageId, enabled: entry.enabled }))).toEqual(before);
+    await controller.disablePackage("hoc-core/official-story");
+    expect(await controller.currentPlaylistId()).not.toBe(official.id);
+    expect((await controller.listPackages()).find(entry => entry.packageId === "hoc-core/official-story")?.enabled).toBe(false);
+    expect((await controller.listPlaylists()).find(entry => entry.id === official.id)).toEqual(official);
+  });
+
+  it("forks official startup recovery changes while invalid or no-op edits keep the official selection", async () => {
+    const provider = new MemoryContentHostProvider(), controller = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    await controller.initialize();
+    await controller.enablePackage("hoc-core/official-story");
+    await expect(controller.removePackage("hoc-core/official-story")).rejects.toThrow("不能删除");
+    expect(await controller.currentPlaylistId()).toBe(EMBEDDED_DEFAULT_PLAYLIST_ID);
+    await controller.disableStartupFailure(new ContentStartupError("invalid story", { reason: "payload-invalid", packageId: "hoc-core/official-story", packageTitle: "官方剧情" }));
+    expect(await controller.currentPlaylistId()).not.toBe(EMBEDDED_DEFAULT_PLAYLIST_ID);
+    expect((await controller.listPlaylists()).find(entry => entry.id === EMBEDDED_DEFAULT_PLAYLIST_ID)?.document.packages
+      .some(entry => entry.packageId === "hoc-core/official-story")).toBe(true);
+    expect((await controller.listPackages()).find(entry => entry.packageId === "hoc-core/official-story")?.enabled).toBe(false);
+  });
+
+  it("preserves an older embedded-only catalog without a playlist library instead of treating it as a fresh installation", async () => {
+    const provider = new MemoryContentHostProvider(), repository = new FileContentRepository(provider.host);
+    await repository.configureEmbedded(await new EmbeddedContentSource({ fetch: fileFetch }).packages());
+    await repository.disablePackage("hoc-core/official-story");
+    const controller = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    await controller.initialize();
+    expect(await controller.currentPlaylistId()).not.toBe(EMBEDDED_DEFAULT_PLAYLIST_ID);
+    expect((await controller.listPackages()).find(entry => entry.packageId === "hoc-core/official-story")?.enabled).toBe(false);
+    expect((await controller.listPlaylists()).find(entry => entry.id === EMBEDDED_DEFAULT_PLAYLIST_ID)).toBeDefined();
+  });
+
+  it("retries a failed first catalog commit with the already established managed ownership", async () => {
+    const provider = new MemoryContentHostProvider();
+    provider.fileSystem.failNext("write", /catalog-[ab]\.json$/, 1);
+    const failed = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    await expect(failed.initialize()).rejects.toThrow("injected write failure");
+    const reopened = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    await reopened.initialize();
+    expect(await reopened.currentPlaylistId()).toBe(EMBEDDED_DEFAULT_PLAYLIST_ID);
+    expect((await reopened.listPlaylists()).map(entry => entry.id)).toEqual([EMBEDDED_DEFAULT_PLAYLIST_ID]);
+    expect((await reopened.listPackages()).find(entry => entry.packageId === "hoc-core/official-story")?.enabled).toBe(true);
+  });
+
+  it("reapplies the managed recipe after its document updated but enabling the new member failed", async () => {
+    const provider = new MemoryContentHostProvider();
+    const old = new ApplicationController({ providers: [provider], embedded: { fetch: templateFetch(["hoc-core/official-story"]) } });
+    await old.initialize();
+    provider.fileSystem.failNext("write", /catalog-[ab]\.json$/, 1);
+    const failed = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    await expect(failed.initialize()).rejects.toThrow("injected write failure");
+    const managed = (await new PlaylistStore(provider.fileSystem).list()).find(entry => entry.id === EMBEDDED_DEFAULT_PLAYLIST_ID)!;
+    expect(managed.document.packages.some(entry => entry.packageId === "hoc-core/official-story")).toBe(true);
+    const reopened = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch } });
+    await reopened.initialize();
+    expect(await reopened.currentPlaylistId()).toBe(EMBEDDED_DEFAULT_PLAYLIST_ID);
+    expect((await reopened.listPackages()).find(entry => entry.packageId === "hoc-core/official-story")?.enabled).toBe(true);
+  });
+
+  it.each([1, 999])("defers plugin API %s validation until startup and permits recovery by disabling the package", async apiVersion => {
+    const { provider, controller } = await setup();
+    await controller.initialize();
+    const repository = new FileContentRepository(provider.host);
+    const bytes = encodeText("not even JSON");
+    await repository.install({
+      manifest: {
+        format: "house-of-chances-hocpkg", formatVersion: 1,
+        identity: { authorId: "test", packageName: "incompatible", version: "1.0.0" },
+        metadata: { title: "测试插件", description: "测试", tags: [], creators: [{ displayName: "Test", roles: ["design"] }] },
+        resources: [{ id: "module", type: "plugin.module", apiVersion, entry: "module.json", requires: [] }],
+        files: [{ path: "module.json", bytes: bytes.length, sha256: await sha256(bytes), mediaType: "application/json" }], extensions: {}
+      },
+      async *files() { yield { path: "module.json", bytes }; }
+    }, { newPackagesEnabled: false });
+    // Reinitialize against the persisted catalog, as after reopening the application.
+    const plugins = vi.spyOn(pluginModules, "loadPluginModules");
+    const reopened = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch }, acknowledgeThirdPartyContent: async () => true,
+      mountRuntime: async () => ({ dispose: async () => {} }) });
+    try {
+      const listed = await reopened.listPackages();
+      expect(listed.find(entry => entry.packageId === "test/incompatible")?.state).toBe("disabled");
+      expect(listed.find(entry => entry.packageId === "test/incompatible")?.error).toBeUndefined();
+      expect(plugins).not.toHaveBeenCalled();
+      expect(await reopened.startGame({} as HTMLDivElement)).toBe(true);
+      await reopened.stopGame();
+      await reopened.enablePackage("test/incompatible");
+      plugins.mockClear();
+      const failure = await reopened.startGame({} as HTMLDivElement).catch(error => error);
+      expect(failure).toBeInstanceOf(ContentStartupError);
+      expect(failure.message).toContain(`test/incompatible 无法启动：插件接口版本不兼容`);
+      expect(reopened.state).toBe("idle");
+      expect(plugins).not.toHaveBeenCalled();
+      const before = (await reopened.listPackages()).map(entry => ({ packageId: entry.packageId, enabled: entry.enabled }));
+      await reopened.disableStartupFailure(new Error("启动失败", { cause: failure }));
+      expect((await reopened.listPackages()).map(entry => ({ packageId: entry.packageId, enabled: entry.enabled }))).toEqual(
+        before.map(entry => entry.packageId === "test/incompatible" ? { ...entry, enabled: false } : entry));
+      expect(await reopened.startGame({} as HTMLDivElement)).toBe(true);
+      await reopened.stopGame();
+    } finally { plugins.mockRestore(); }
+  });
+
+  it("does not disable unspecified content or the final enabled character when recovering", async () => {
+    const { controller } = await setup();
+    await controller.initialize();
+    const before = (await controller.listPackages()).map(entry => ({ packageId: entry.packageId, enabled: entry.enabled }));
+    await expect(controller.disableStartupFailure(new Error("unknown"))).rejects.toThrow("无法确定");
+    await expect(controller.disableStartupFailure(new ContentStartupError("invalid character", {
+      reason: "payload-invalid", packageId: "hoc-core/chatgpt", packageTitle: "默认角色"
+    }))).rejects.toThrow("至少需要保留一个启用的角色包");
+    expect((await controller.listPackages()).map(entry => ({ packageId: entry.packageId, enabled: entry.enabled }))).toEqual(before);
+    expect(controller.state).toBe("idle");
+  });
+
   for (const clean of [false, true]) it(`handles cache exhaustion without losing old data when cleaning=${clean}`, async () => {
     const provider = new MemoryContentHostProvider(), embedded = new EmbeddedContentSource({ fetch: fileFetch });
     const base = (await embedded.packages()).find(entry => entry.packageId === 'hoc-core/chatgpt')!;
@@ -123,7 +326,8 @@ describe("ApplicationController", () => {
     const archives = await controller.listArchivedPackages();
     expect(archives).toHaveLength(2);
     expect(await (await migrated.archiveSource(archives.find(entry => entry.packageId === "hoc-art/chatgpt")!.id)).readFile!("resources/character-match.json")).toEqual(before);
-    expect((await controller.listPlaylists()).every((entry) => entry.document.packages[0]?.packageId === "hoc-core/chatgpt")).toBe(true);
+    expect((await controller.listPlaylists()).filter(entry => entry.id !== EMBEDDED_DEFAULT_PLAYLIST_ID)
+      .every((entry) => entry.document.packages[0]?.packageId === "hoc-core/chatgpt")).toBe(true);
     expect(await controller.currentPlaylistId()).toBe(saved.id);
     const resolve = vi.fn(async () => false);
     const restarted = new ApplicationController({ providers: [provider], embedded: { fetch: fileFetch }, resolveEmbeddedConflicts: resolve });
@@ -165,6 +369,40 @@ describe("ApplicationController", () => {
     const restored = new ApplicationController({ resolveEmbeddedConflicts: async () => false, acknowledgeThirdPartyContent: async () => true, providers: [provider], embedded: { fetch: fileFetch } });
     expect(await restored.currentPlaylistId()).toBe(original.id);
     expect((await restored.listPlaylists()).find((item) => item.id === copy.id)?.document.packages).toHaveLength(1);
+  });
+
+  it("keeps incremental membership separate from inherited enabled packages across edits and restart", async () => {
+    const provider = new MemoryContentHostProvider();
+    const options = { providers: [provider], embedded: { fetch: fileFetch } };
+    const controller = new ApplicationController(options);
+    await controller.initialize();
+    await controller.disablePackage("hoc-core/claude");
+    await controller.disablePackage("hoc-core/deepseek");
+    const original = (await controller.listPlaylists())[0]!;
+    const document = playlistDocument("增量", [{ packageId: "hoc-core/claude" }, { packageId: "missing/hero" }], [], "incremental");
+    await controller.importPlaylistText(JSON.stringify(document));
+    const id = (await controller.currentPlaylistId())!;
+    expect((await controller.listPackages()).find(entry => entry.packageId === "hoc-core/chatgpt")?.enabled).toBe(true);
+    expect((await controller.listPackages()).find(entry => entry.packageId === "hoc-core/deepseek")?.enabled).toBe(false);
+    await controller.disablePackage("hoc-core/llama");
+    await controller.setPluginOrder(["hoc-core/debug-engine", "hoc-core/character-tap"]);
+    expect((await controller.listPlaylists()).find(entry => entry.id === id)?.document).toMatchObject({
+      mode: "incremental", pluginOrder: [], packages: [{ packageId: "missing/hero" }, { packageId: "hoc-core/claude" }]
+    });
+    await controller.enablePackage("hoc-core/deepseek");
+    await controller.disablePackage("hoc-core/claude");
+    const updated = (await controller.listPlaylists()).find(entry => entry.id === id)!.document;
+    expect(updated.mode).toBe("incremental");
+    expect(updated.packages.map(entry => entry.packageId)).toEqual(["missing/hero", "hoc-core/deepseek"]);
+    const restored = new ApplicationController(options);
+    expect(await restored.currentPlaylistId()).toBe(id);
+    expect((await restored.listPlaylists()).find(entry => entry.id === id)?.document).toEqual(updated);
+    await restored.selectPlaylist(original.id);
+    await restored.selectPlaylist(id);
+    expect((await restored.listPackages()).find(entry => entry.packageId === "hoc-core/chatgpt")?.enabled).toBe(true);
+    expect((await restored.listPackages()).find(entry => entry.packageId === "hoc-core/deepseek")?.enabled).toBe(true);
+    await restored.setPlaylistMode(id, "replace");
+    expect((await restored.listPlaylists()).find(entry => entry.id === id)?.document.packages.some(entry => entry.packageId === "hoc-core/chatgpt")).toBe(true);
   });
 
   it("continues with a visible warning when persistent storage is refused", async () => {

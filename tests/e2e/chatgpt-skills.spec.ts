@@ -13,7 +13,7 @@ for (const width of [390, 320]) for (const completedRounds of [0, 2]) {
       const { loadCharacter } = await load("/src/content/characters/loader.ts");
       const { createMatch, gameReducer } = await load("/src/core/match/reducer.ts");
       const { createCard } = await load("/src/core/blackjack/card.ts");
-      const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+      const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
       const { createPersistenceService } = await load("/src/persistence/factory.ts");
       const { mountGameRuntime } = await load("/src/match-screen.ts");
       const character = await loadCharacter("chatgpt");
@@ -25,12 +25,11 @@ for (const width of [390, 320]) for (const completedRounds of [0, 2]) {
       const opponent = { ...base.opponent, hand: { cards: cards.slice(2, 4) }, bustLimit: undefined };
       const match = { ...base, player, opponent, shoe: { cards, cursor: 4, shuffleIndex: 1 }, playerSkills: { ...base.playerSkills, drawOffer: null }, round: { ...base.round, player, opponent, phase: "turns", currentActor: "player" }, history: [{ type: "ROUND_STARTED", roundIndex: base.roundIndex }] };
       const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false;
+    save.tutorialProgress.completedIds.push("adult-content-warning");
       const repo = createPersistenceService();
       await repo.saveLongTerm(save); await repo.saveRuntime(createRuntimeSave(match));
       void mountGameRuntime({ root: document.querySelector<HTMLElement>("#app")!, onExitRequest: async () => {} });
     }, completedRounds);
-    const warning = page.locator("#adult-content-warning");
-    if (await warning.isVisible()) await warning.getByRole("button", { name: "我已成年并继续" }).click();
     const chip = page.locator('[data-display-actor="opponent"] .status-chip');
     await expect(chip).toContainText(`RESET ： ${completedRounds}`);
     await page.screenshot({ path: testInfo.outputPath(`reset-ready-${width}.png`) });

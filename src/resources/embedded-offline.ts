@@ -144,8 +144,8 @@ export const embeddedOffline = new EmbeddedOfflineResources();
 
 export function mountEmbeddedOfflineControls(root: HTMLElement | null): () => void {
   if (!root) return () => {};
-  if (Capacitor.isNativePlatform()) { root.replaceChildren(); root.hidden = true; return () => {}; }
-  root.innerHTML = '<section class="embedded-offline-controls"><h3>内嵌离线资源</h3><p class="setting-description">默认按需下载。完整下载包含全部内嵌内容、皮肤和共享媒体，不改变播放集。</p><progress max="1" value="0" aria-label="内嵌资源下载进度"></progress><p role="status" data-offline-status></p><div class="save-actions"><button type="button" class="primary-button" data-offline-download>下载完整资源</button><button type="button" class="secondary-button" data-offline-check>检查</button><button type="button" class="secondary-button" data-offline-cancel hidden>取消下载</button><button type="button" class="secondary-button" data-offline-clear>清除下载缓存</button></div></section>';
+  if (Capacitor.isNativePlatform() || import.meta.env.MODE === "electron") { root.replaceChildren(); root.hidden = true; return () => {}; }
+  root.innerHTML = '<section class="embedded-offline-controls"><h3>内嵌离线资源</h3><progress max="1" value="0" aria-label="内嵌资源下载进度"></progress><p role="status" data-offline-status></p><div class="save-actions"><button type="button" class="primary-button" data-offline-download>下载完整资源</button><button type="button" class="secondary-button" data-offline-check>检查</button><button type="button" class="secondary-button" data-offline-cancel hidden>取消下载</button><button type="button" class="secondary-button" data-offline-clear>清除下载缓存</button></div></section>';
   const events = new AbortController(), signal = events.signal;
   const off = embeddedOffline.subscribe(state => {
     const busy = state.phase === "checking" || state.phase === "downloading";

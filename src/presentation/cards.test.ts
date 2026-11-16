@@ -1,8 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { createCard, createDerivedCard } from "../core/blackjack/card";
+import { addCardTag, createCard, createDerivedCard, EXCLUDED_FROM_POINT_TOTAL_TAG } from "../core/blackjack/card";
 import { cardDisplayMarkup, describeCard, describeCards, diamondCardMarker, type CardMarker } from "./cards";
 
 describe("card display descriptions", () => {
+  it("marks excluded point values without replacing the visible face", () => {
+    const card = addCardTag(createDerivedCard("hearts", "A", "zero-point-ace"), EXCLUDED_FROM_POINT_TOTAL_TAG);
+    const display = describeCard(card, { surface: "front", showRank: true, showSuit: true });
+    expect(display).toMatchObject({ rank: "A", suit: "hearts", source: "derived" });
+    expect(display.markers).toContainEqual(expect.objectContaining({ type: "point-total-exclusion", label: "视为0点", visual: { kind: "text", text: "0" } }));
+    const markup = cardDisplayMarkup(display);
+    expect(markup).toContain('<b class="card-rank">A</b>');
+    expect(markup).toContain('aria-label="视为0点"');
+    expect(markup).toContain('card-marker-point-total-exclusion');
+  });
+
+  it("marks the public zero-point fact without exposing a hidden rank or suit", () => {
+    const card = addCardTag(createDerivedCard("hearts", "Q", "hidden-zero"), EXCLUDED_FROM_POINT_TOTAL_TAG);
+    const display = describeCard(card, { surface: "back", showRank: false, showSuit: false });
+    expect(display).toMatchObject({ rank: null, suit: null });
+    const markup = cardDisplayMarkup(display);
+    expect(markup).toContain("视为0点");
+    expect(markup).not.toContain('card-rank');
+    expect(markup).not.toContain("红桃");
+    expect(markup).not.toContain("♥");
+  });
+
   it("renders all four compact knowledge states through the same renderer", () => {
     const card = createCard("hearts", "8", "opaque-card-id");
     const bothKnown = cardDisplayMarkup(describeCard(card, { surface: "front", showRank: true, showSuit: true, variant: "compact" }));

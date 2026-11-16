@@ -5,7 +5,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "deepseek",
-    "version": "1.1.19"
+    "version": "1.1.21"
   },
   "metadata": {
     "title": "DeepSeek 角色包",
@@ -134,14 +134,14 @@
     },
     {
       "path": "resources/character-match.json",
-      "bytes": 4681,
-      "sha256": "bcd21898b2bc28271d146effec76cc774b49b8413eaf18ad6905cb66a3016caa",
+      "bytes": 5709,
+      "sha256": "1819024a4fd6b8c663cc57a315a48487a3f256cd1aae96500728388b4aeb02cf",
       "mediaType": "application/json"
     },
     {
       "path": "resources/dialogue.json",
-      "bytes": 30028,
-      "sha256": "f28f50b2030814d9627c6434b44048ed34695e77345d2eefe8239d02a28f42d6",
+      "bytes": 29995,
+      "sha256": "02fe50439c3d6607b614e58f38e9ad5c2e954894badefc6f5c70d54604e4df85",
       "mediaType": "application/json"
     },
     {

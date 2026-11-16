@@ -1,7 +1,7 @@
 @import "./presentation/skill-card.css";
 @import "./presentation/character-intel.css";
 /* Table: character rests above a softly shaded playing surface; cards stay on top. */
-.table-shell { position: relative; display: flex; min-height: 100svh; flex-direction: column; isolation: isolate; overflow: hidden; padding-top: calc(8px + env(safe-area-inset-top)); background: linear-gradient(180deg, #0c1726aa 0%, #12223277 43%, #09252ce8 100%), url('/assets/backgrounds/table-room.png') center / cover fixed; }
+.table-shell { position: relative; display: flex; min-height: 100svh; flex-direction: column; isolation: isolate; overflow: hidden; padding-top: calc(8px + env(safe-area-inset-top)); background: linear-gradient(180deg, #0c1726aa 0%, #12223277 43%, #09252ce8 100%), url('/assets/backgrounds/table-hall-dark.png') center / cover fixed; }
 /* Keep the playing surface within the live viewport; calibration retains its layout. */
 .table-playing { --table-inline-inset: 16px; --table-art-offset-y: 8px; --table-art-rest-bottom: 18px; height: 100svh; height: 100dvh; min-height: 0; }
 .table-stage { position: relative; z-index: 2; flex: 1 1 0; min-height: 0; isolation: isolate; }
@@ -227,6 +227,7 @@
 .summary-shell, .error-shell, .loading-shell { display: flex; flex-direction: column; justify-content: center; text-align: center; align-items: center; }
 .summary-character { width: min(82vw, 330px); max-height: min(48svh, 420px); object-fit: contain; object-position: bottom; filter: drop-shadow(0 14px 12px #030b13cc); }
 .summary-shell h1, .error-shell h1 { color: var(--pink); margin-top: 8px; }
+.summary-shell h1 { margin-top: 24px; }
 .unlock-panel { width: 100%; margin-top: 18px; border: 1px solid #76a98d; border-radius: 14px; background: #142d2bd9; padding: 13px 14px; text-align: left; }
 .unlock-panel > .eyebrow { color: #bde8d8; margin-bottom: 8px; }
 .unlock-skill { display: grid; gap: 3px; border-top: 1px solid #76a98d66; padding-top: 9px; margin-top: 9px; }

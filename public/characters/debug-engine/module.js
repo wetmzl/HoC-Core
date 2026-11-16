@@ -88,6 +88,8 @@ export class DebugEnginePanel {
         document.addEventListener("keydown", event => {
             if (!this.open)
                 return;
+            if ((event.key === "Escape" || event.key === "Tab") && document.querySelector("dialog[open]"))
+                return;
             if (event.key === "Escape") {
                 event.preventDefault();
                 this.setOpen(false);

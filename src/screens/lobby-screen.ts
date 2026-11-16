@@ -1,4 +1,5 @@
-import { mountEmbeddedOfflineControls } from "../resources/embedded-offline";
+import { closeUiDialog } from "../presentation/dialog-motion";
+import { mountMusicSettings } from "../presentation/music-settings";
 import { gameAudio } from "../audio/game-audio";
 import { openSkinPicker } from "../presentation/skin-picker";
 import { isCharacterSkinUnlocked } from "../persistence/skin-unlocks";
@@ -11,13 +12,16 @@ import { DEFEATED_GUEST_BATCH_SIZE, uiError } from "../presentation/view-helpers
 import { lobbyResourceUrls, resourceLoader } from "../resources/resource-loader";
 import { skillArchetypeArtUrls } from "../resources/skill-archetype-art";
 export interface LobbyScreenDependencies {
+    refreshTutorials?: () => void;
     syncCharacterSkins?: () => Promise<void>;
     loadSkinPreviews?: (key: string, signal: AbortSignal) => Promise<import("../content/packages/skin-previews").SkinPreviews>;
     selectCharacterSkin?: (id: string, skinId: string, signal: AbortSignal) => Promise<void>;
+    readonly mainMenuQuote?: import("../content/packages/plugin-ui").PluginMainMenuQuote;
     readonly mainMenuActions: readonly import("../presentation/main-menu-actions").MainMenuAction[];
     readonly pluginCredits: readonly import("../content/packages/plugin-credits").PluginCreditsSection[];
     clearActiveMatch: () => void;
-    navigateScreen: (loader: import("../runtime/contracts").RuntimeScreenLoader) => Promise<void>;
+    navigateScreen: (loader: import("../runtime/contracts").RuntimeScreenLoader, onBack?: () => void | Promise<void>) => Promise<void>;
+    onDuelRequested?: () => void;
     save: import("../persistence/schema").LongTermSave;
     root: HTMLDivElement;
     handScroll: import("../presentation/hand-scroll").HandScrollController;
@@ -35,6 +39,7 @@ export interface LobbyScreenDependencies {
     disposeDeckEditor: (() => void) | undefined;
     requestGameRuntimeExit: () => Promise<void>;
     updateSettings: (event: Event) => Promise<void>;
+    writeMusicOrder?: (order: readonly string[]) => Promise<void>;
     writePluginSettings: (packageId: string, values: Record<string, import("../content/packages/plugin-declarations").PluginSettingValue>) => Promise<void>;
     pluginSettingsSession: import("../content/packages/plugin-settings").PluginSettingsSession | undefined;
     repository: import("../persistence/save-service").PersistenceService;
@@ -178,7 +183,7 @@ export class LobbyScreen {
                     this.showLobby(layer, signal);
                     return { dispose: () => { this.defeatedGuestObserver?.disconnect(); this.defeatedGuestObserver = null; this.deps.disposeDeckEditor?.(); } };
                 } };
-        });
+        }, () => layer === "characters" ? this.renderLobby("menu") : this.deps.requestGameRuntimeExit());
     };
     private showLobby = (layer: LobbyLayer, signal: AbortSignal): void => {
         this.deps.handScroll.dispose();
@@ -209,10 +214,16 @@ export class LobbyScreen {
         this.deps.disposeDeckEditor?.();
         this.deps.disposeDeckEditor = undefined;
         const menuActions = this.deps.mainMenuActions;
-        this.deps.root.innerHTML = this.lobbyModule!.renderLobbyMarkup({ menuActions, save: this.deps.save, layer, guests: guestCharacters, defeated: defeatedCharacters, visibleDefeated: visibleDefeatedCharacters, defeatedRemaining: defeatedGuestsRemaining, pluginCredits: this.deps.pluginCredits });
-        const disposeOffline = mountEmbeddedOfflineControls(this.deps.root.querySelector('[data-embedded-offline]'));
-        signal.addEventListener("abort", disposeOffline, { once: true });
-        this.deps.root.querySelector<HTMLButtonElement>("[data-enter-duel]")?.addEventListener("click", () => { this.guestSelectionIds = []; void this.renderLobby("characters"); });
+        this.deps.root.innerHTML = this.lobbyModule!.renderLobbyMarkup({ menuActions, mainMenuQuote: this.deps.mainMenuQuote, save: this.deps.save, layer, guests: guestCharacters, defeated: defeatedCharacters, visibleDefeated: visibleDefeatedCharacters, defeatedRemaining: defeatedGuestsRemaining, pluginCredits: this.deps.pluginCredits });
+        this.deps.root.querySelector<HTMLButtonElement>("[data-enter-duel]")?.addEventListener("click", event => {
+            const button = event.currentTarget as HTMLButtonElement;
+            if (signal.aborted || button.disabled) return;
+            button.disabled = true;
+            this.guestSelectionIds = [];
+            void this.renderLobby("characters").then(() => {
+                if (!this.disposed && this.lobbyLayer === "characters") this.deps.onDuelRequested?.();
+            }).catch(this.deps.renderError).finally(() => { button.disabled = false; });
+        }, { signal });
         this.deps.root.querySelector<HTMLButtonElement>("[data-lobby-home]")?.addEventListener("click", () => { void this.renderLobby("menu"); });
         this.deps.root.querySelector<HTMLButtonElement>("[data-refresh-guests]")?.addEventListener("click", () => { this.guestSelectionIds = this.selectGuestIds(); void this.renderLobby("characters"); });
         this.deps.root.addEventListener("click", event => {
@@ -220,7 +231,8 @@ export class LobbyScreen {
             if (skinButton && this.deps.loadSkinPreviews && this.deps.selectCharacterSkin) {
                 const character = getCharacterMetadata(skinButton.dataset.changeSkin!);
                 if (character) openSkinPicker({ root: this.deps.root, character, signal, load: this.deps.loadSkinPreviews, select: this.deps.selectCharacterSkin,
-                    isUnlocked: id => !!character.appearance && isCharacterSkinUnlocked(this.deps.save, character.appearance, id) });
+                    isUnlocked: id => !!character.appearance && isCharacterSkinUnlocked(this.deps.save, character.appearance, id),
+                    refreshTutorials: this.deps.refreshTutorials });
                 return;
             }
             const button = (event.target as Element).closest<HTMLButtonElement>("[data-ui-action]");
@@ -232,7 +244,7 @@ export class LobbyScreen {
                 if (!signal.aborted) void alertGameDialog("打开失败", uiError(error, "该功能暂时无法打开，请重试。"));
             }).finally(() => { if (!signal.aborted) button.disabled = false; });
         }, { signal });
-        this.deps.root.querySelectorAll<HTMLButtonElement>("[data-close]").forEach((button) => button.addEventListener("click", () => button.closest("dialog")?.close()));
+        this.deps.root.querySelectorAll<HTMLButtonElement>("[data-close]").forEach((button) => button.addEventListener("click", () => void closeUiDialog(button.closest("dialog"))));
         let badgeHint: HTMLElement | null = null;
         let badgeHintTimer: ReturnType<typeof setTimeout> | undefined;
         const hideBadgeHint = (): void => {
@@ -276,6 +288,8 @@ export class LobbyScreen {
             const readout = this.deps.root.querySelector<HTMLElement>("[data-music-volume-value]");
             if (readout) readout.textContent = `${Math.round(input.valueAsNumber * 100)}%`;
         });
+        const musicSettings = this.deps.root.querySelector<HTMLElement>("[data-music-settings]");
+        if (musicSettings && this.deps.writeMusicOrder) mountMusicSettings(musicSettings, this.deps.writeMusicOrder, signal);
         const settingsForm = this.deps.root.querySelector<HTMLElement>("[data-plugin-settings-form]");
         if (settingsForm && this.deps.pluginSettingsSession)
             mountPluginSettingsForm(settingsForm, this.deps.pluginSettingsSession, this.deps.writePluginSettings);

@@ -156,6 +156,63 @@ describe("content host providers", () => {
     await expect(fileSystem.list("content/v1/revisions")).resolves.toEqual([]);
   });
 
+  it("resolves OPFS media without reading its bytes and retains URLs until released", async () => {
+    const root = new FakeDirectoryHandle();
+    const fileSystem = new OpfsContentFileSystem(root as unknown as FileSystemDirectoryHandle);
+    const bytes = Uint8Array.of(0, 127, 255, 2);
+    await fileSystem.write("revision/image.bin", bytes);
+    const read = vi.spyOn(fileSystem, "read");
+    const arrayBuffer = vi.spyOn(File.prototype, "arrayBuffer");
+    const revoke = vi.spyOn(URL, "revokeObjectURL");
+    const resolver = new OpfsContentAssetResolver(fileSystem);
+    try {
+      const first = await resolver.resolve("revision/image.bin", "image/png");
+      const second = await resolver.resolve("revision/image.bin", "application/octet-stream");
+      expect(read).not.toHaveBeenCalled();
+      expect(arrayBuffer).not.toHaveBeenCalled();
+      const response = await fetch(first.url);
+      expect(response.headers.get("content-type")).toBe("image/png");
+      expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+      first.release?.();
+      first.release?.();
+      expect(revoke).toHaveBeenCalledExactlyOnceWith(first.url);
+      await expect(fetch(first.url)).rejects.toThrow();
+      expect(new Uint8Array(await (await fetch(second.url)).arrayBuffer())).toEqual(bytes);
+      resolver.releaseAll();
+      resolver.releaseAll();
+      second.release?.();
+      expect(revoke).toHaveBeenCalledTimes(2);
+      expect(revoke).toHaveBeenLastCalledWith(second.url);
+      await expect(fetch(second.url)).rejects.toThrow();
+    } finally {
+      resolver.releaseAll();
+      read.mockRestore();
+      arrayBuffer.mockRestore();
+      revoke.mockRestore();
+    }
+  });
+
+  it("reports missing OPFS assets and still supports byte-only injected hosts", async () => {
+    const fileSystem = new OpfsContentFileSystem(new FakeDirectoryHandle() as unknown as FileSystemDirectoryHandle);
+    await expect(fileSystem.readBlob("missing/image.bin")).resolves.toBeNull();
+    await expect(fileSystem.read("missing/image.bin")).resolves.toBeNull();
+    await expect(fileSystem.readBlob("../image.bin")).rejects.toThrow("非法内容存储路径");
+    await expect(new OpfsContentAssetResolver(fileSystem).resolve("missing/image.bin", "image/png")).rejects.toThrow("内容资源不存在");
+
+    const memory = new MemoryContentHostProvider().host.fileSystem;
+    await memory.write("image.bin", Uint8Array.of(9, 0, 255));
+    const resolver = new OpfsContentAssetResolver(memory);
+    const asset = await resolver.resolve("image.bin", "image/png");
+    try {
+      const response = await fetch(asset.url);
+      expect(response.headers.get("content-type")).toBe("image/png");
+      expect(new Uint8Array(await response.arrayBuffer())).toEqual(Uint8Array.of(9, 0, 255));
+      await expect(resolver.resolve("missing.bin", "image/png")).rejects.toThrow("内容资源不存在");
+    } finally {
+      resolver.releaseAll();
+    }
+  });
+
   it("selects the first capable injected provider without platform enums", async () => {
     const unavailable: ContentHostProvider = { id: "unavailable", probe: async () => false, open: async () => { throw new Error("unused"); } };
     const selected = new MemoryContentHostProvider();

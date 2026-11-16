@@ -1,5 +1,6 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { App } from "@capacitor/app";
+import { hapticPreferences } from "./haptic-preferences";
 
 export interface HapticOptions { readonly signal?: AbortSignal }
 export interface HapticsApi { play(pattern: readonly number[], options?: HapticOptions): Promise<void> }
@@ -30,7 +31,7 @@ export class HapticService implements HapticsApi {
   private generation = 0;
   private pending = Promise.resolve();
   private detachAbort?: () => void;
-  constructor(private readonly driver: HapticDriver = createHapticDriver()) {}
+  constructor(private readonly driver: HapticDriver = createHapticDriver(), private readonly allowed: () => boolean = () => true) {}
   configure(enabled: boolean): void {
     this.enabled = enabled;
     if (!enabled) void this.stop();
@@ -44,7 +45,7 @@ export class HapticService implements HapticsApi {
     return this.pending;
   }
   play(pattern: readonly number[], options: HapticOptions = {}): Promise<void> {
-    if (!this.enabled || this.suspended.size || options.signal?.aborted || !validHapticPattern(pattern)) return Promise.resolve();
+    if (!this.enabled || !this.allowed() || this.suspended.size || options.signal?.aborted || !validHapticPattern(pattern)) return Promise.resolve();
     this.detachAbort?.();
     const token = ++this.generation;
     const abort = () => { if (token === this.generation) void this.stop(); };
@@ -64,7 +65,7 @@ export class HapticService implements HapticsApi {
     return this.enqueue(() => this.driver.cancel());
   }
 }
-export const haptics = new HapticService();
+export const haptics = new HapticService(undefined, () => hapticPreferences.get().enabled);
 
 export async function bindHapticLifecycle(service = haptics): Promise<() => Promise<void>> {
   const onVisibility = () => service.setForeground("document", !document.hidden);

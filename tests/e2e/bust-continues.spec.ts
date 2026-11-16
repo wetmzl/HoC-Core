@@ -32,7 +32,7 @@ async function mountTable(page: Page, options: { motion?: boolean; safe?: boolea
     const match = normalizeAbilityHands({ ...base, player, opponent, shoe: { cards, cursor: used.length, shuffleIndex: 1 },
       playerSkills: { ...base.playerSkills, drawOffer: null }, round: { ...base.round, phase: "turns", currentActor: "player", player, opponent, outcome: null },
       history: [{ type: "ROUND_STARTED", roundIndex: 0 }, ...used.map((card, i) => ({ type: "CARD_DEALT", actor: i < playerCards.length ? "player" : "opponent", card, private: true }))] });
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const { createPersistenceService } = await load("/src/persistence/factory.ts");
     const { mountGameRuntime } = await load("/src/match-screen.ts");
     const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false; save.settings.reducedMotion = !options.motion;
@@ -48,6 +48,8 @@ async function mountTable(page: Page, options: { motion?: boolean; safe?: boolea
   }, options);
   await expect(page.locator('[data-hand-scroll="player"]')).toBeVisible();
   await expect(page.getByRole("button", { name: "Hit 要牌", exact: true })).toBeEnabled();
+  await expect.poll(() => page.locator('.character-portrait').evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
 }
 
 for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 720 }, { width: 1280, height: 900 }]) {

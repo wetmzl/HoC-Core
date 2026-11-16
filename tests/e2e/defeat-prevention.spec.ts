@@ -38,7 +38,7 @@ async function mount(page: Page) {
       ...registry.STATUS_DEFINITIONS, { id: stage, defaultDuration: "match", rules: [] }
     ], registry.ABILITY_CATALOG_VERSION);
     const { createMatch } = await load("/src/core/match/reducer.ts");
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const repo = (await load("/src/persistence/factory.ts")).createPersistenceService();
     const base = createMatch("neutral-browser-stages", { opponentId: "claude", skillDeckIds: [],
       opponentAiSkills: [{ definitionId: definition.id, enabled: true, parameters: {} }],

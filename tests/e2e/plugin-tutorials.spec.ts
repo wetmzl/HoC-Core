@@ -1,6 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { zipSync } from "fflate";
+import { respondToOfficialPlaylistCopy } from "./playlist-fixture";
+import { skipStory } from "./story-platform-fixture";
 
 type Presentation = "popover" | "sidebar" | "modal";
 interface Definition {
@@ -71,7 +73,9 @@ async function install(page: Page, fixtures: Fixture[] = [{ name: "alpha" }]): P
   });
   await page.getByRole("button", { name: "安装所选包" }).click();
   for (const { name } of fixtures) {
+    const official = await page.locator("[data-embedded-default-playlist]").count();
     await page.locator(`[data-package-action="enable"][data-package-id="test/${name}"]`).click();
+    if (official) await respondToOfficialPlaylistCopy(page, "confirm");
     await expect(page.locator(`.package-card[data-package-id="test/${name}"]`)).toHaveAttribute("data-package-state", "enabled");
   }
   await page.getByRole("button", { name: "关闭资源管理" }).click();
@@ -108,7 +112,13 @@ const onePage = (id: string, presentation: Presentation = "popover"): Definition
   id, title: id, pages: [{ body: `中性教程：${id}` }], presentation, autoSkipMs: null
 });
 
-test.beforeEach(async ({ page }) => { await page.goto("/"); });
+test.beforeEach(async ({ page }) => {
+  await page.addLocatorHandler(page.locator("[data-story-player]"), async () => { await skipStory(page); });
+  await page.addLocatorHandler(page.locator("[data-game-dialog]").filter({ hasText: "官方播放集" }), async () => {
+    await respondToOfficialPlaylistCopy(page, "confirm");
+  });
+  await page.goto("/");
+});
 
 test("runtime startup queues package-isolated tutorials after acknowledgement and persists completion and replay", async ({ page }) => {
   await install(page, [{ name: "alpha", startup: true }, { name: "beta", startup: true }]);
@@ -324,7 +334,8 @@ test("skipTutorial suppresses automatic and replay requests while API 9 keeps it
 });
 
 test("a tutorial offered by the first match subscription survives the transition onto the real table", async ({ page }) => {
-  await install(page, [{ name: "alpha", matchStart: true }]); await start(page);
+  await install(page, [{ name: "alpha", matchStart: true }]);
+  await start(page);
   await page.locator("[data-enter-duel]").click();
   await expect(page.locator("main.lobby-character-shell")).toBeVisible();
   await page.locator("[data-invite-character]").first().click();

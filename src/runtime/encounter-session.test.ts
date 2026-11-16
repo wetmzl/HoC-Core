@@ -11,18 +11,21 @@ import { validateRuntimeSave } from "../persistence/schema";
 import { EncounterSession, challengeSnapshot } from "./encounter-session";
 import { challengeFlowRun, flowSnapshot, singleMatchFlow } from "./encounter-snapshot";
 import { changeCharacterSkinUnlocks } from "../persistence/skin-unlocks";
+import { RuntimeEventHub } from "./public-event-hub";
+import { matchPublicEventBatch, type PublicEventBatch } from "../core/events/public-events";
+import { createMatchFactBatch } from "../core/events";
 
 const definition = ChallengeDefinitionSchema.parse(trial);
-function harness() {
+function harness(events?: RuntimeEventHub) {
   let save = createDefaultSave();
   const repository = new MemorySaveRepository({ longTerm: save });
   const saves = { get: () => save, set: (value: typeof save) => { save = value; } };
-  const session = new EncounterSession(repository, saves);
+  const session = new EncounterSession(repository, saves, undefined, undefined, events, { game: "legacy-game" });
   const fresh = () => createChallenge("session-run", definition, definition.guards.map(guard => ({ opponentId: guard.characterId, timestamp: "2026-10-26T00:00:00Z" })), CHARACTER_CATALOG);
   return { repository, saves, session, fresh };
 }
-function result(characterId: string, winner: "player" | "opponent" = "player") {
-  const h = harness(), run = startEncounter(h.fresh(), characterId);
+function result(characterId: string, winner: "player" | "opponent" = "player", events?: RuntimeEventHub) {
+  const h = harness(events), run = startEncounter(h.fresh(), characterId);
   let match = createMatch("session-match", { id: run.encounter!.matchId, opponentId: characterId, playerGun: { capacity: 8, bullets: 4 }, opponentAiSkills: [] });
   const actor = winner === "player" ? "opponent" : "player";
   match = { ...match, roulette: { ...match.roulette, [actor]: { ...match.roulette[actor], bullets: match.roulette[actor].capacity } }, round: { ...match.round, phase: "roulette-trigger", currentActor: null, outcome: { winner, reason: "comparison", penaltyTarget: actor, bulletsAdded: 1 } } };
@@ -278,4 +281,124 @@ it("rejects an ordinary opening queued before an empty session was abandoned", a
   await abandoning;
   await expect(attaching).rejects.toThrow("牌局已改变");
   expect(await repository.loadRuntime()).toBeNull();
+});
+
+describe("legacy flow public lifecycle events", () => {
+  function observe() {
+    const events = new RuntimeEventHub(), batches: PublicEventBatch[] = [];
+    events.subscribe("committed", batch => { batches.push(batch); });
+    return { events, facts: () => batches.flatMap(batch => batch.facts).filter(fact => fact.type.startsWith("program.")) };
+  }
+  it("restores a selection without inventing match facts or replaying its start", async () => {
+    const o = observe(), h = harness(o.events);
+    await h.session.begin(challengeFlowRun(h.fresh()));
+    expect(o.facts().map(fact => fact.type)).toEqual(["program.started"]);
+    const restored = new EncounterSession(h.repository, h.saves, undefined, undefined, o.events, { game: "legacy-game" });
+    restored.restore((await h.repository.loadRuntime())!); await restored.flush();
+    expect(o.facts().map(fact => fact.type)).toEqual(["program.started", "program.restored"]);
+    expect(o.facts().every(fact => fact.scopes.program === h.session.run!.id)).toBe(true);
+  });
+  it("only reports persisted selections and distinguishes a repeated node encounter", async () => {
+    const o = observe(), h = harness(o.events);
+    await h.session.begin(challengeFlowRun(h.fresh()));
+    const prepared = h.session.prepare("guard:llama")!;
+    const match = createMatch(prepared.plan.seed, { ...prepared.plan.options, opponentId: prepared.plan.opponentId });
+    const write = h.repository.saveRuntime.bind(h.repository);
+    h.repository.saveRuntime = async () => { throw new Error("opening unavailable"); };
+    await expect(h.session.attach(prepared.run, match)).rejects.toThrow("opening unavailable");
+    expect(o.facts().map(fact => fact.type)).toEqual(["program.started"]);
+    h.repository.saveRuntime = write;
+    await h.session.attach(prepared.run, match);
+    await h.session.settle(true);
+    const repeated = h.session.prepare("guard:llama")!;
+    await h.session.attach(repeated.run, createMatch(repeated.plan.seed, { ...repeated.plan.options, opponentId: repeated.plan.opponentId }));
+    const entries = o.facts().filter(fact => fact.type === "program.node-entered");
+    expect(entries.map(fact => [fact.data.nodeId, fact.data.visitIndex])).toEqual([["guard:llama", 1], ["guard:llama", 2]]);
+    expect(new Set(entries.map(fact => fact.id)).size).toBe(2);
+    expect(o.facts().filter(fact => fact.type === "program.choice-selected")).toHaveLength(2);
+  });
+  it("deduplicates successful rewards and never publishes a failed completion", async () => {
+    const o = observe(), h = result("chatgpt", "player", o.events);
+    await h.session.replace(challengeSnapshot(h.run, h.match));
+    const write = h.repository.saveRuntime.bind(h.repository);
+    h.repository.saveRuntime = async () => { throw new Error("reward unavailable"); };
+    await expect(h.session.claim("skillDraws")).rejects.toThrow("reward unavailable");
+    expect(o.facts()).toEqual([]);
+    h.repository.saveRuntime = write;
+    await Promise.all([h.session.claim("skillDraws"), h.session.claim("skillDraws")]);
+    expect(o.facts().filter(fact => fact.type === "program.reward-claimed")).toHaveLength(1);
+    const boss = result("claude", "player", o.events);
+    await boss.session.replace(challengeSnapshot(boss.run, boss.match));
+    const commit = boss.repository.commitMatchResult.bind(boss.repository);
+    boss.repository.commitMatchResult = async () => { throw new Error("result unavailable"); };
+    await expect(boss.session.settle()).rejects.toThrow("result unavailable");
+    expect(o.facts().filter(fact => fact.type === "program.completed")).toHaveLength(0);
+    boss.repository.commitMatchResult = commit;
+    await boss.session.settle();
+    expect(o.facts().filter(fact => fact.type === "program.completed")).toHaveLength(1);
+    expect(o.facts().filter(fact => fact.type === "program.abandoned")).toHaveLength(0);
+  });
+  it("announces a host-cleared legacy selection without another storage operation", async () => {
+    const o = observe(), h = harness(o.events);
+    await h.session.begin(challengeFlowRun(h.fresh()));
+    await h.repository.closeGameRuntime(h.saves.get());
+    h.repository.deleteRuntime = async () => { throw new Error("must not delete twice"); };
+    h.repository.saveRuntime = async () => { throw new Error("must not write after close"); };
+    h.session.runtimeClosed(); h.session.runtimeClosed();
+    expect(h.session.run).toBeNull();
+    const abandoned = o.facts().filter(fact => fact.type === "program.abandoned");
+    expect(abandoned).toHaveLength(1); expect(abandoned[0].data.reason).toBe("game-stopped");
+    expect(await h.repository.loadRuntime()).toBeNull();
+  });
+
+  it("resolves owner-created withdrawal facts after a successful legacy settlement only", async () => {
+    const o = observe(), h = harness(o.events), resolved: PublicEventBatch[] = [], committed: PublicEventBatch[] = [];
+    const options = { types: ["match.MATCH_ESCAPED", "match.MATCH_RESULT_ACKNOWLEDGED"] };
+    o.events.subscribe("resolved", batch => { resolved.push(batch); }, options);
+    o.events.subscribe("committed", batch => { committed.push(batch); }, options);
+    await h.session.begin(challengeFlowRun(h.fresh()));
+    const prepared = h.session.prepare("guard:llama")!;
+    const match = createMatch(prepared.plan.seed, { ...prepared.plan.options, opponentId: prepared.plan.opponentId });
+    await h.session.attach(prepared.run, match);
+    const scopes = { game: "legacy-game", program: h.session.run!.id };
+    o.events.publish("resolved", matchPublicEventBatch(createMatchFactBatch(undefined, match), scopes));
+    const write = h.repository.saveRuntime.bind(h.repository);
+    h.repository.saveRuntime = async () => { throw new Error("escape unavailable"); };
+    await expect(h.session.settle(true)).rejects.toThrow("escape unavailable");
+    expect(resolved).toEqual([]); expect(committed).toEqual([]);
+    h.repository.saveRuntime = write;
+    await h.session.settle(true);
+    const immediate = resolved.flatMap(batch => batch.facts), durable = committed.flatMap(batch => batch.facts);
+    expect(immediate.map(fact => fact.type)).toEqual(["match.MATCH_ESCAPED", "match.MATCH_FINISHED", "match.MATCH_RESULT_ACKNOWLEDGED"]);
+    expect(immediate.map(fact => [fact.id, fact.scopes])).toEqual(durable.map(fact => [fact.id, fact.scopes]));
+  });
+
+  it("only adds acknowledgement to already resolved table escape facts", async () => {
+    const o = observe(), h = harness(o.events), resolved: PublicEventBatch[] = [], committed: PublicEventBatch[] = [];
+    const options = { types: ["match.MATCH_ESCAPED", "match.MATCH_RESULT_ACKNOWLEDGED"] };
+    o.events.subscribe("resolved", batch => { resolved.push(batch); }, options);
+    o.events.subscribe("committed", batch => { committed.push(batch); }, options);
+    const match = createMatch("legacy-dispatched-escape", { opponentId: "llama", grantOpeningSkills: false });
+    const handle = await h.session.attach(undefined, match), scopes = { game: "legacy-game", program: h.session.run!.id };
+    o.events.publish("resolved", matchPublicEventBatch(createMatchFactBatch(undefined, match), scopes));
+    handle.dispatch({ type: "ESCAPE_MATCH" });
+    o.events.publish("resolved", matchPublicEventBatch(handle.getLastFactBatch!()!, scopes));
+    await handle.flush(); await h.session.settle();
+    const immediate = resolved.flatMap(batch => batch.facts), durable = committed.flatMap(batch => batch.facts);
+    expect(immediate.filter(fact => fact.type === "match.MATCH_ESCAPED")).toHaveLength(1);
+    expect(immediate.filter(fact => fact.type === "match.MATCH_RESULT_ACKNOWLEDGED")).toHaveLength(1);
+    expect(immediate.map(fact => [fact.id, fact.scopes])).toEqual(durable.map(fact => [fact.id, fact.scopes]));
+  });
+
+  it("resolves a normal legacy victory acknowledgement with its committed identity", async () => {
+    const o = observe(), h = result("claude", "player", o.events), resolved: PublicEventBatch[] = [], committed: PublicEventBatch[] = [];
+    const options = { types: ["match.MATCH_RESULT_ACKNOWLEDGED"] };
+    o.events.subscribe("resolved", batch => { resolved.push(batch); }, options);
+    o.events.subscribe("committed", batch => { committed.push(batch); }, options);
+    await h.session.replace(challengeSnapshot(h.run, h.match));
+    await h.session.settle();
+    const immediate = resolved.flatMap(batch => batch.facts), durable = committed.flatMap(batch => batch.facts);
+    expect(immediate.map(fact => fact.type)).toEqual(["match.MATCH_RESULT_ACKNOWLEDGED"]);
+    expect(immediate.map(fact => [fact.id, fact.scopes])).toEqual(durable.map(fact => [fact.id, fact.scopes]));
+  });
 });

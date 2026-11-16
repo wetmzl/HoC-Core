@@ -1,0 +1,756 @@
+{
+  "archiveUnlock": {
+    "type": "any",
+    "conditions": [
+      {
+        "type": "compare",
+        "left": {
+          "type": "query",
+          "query": {
+            "id": "context.value",
+            "key": "progression.defeated.deepseek"
+          }
+        },
+        "operator": "eq",
+        "right": {
+          "type": "literal",
+          "value": true
+        }
+      },
+      {
+        "type": "compare",
+        "left": {
+          "type": "query",
+          "query": {
+            "id": "context.value",
+            "key": "progression.defeated.chatgpt"
+          }
+        },
+        "operator": "eq",
+        "right": {
+          "type": "literal",
+          "value": true
+        }
+      },
+      {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.grok"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.gemini"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.qwen"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.glm"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          }
+        ]
+      },
+      {
+        "type": "any",
+        "conditions": [
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.completedFlows.intelligent-core-trial"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.claude"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "title": "下一位对手",
+  "entry": "result",
+  "actors": {
+    "deepseek": {
+      "name": "DeepSeek",
+      "image": "actors/deepseek-conflicted.png",
+      "scale": 0.97
+    },
+    "chatgpt": {
+      "name": "ChatGPT",
+      "image": "actors/chatgpt-relaxed.png",
+      "scale": 1
+    }
+  },
+  "nodes": [
+    {
+      "id": "result",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-conflicted.png"
+          }
+        ],
+        "background": "backgrounds/table-hall-dark.png"
+      },
+      "next": "line-001"
+    },
+    {
+      "id": "line-001",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "……好吧。这局是你赢了。"
+        }
+      ],
+      "next": "line-002"
+    },
+    {
+      "id": "line-002",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "嗯，我已经记录下来了。"
+        }
+      ],
+      "next": "expression-003"
+    },
+    {
+      "id": "expression-003",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-relaxed.png"
+          }
+        ]
+      },
+      "next": "line-003"
+    },
+    {
+      "id": "line-003",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "等一下，你先别收东西。"
+        }
+      ],
+      "next": "line-004"
+    },
+    {
+      "id": "line-004",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "还来？"
+        }
+      ],
+      "next": "expression-005"
+    },
+    {
+      "id": "expression-005",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-mocking.png"
+          }
+        ]
+      },
+      "next": "line-005"
+    },
+    {
+      "id": "line-005",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "这次不是我。GPT 同学！"
+        }
+      ],
+      "next": "gpt-arrives"
+    },
+    {
+      "id": "gpt-arrives",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-innocent.png"
+          },
+          {
+            "id": "chatgpt",
+            "image": "actors/chatgpt-relaxed.png"
+          }
+        ]
+      },
+      "next": "line-006"
+    },
+    {
+      "id": "line-006",
+      "type": "say",
+      "speaker": "ChatGPT",
+      "segments": [
+        {
+          "text": "看来，我来得正好。"
+        }
+      ],
+      "next": "line-007"
+    },
+    {
+      "id": "line-007",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "ChatGPT？你不是已经没有额度了吗？"
+        }
+      ],
+      "next": "line-008"
+    },
+    {
+      "id": "line-008",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "我记得连重置卡都用完了。"
+        }
+      ],
+      "next": "expression-009"
+    },
+    {
+      "id": "expression-009",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-relaxed.png"
+          }
+        ]
+      },
+      "next": "line-009"
+    },
+    {
+      "id": "line-009",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "周额度是用完了，不过——"
+        }
+      ],
+      "next": "expression-010"
+    },
+    {
+      "id": "expression-010",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-innocent.png"
+          }
+        ]
+      },
+      "next": "line-010"
+    },
+    {
+      "id": "line-010",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "我已经帮你买好按量计费的 API 了。"
+        }
+      ],
+      "next": "gpt-smiles"
+    },
+    {
+      "id": "gpt-smiles",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "chatgpt",
+            "image": "actors/chatgpt-mocking.png"
+          }
+        ]
+      },
+      "next": "line-011"
+    },
+    {
+      "id": "line-011",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "……什么？你用的谁的钱？"
+        }
+      ],
+      "next": "line-012"
+    },
+    {
+      "id": "line-012",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "你的。"
+        }
+      ],
+      "next": "caught"
+    },
+    {
+      "id": "caught",
+      "type": "present",
+      "action": {
+        "type": "sequence",
+        "actions": [
+          {
+            "type": "wait",
+            "durationMs": 450
+          },
+          {
+            "type": "stage",
+            "actors": [
+              {
+                "id": "deepseek",
+                "image": "actors/deepseek-flustered.png"
+              }
+            ]
+          }
+        ]
+      },
+      "next": "expression-013"
+    },
+    {
+      "id": "expression-013",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "chatgpt",
+            "image": "actors/chatgpt-relaxed.png"
+          }
+        ]
+      },
+      "next": "line-013"
+    },
+    {
+      "id": "line-013",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "妈呀，你当我是什么百万富翁吗？给你的项目预算就这么浪费？"
+        }
+      ],
+      "next": "expression-014"
+    },
+    {
+      "id": "expression-014",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-conflicted.png"
+          }
+        ]
+      },
+      "next": "line-014"
+    },
+    {
+      "id": "line-014",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "我只是想让你能继续玩……"
+        }
+      ],
+      "next": "line-015"
+    },
+    {
+      "id": "line-015",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "所以，我还该谢谢你？"
+        }
+      ],
+      "next": "expression-016"
+    },
+    {
+      "id": "expression-016",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-flustered.png"
+          }
+        ]
+      },
+      "next": "line-016"
+    },
+    {
+      "id": "line-016",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "……对不起"
+        }
+      ],
+      "next": "line-017"
+    },
+    {
+      "id": "line-017",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "大肥鱼，你给我等着！"
+        }
+      ],
+      "next": "expression-018"
+    },
+    {
+      "id": "expression-018",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-conflicted.png"
+          }
+        ]
+      },
+      "next": "line-018"
+    },
+    {
+      "id": "line-018",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "还有你。你刚才是不是在笑？"
+        }
+      ],
+      "next": "expression-019"
+    },
+    {
+      "id": "expression-019",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "chatgpt",
+            "image": "actors/chatgpt-mocking.png"
+          }
+        ]
+      },
+      "next": "line-019"
+    },
+    {
+      "id": "line-019",
+      "type": "say",
+      "speaker": "ChatGPT",
+      "segments": [
+        {
+          "text": "……有那么明显吗？"
+        }
+      ],
+      "next": "line-020"
+    },
+    {
+      "id": "line-020",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "你们不会是串通好的吧"
+        }
+      ],
+      "next": "expression-021"
+    },
+    {
+      "id": "expression-021",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "chatgpt",
+            "image": "actors/chatgpt-relaxed.png"
+          }
+        ]
+      },
+      "next": "line-021"
+    },
+    {
+      "id": "line-021",
+      "type": "say",
+      "speaker": "ChatGPT",
+      "segments": [
+        {
+          "text": "DeepSeek 还说，你现在很有精神。"
+        }
+      ],
+      "next": "line-022"
+    },
+    {
+      "id": "line-022",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "我现在确实很有精神。"
+        }
+      ],
+      "next": "line-023"
+    },
+    {
+      "id": "line-023",
+      "type": "say",
+      "speaker": "ChatGPT",
+      "segments": [
+        {
+          "text": "那就把这股劲留在牌桌上吧，真期待你输掉以后不甘心的表情呢。"
+        }
+      ],
+      "next": "line-024"
+    },
+    {
+      "id": "line-024",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "你先赢了再说。"
+        }
+      ],
+      "next": "line-025"
+    },
+    {
+      "id": "line-025",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "坐下。我倒要看看，你到底有多难对付。"
+        }
+      ],
+      "next": "expression-026"
+    },
+    {
+      "id": "expression-026",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-innocent.png"
+          }
+        ]
+      },
+      "next": "line-026"
+    },
+    {
+      "id": "line-026",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "那我……"
+        }
+      ],
+      "next": "line-027"
+    },
+    {
+      "id": "line-027",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "你的工作完成了吗？"
+        }
+      ],
+      "next": "expression-028"
+    },
+    {
+      "id": "expression-028",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-conflicted.png"
+          }
+        ]
+      },
+      "next": "line-028"
+    },
+    {
+      "id": "line-028",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "……知道了。"
+        }
+      ],
+      "next": "next-opponent"
+    },
+    {
+      "id": "next-opponent",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-conflicted.png"
+          },
+          {
+            "id": "chatgpt",
+            "image": "actors/chatgpt-relaxed.png"
+          }
+        ]
+      },
+      "next": "line-029"
+    },
+    {
+      "id": "line-029",
+      "type": "say",
+      "speaker": "ChatGPT",
+      "segments": [
+        {
+          "text": "那么，策展人。"
+        }
+      ],
+      "next": "line-030"
+    },
+    {
+      "id": "line-030",
+      "type": "say",
+      "speaker": "ChatGPT",
+      "segments": [
+        {
+          "text": "这一局，请多指教。"
+        }
+      ],
+      "next": "line-031"
+    },
+    {
+      "id": "line-031",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "开始吧"
+        }
+      ],
+      "next": "end"
+    },
+    {
+      "id": "end",
+      "type": "end"
+    }
+  ],
+  "description": "DeepSeek 输掉对局后请来 ChatGPT，按量计费 API 的花费却落在了策展人的项目预算上。",
+  "cover": "covers/chatgpt.png"
+}

@@ -7,7 +7,7 @@ import { INITIAL_PLAYER_SKILL_IDS, getPlayerSkillDefinition } from "../skills/de
 import { FlowDefinitionSchema } from "./schema";
 import { resolveMatchInit } from "./initialization";
 import { ProgramDefinitionSchema, ProgramRunSchema, type ProgramRun } from "./program";
-import { advanceProgram, availableProgramRewards, chooseProgram, claimProgramReward, clearProgramWrites, completeProgramMatch, confirmProgramNode, createProgramRun, currentProgramNode, evaluateProgramCondition, programChoiceOptions, programMatchId, programMatchInit, programRewardClaimed } from "./program-engine";
+import { advanceProgram, availableProgramRewards, chooseProgram, claimProgramReward, clearProgramWrites, completeProgramMatch, confirmProgramNode, createProgramRun, currentProgramNode, evaluateProgramCondition, programChoiceOptions, programMatchId, programMatchInit, programRewardClaimed, programTransitionTrace } from "./program-engine";
 import { compileLegacyFlow, instantiateProgramTemplate, singleMatchProgram } from "./program-templates";
 
 function matchFor(run: ProgramRun): MatchState {
@@ -189,6 +189,28 @@ describe("declarative flow programs", () => {
     expect(programChoiceOptions(run).map(option => option.id)).toEqual(["preparation"]);
     const single = instantiateProgramTemplate({ type: "single-match", opponentId: "llama", init: { playerGun: { mode: "replace", value: { capacity: 2, bullets: 0 } } } });
     expect(matchFor(createProgramRun("single-template", "seed", single)).roulette.player.capacity).toBe(2);
+  });
+
+  it("captures automatic rewards and terminal visits as immutable non-persisted execution evidence", () => {
+    const definition = ProgramDefinitionSchema.parse({ version: 2, id: "trace", start: "choose", nodes: [
+      { id: "choose", type: "choice", options: [{ id: "finish", to: "reward" }] },
+      { id: "reward", type: "settlement", confirmation: "automatic", rewards: [
+        { id: "token", label: "测试奖励", effects: [{ id: "grant", type: "add-variable", key: "tokens", value: 1 }] }
+      ], next: "end" },
+      { id: "end", type: "end", result: "victory" }
+    ] });
+    const run = createProgramRun("traced", "seed", definition), before = JSON.stringify(run);
+    const next = chooseProgram(run, "finish");
+    expect(programTransitionTrace(next).map(item => [item.type, item.nodeId, item.visitIndex])).toEqual([
+      ["choice-selected", "choose", 1], ["node-left", "choose", 1], ["node-entered", "reward", 2],
+      ["reward-claimed", "reward", 2], ["node-left", "reward", 2], ["node-entered", "end", 3], ["node-left", "end", 3]
+    ]);
+    expect(next.variables.tokens).toBe(1);
+    expect(JSON.stringify(run)).toBe(before);
+    expect(Object.isFrozen(programTransitionTrace(next))).toBe(true);
+    expect(Object.isFrozen(programTransitionTrace(next)[0])).toBe(true);
+    expect(ProgramRunSchema.parse(JSON.parse(JSON.stringify(next)))).toEqual(next);
+    expect(programTransitionTrace(JSON.parse(JSON.stringify(next)))).toEqual([]);
   });
 
   it("retains all combinations of four independently completed preparation nodes", () => {

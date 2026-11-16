@@ -1,0 +1,7 @@
+# Package integrity hashes require the same text bytes in every checkout.
+public/characters/default-playlist.json text eol=lf
+public/characters/*/resources/character-match.json text eol=lf
+public/characters/*/resources/dialogue.json text eol=lf
+public/characters/official-story/*.md text eol=lf
+public/characters/official-story/*.json text eol=lf
+public/characters/official-story/**/*.json text eol=lf

@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ABILITY_REGISTRY, installAbilityRegistry } from "../core/abilities/registry";
 import type { AbilityRule } from "../core/abilities/types";
 import type { GameEvent } from "../core/match/types";
-import type { PendingTriggerPreview } from "../core/match/reducer";
-import { abilityExpiredNotices, abilityTriggerNotice, pendingTriggerAbilityNotices } from "./ability-notices";
+import { createMatch, type PendingTriggerPreview } from "../core/match/reducer";
+import { createMatchFactBatch } from "../core/events";
+import { abilityExpiredNotices, abilityExpiredNoticesFromFacts, abilityTriggerNotice, abilityTriggerNoticesFromFacts, pendingTriggerAbilityNotices } from "./ability-notices";
 
 const originalRegistry = ABILITY_REGISTRY;
 const rules: AbilityRule[] = [
@@ -78,6 +79,20 @@ describe("concise ability notices", () => {
       { owner: "player", tone: "player", text: "策展人 · 示例技能：本轮哑火概率为30%" }
     ]);
     expect(JSON.stringify(preview)).toBe(snapshot);
+  });
+
+  it("groups notices from committed facts and leaves restored histories silent", () => {
+    const before = createMatch("fact-notices");
+    const expired = { type: "ABILITY_EXPIRED", instanceId: "passive", definitionId: "example-passive", owner: "player", reason: "rounds" } as const;
+    const after = { ...before, history: [...before.history, trigger("first"), trigger("repeat"), trigger("second"), expired] };
+    const batch = createMatchFactBatch(before, after);
+    expect(abilityTriggerNoticesFromFacts(batch, "对手")).toEqual([
+      { owner: "player", tone: "player", text: "策展人 · 示例技能：获得点数优势；下一次 Hit 被封锁" }
+    ]);
+    expect(abilityExpiredNoticesFromFacts(batch)).toEqual([{ owner: "system", tone: "notification", text: "示例被动的效果已耗尽" }]);
+    const restored = createMatchFactBatch(undefined, after, { restored: true });
+    expect(abilityTriggerNoticesFromFacts(restored, "对手")).toEqual([]);
+    expect(abilityExpiredNoticesFromFacts(restored)).toEqual([]);
   });
 });
 

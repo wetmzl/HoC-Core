@@ -3,6 +3,23 @@ import { CHARACTER_CATALOG, characterHasTag, getCharacterMetadata } from "./cata
 import type { CharacterMetadata, CharacterUnlockCondition } from "./types";
 import { characterEncounterCapabilities } from "./encounter-capabilities";
 
+export function unlockConditionLabel(condition: CharacterUnlockCondition | undefined): string {
+  if (!condition) return "完成条件后";
+  if (condition.type === "defeat-any") return "击败任意角色";
+  if (condition.type === "defeat-count") return `击败 ${condition.count} 名不同与会者`;
+  if (condition.type === "defeat-faction-count") {
+    const faction = CHARACTER_CATALOG.find(character => character.faction === condition.faction && character.badge)?.badge?.label ?? condition.faction;
+    return `击败「${faction}」阵营的 ${condition.count} 名不同角色`;
+  }
+  const tagLabel = (tag: string): string => {
+    const tier = /^tier:(d|c|b|a|s|ss)$/.exec(tag)?.[1];
+    return tier ? `${tier.toUpperCase()}级` : `带有「${tag}」标签的`;
+  };
+  if (condition.type === "defeat-any-tag") return `击败一名${tagLabel(condition.tag)}角色`;
+  if (condition.type === "defeat-character") return `击败指定角色 ${getCharacterMetadata(condition.characterId)?.name ?? condition.characterId}`;
+  return `击败${tagLabel(condition.tag)}角色的 ${condition.percentage}%`;
+}
+
 /** Character IDs recorded by the durable first-defeat collection. */
 export function defeatedCharacterIds(defeats: readonly CharacterDefeatRecord[]): ReadonlySet<string> {
   return new Set(defeats.map((record) => record.opponentId));

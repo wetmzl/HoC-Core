@@ -1,8 +1,8 @@
 import { z } from "zod";
 import type { ResolvedContentAsset } from "../storage/contracts";
 import type { ContentPackageAccess } from "./content-source";
-import { CharacterMatchResourceSchema } from "./resources";
 import { HocpkgPortablePathSchema, type HocpkgManifest } from "./schema";
+import { CharacterPresentationSchema, resolvePresentation } from "./character-presentation";
 
 export interface ManagedContentResourceCounts {
   readonly characters: number;
@@ -68,8 +68,16 @@ export async function loadPackagePresentation(access: PackagePresentationAccess 
   if (!characterDescriptor) return Object.freeze({ resourceCounts });
 
   try {
-    const character = CharacterMatchResourceSchema.parse(await access.readJson(characterDescriptor.entry));
-    const definition = characterCoverSchema.parse(character.definition);
+    let body = await access.readJson(characterDescriptor.entry);
+    const reference = z.object({ presentationResourceId: z.string().optional() }).passthrough().parse(body).presentationResourceId;
+    if (reference) {
+      const descriptor = access.manifest.resources.find(resource => resource.id === reference && resource.type === "presentation.character");
+      if (!descriptor || !characterDescriptor.requires.includes(reference)) throw new Error("角色封面缺少表现依赖。");
+      const presentation = CharacterPresentationSchema.parse(await access.readJson(descriptor.entry));
+      body = resolvePresentation(body, presentation);
+    }
+    const character = z.object({ metadata: z.object({ name: z.string() }).passthrough(), definition: characterCoverSchema }).passthrough().parse(body);
+    const definition = character.definition;
     const coverFile = access.manifest.files.find((file) => file.path === definition.assets.cover && file.mediaType.startsWith("image/"));
     if (!coverFile) return Object.freeze({ characterName: character.metadata.name, resourceCounts });
     const coverAsset = await access.resolveAsset(coverFile.path);

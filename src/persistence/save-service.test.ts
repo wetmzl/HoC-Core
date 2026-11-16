@@ -7,6 +7,7 @@ import { PersistenceService } from "./save-service";
 import { SaveValidationError, validateLongTermSave } from "./schema";
 import type { RawSaveSnapshot, SaveStorageDriver } from "./storage-driver";
 import { CapacitorFileSaveStorageDriver } from "./capacitor-driver";
+import { notebookForSave } from "./character-records";
 
 function storage(longTerm: unknown = archived) {
   let snapshot: RawSaveSnapshot = { longTerm: structuredClone(longTerm), runtime: { marker: "unfinished" } };
@@ -34,7 +35,7 @@ describe("release save compatibility", () => {
     const recovered = await bootLoad(store.repository);
     expect(recovered).toMatchObject({ ...archived, recovery: { originals: [invalid] } });
     expect(await importSave(JSON.stringify(invalid))).toEqual(recovered);
-    expect(store.read()).toEqual({ longTerm: recovered, runtime: { marker: "unfinished" } });
+    expect(store.read()).toEqual({ longTerm: recovered, runtime: { marker: "unfinished" }, notebook: notebookForSave(recovered) });
     expect(store.writes()).toBe(1);
     expect(await bootLoad(store.repository)).toEqual(recovered);
     expect(store.writes()).toBe(1);
@@ -103,4 +104,14 @@ describe("release save compatibility", () => {
   });
 
   it("new saves record the actual package release", () => { expect(createDefaultSave().gameVersion).toBe(packageInfo.version); expect(JSON.parse(exportSaveJson(validateLongTermSave(archived)))).toEqual({ ...archived, gameVersion: packageInfo.version }); expect(archived.gameVersion).toBe("0.1.0"); });
+});
+
+
+it("reads feedback preferences without repairing or rewriting invalid or legacy progress", async () => {
+  for (const raw of [null, { unrelated: true }, { ...archived, schemaVersion: 8 }, { settings: { reducedMotion: true } }]) {
+    const store = storage(raw);
+    expect(await store.repository.readReducedMotion()).toBe(raw?.settings?.reducedMotion === true);
+    expect(store.read().longTerm).toEqual(raw);
+    expect(store.writes()).toBe(0);
+  }
 });

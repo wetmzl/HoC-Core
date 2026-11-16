@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 const runtime = vi.hoisted(() => ({ mountGameRuntime: vi.fn(), requestGameRuntimeExit: vi.fn() }));
+vi.mock("./presentation/achievement-ui", () => ({ mountAchievementUi: vi.fn(() => vi.fn()) }));
 vi.mock("./runtime/create-game-runtime", () => ({ createGameRuntime: () => runtime }));
 afterEach(() => { vi.resetModules(); vi.clearAllMocks(); });
 describe("runtime compatibility facade", () => {

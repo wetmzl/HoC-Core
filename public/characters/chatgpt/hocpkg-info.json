@@ -5,7 +5,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "chatgpt",
-    "version": "1.0.21"
+    "version": "1.0.23"
   },
   "metadata": {
     "title": "ChatGPT 角色包",
@@ -148,14 +148,14 @@
     },
     {
       "path": "resources/character-match.json",
-      "bytes": 5654,
-      "sha256": "03f833ef64014df03e655ab19d96a38eb6c8657efd31eba108f8ff104a6ea1ac",
+      "bytes": 5617,
+      "sha256": "dbc85465107ca4367ad094907631681c78159847f596ae6a02412f77cc3f7b5e",
       "mediaType": "application/json"
     },
     {
       "path": "resources/dialogue.json",
-      "bytes": 30595,
-      "sha256": "6a8f2ec9614df82d59949209ced60e83c52689fa2b3703cb808afb838992a30c",
+      "bytes": 30685,
+      "sha256": "a88a2ec1f94cab2ccb1f38dcf081be19c36440976f6976a2396bc19dfdf1ec81",
       "mediaType": "application/json"
     },
     {

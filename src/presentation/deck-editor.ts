@@ -1,3 +1,4 @@
+import { openUiDialog, closeUiDialog } from "./dialog-motion";
 import { skillMetadata } from "./skill-copy";
 import { skillSheetMarkup } from "./skill-sheet";
 import "./skill-card.css";
@@ -115,9 +116,9 @@ export function mountDeckEditor(host: HTMLElement, options: DeckEditorOptions): 
     if (card) {
       detailId = card.dataset.deckId;
       renderDetail();
-      detail.showModal();
+      openUiDialog(detail);
       feedback(8);
-    } else if (target.closest("[data-deck-detail-close]")) detail.close();
+    } else if (target.closest("[data-deck-detail-close]")) void closeUiDialog(detail);
     else if (target.closest("[data-deck-clear]")) {
       query = tag = category = "";
       host.querySelector<HTMLInputElement>("[data-deck-query]")!.value = "";

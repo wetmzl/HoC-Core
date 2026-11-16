@@ -1,32 +1,37 @@
+import { z } from "zod";
 import {
   ContentPackageManager,
+  HocpkgManifestSchema,
   EmbeddedContentSource,
-  RepositoryContentSource,
   activateContentRuntime,
   deactivateContentRuntime,
   loadContent,
   loadPackagePresentation,
   prepareContentRuntime,
-  releasePackagePresentation,
   type EmbeddedContentSourceOptions,
   type LoadedContent,
   type ManagedContentPackage
 } from "./content/packages";
 import { createDefaultContentHostProviders } from "./content/storage/host-factory";
 import { FileContentRepository } from "./content/storage/repository";
+import { CONTENT_CATALOG_PATHS } from "./content/storage/catalog";
 import { CONTENT_PERSISTENCE_REFUSED_WARNING, resolveContentHost, type ContentHostProvider, type ContentInstallProgress, type ContentInstallOptions, type ContentImportFile, type ContentOperationOptions, type ContentFileSystem, type ContentAssetResolver } from "./content/storage/contracts";
 import { installDialogueEvents, clearDialogueEvents } from "./dialogue/events";
 import { installDialogueRegistry, clearDialogueRegistry } from "./dialogue/registry";
 import { loadPluginModules, type LoadedPluginModules } from "./content/packages/plugin-modules";
 import { CORE_PACKAGE_AUTHOR_ID } from "./content/packages/builtin-authors";
+import { pluginCompatibilityError, SUPPORTED_PLUGIN_MODULE_API_VERSIONS } from "./content/packages/plugin-version";
+import { ContentStartupError, getContentStartupFailure } from "./content/packages/startup-error";
 import { mergeSkillArchetypeArt } from "./resources/skill-archetype-art";
 import { HocpkgTransfer, type ImportOutcome, type ImportSession } from "./content/transfer/hocpkg";
-import { PlaylistStore, playlistDocument, type PlaylistDocument, type SavedPlaylist } from "./content/playlists/store";
+import { PlaylistDocumentSchema, PlaylistStore, playlistDocument, type PlaylistDocument, type PlaylistMode, type SavedPlaylist } from "./content/playlists/store";
+import { EMBEDDED_DEFAULT_PLAYLIST_ID } from "./content/playlists/embedded-default";
 import { decodePlaylistBytes, decodePlaylistFile, encodePlaylistHocpkg, encodePlaylistPng, playlistJson } from "./content/playlists/transfer";
 import { createSaveFileWriter } from "./persistence/file-exchange";
 import type { GameRuntimeHandle, MountGameRuntimeOptions } from "./app";
 import { createPersistenceService } from "./persistence/factory";
 import { PluginSettingsSession } from "./content/packages/plugin-settings";
+import { selectMainMenuQuote } from "./content/packages/plugin-ui";
 import { collectPluginCredits } from "./content/packages/plugin-credits";
 import { ensureLongTermSaveReady } from "./persistence/long-term-recovery";
 import { releaseImportFile, type ImportFile } from "./content/storage/import-file";
@@ -34,6 +39,7 @@ import { checkCancelled } from "./content/storage/file-operations";
 import { canonicalBuiltinPackageId } from "./content/packages/builtin-authors";
 import { EMBEDDED_MEDIA_CACHE, preserveEmbeddedCache } from "./resources/embedded-offline";
 import { Capacitor } from "@capacitor/core";
+import { loadingScreenMarkup } from "./presentation/loading-indicator";
 
 export type ApplicationControllerState = "idle" | "starting" | "running" | "stopping";
 
@@ -106,9 +112,16 @@ export class ApplicationController {
     const persistent = await host.capabilities.requestPersistence?.();
     if (persistent === false) this.startupWarnings.add(CONTENT_PERSISTENCE_REFUSED_WARNING);
     const priorPlaylists = new PlaylistStore(host.fileSystem, await repository.listPluginOrder());
+    const previousPlaylists = await priorPlaylists.list();
+    const hadCatalog = (await Promise.all(CONTENT_CATALOG_PATHS.map(path => host.fileSystem.read(path)))).some(bytes => bytes !== null);
+    const fresh = !previousPlaylists.length && !hadCatalog && await repository.isEmpty();
     const selectedId = await priorPlaylists.currentId();
-    const selected = (await priorPlaylists.list()).find(entry => entry.id === selectedId);
+    const selected = previousPlaylists.find(entry => entry.id === selectedId);
     const index = await this.embedded.loadIndex();
+    const defaultPlaylist = await this.embedded.loadDefaultPlaylist();
+    // Establish ownership before the first catalog write, so a failed first
+    // initialization still resumes with the managed default on the next attempt.
+    if (fresh) await priorPlaylists.synchronizeEmbeddedDefault(defaultPlaylist);
     await repository.configureEmbedded(await this.embedded.packages(), selected ? new Set(selected.document.packages.map(entry => entry.packageId)) : undefined, index.defaultEnabled ? new Set(index.defaultEnabled) : undefined);
     this.repository = repository;
     await this.resolveStoredConflicts();
@@ -120,23 +133,29 @@ export class ApplicationController {
     this.playlists = new PlaylistStore(host.fileSystem, await this.installedPluginOrder());
     const current = await repository.listPackages();
     const entries = await Promise.all(current.filter((entry) => entry.enabled).map(async (entry) => ({ packageId: entry.packageId, version: (await repository.readManifest(entry.packageId).catch(() => undefined))?.identity.version })));
-    await this.playlists.initialize(entries, await this.installedPluginOrder());
-    // Existing playlists (including missing references and version hints) are preserved verbatim.
+    if (!fresh) await this.playlists.initialize(entries, await this.installedPluginOrder());
+    const managedDefault = await this.playlists.synchronizeEmbeddedDefault(defaultPlaylist);
+    // Reapply on every initialization so a failed catalog write is retried even
+    // when the official playlist document was already committed successfully.
+    if (await this.playlists.currentId() === EMBEDDED_DEFAULT_PLAYLIST_ID) await this.manager.applyPlaylist(managedDefault.document);
     await host.fileSystem.remove("content/v1/imports");
     this.contentInitialized = true;
   }
 
-  private async resolveStoredConflicts(): Promise<void> {
+  private async chooseEmbeddedConflictResolution(ids: readonly string[]): Promise<boolean> {
+    if (this.options.resolveEmbeddedConflicts) return this.options.resolveEmbeddedConflicts(ids);
+    const { chooseGameDialog } = await import("./game-dialog");
+    return await chooseGameDialog("过时内嵌包", `检测到与内嵌内容同身份的包，是否清理？\n${ids.join("\n")}\n选择否或关闭弹窗会归档并禁用旧副本；使用当前内嵌内容。`, [
+      { value: "clean", label: "是，清理", style: "danger" }, { value: "archive", label: "否，归档禁用", style: "secondary" }
+    ]) === "clean";
+  }
+
+  private async resolveStoredConflicts(choice?: boolean): Promise<void> {
     if (!this.repository) return;
     const conflicts = await this.repository!.listStoredConflicts();
     if (!conflicts.length) return;
     const ids = conflicts.map(entry => entry.packageId);
-    const clean = this.options.resolveEmbeddedConflicts ? await this.options.resolveEmbeddedConflicts(ids) : await (async () => {
-      const { chooseGameDialog } = await import("./game-dialog");
-      return await chooseGameDialog("过时内嵌包", `在用户仓库检测到过时内嵌包，是否清理？\n${ids.join("\n")}\n选择否或关闭弹窗会归档并禁用旧副本；使用当前内嵌内容。`, [
-        { value: "clean", label: "是，清理", style: "danger" }, { value: "archive", label: "否，归档禁用", style: "secondary" }
-      ]) === "clean";
-    })();
+    const clean = choice ?? await this.chooseEmbeddedConflictResolution(ids);
     const targets = new Map((await this.embedded.packages()).map(entry => [entry.packageId, entry]));
     for (const conflict of conflicts) {
       try {
@@ -210,8 +229,12 @@ export class ApplicationController {
     try {
       await this.ensureInitialized();
       if (this.embeddedOnly) throw new Error("只读内嵌模式不能修改内容包。");
+      const target = (await this.repository!.listPackages()).find(entry => entry.packageId === packageId);
+      if (!target) throw new Error(`内容包尚未安装：${packageId}`);
+      if (target.enabled) return;
+      await this.forkOfficialForEdit();
       await this.manager!.enablePackage(packageId);
-      await this.syncCurrentPlaylist();
+      await this.syncCurrentPlaylist(packageId);
     } finally { this.idleOperationRunning = false; }
   }
 
@@ -220,6 +243,10 @@ export class ApplicationController {
     try {
       await this.ensureInitialized();
       if (this.embeddedOnly) throw new Error("只读内嵌模式不能修改插件顺序。");
+      const current = await this.installedPluginOrder();
+      if (order.length !== current.length || new Set(order).size !== order.length || order.some(id => !current.includes(id))) throw new Error("插件排序与当前已安装插件不一致。");
+      if (order.every((id, index) => current[index] === id)) return;
+      await this.forkOfficialForEdit();
       await this.manager!.setPluginOrder(order);
       await this.syncCurrentPlaylist();
     } finally { this.idleOperationRunning = false; }
@@ -230,9 +257,19 @@ export class ApplicationController {
     try {
       await this.ensureInitialized();
       if (this.embeddedOnly) throw new Error("只读内嵌模式不能修改内容包。");
+      const target = (await this.repository!.listPackages()).find(entry => entry.packageId === packageId);
+      if (!target) throw new Error(`内容包尚未安装：${packageId}`);
+      if (!target.enabled) return;
+      await this.forkOfficialForEdit();
       await this.manager!.disablePackage(packageId);
       await this.syncCurrentPlaylist();
     } finally { this.idleOperationRunning = false; }
+  }
+
+  async disableStartupFailure(error: unknown): Promise<void> {
+    const failure = getContentStartupFailure(error);
+    if (!failure) throw new Error("无法确定需要禁用的内容，请到资源管理中检查。");
+    await this.disablePackage(failure.packageId);
   }
 
   async removePackage(packageId: string): Promise<void> {
@@ -240,6 +277,10 @@ export class ApplicationController {
     try {
       await this.ensureInitialized();
       if (this.embeddedOnly) throw new Error("只读内嵌模式不能修改内容包。");
+      const target = (await this.repository!.listPackages()).find(entry => entry.packageId === packageId);
+      if (target?.embedded) throw new Error("内嵌内容不能删除；可以禁用或清除离线缓存。");
+      if (!target) throw new Error(`内容包尚未安装：${packageId}`);
+      await this.forkOfficialForEdit();
       await this.manager!.removePackage(packageId);
       await this.syncCurrentPlaylist();
     } finally { this.idleOperationRunning = false; }
@@ -250,6 +291,8 @@ export class ApplicationController {
     try {
       await this.ensureInitialized();
       if (this.embeddedOnly) throw new Error("只读内嵌模式不能修改内容包。");
+      if (!(await this.embedded.packages()).some(entry => entry.packageId === packageId)) throw new Error(`没有可恢复的内嵌内容包：${packageId}`);
+      await this.forkOfficialForEdit();
       await this.manager!.restoreEmbeddedPackage(packageId, {
         onProgress: (progress) => this.options.onProgress?.({ phase: "seeding", ...progress })
       });
@@ -275,7 +318,7 @@ export class ApplicationController {
     await releaseImportFile(this.fileSystem, file);
   }
 
-  async stagePackageFile(file: File | ContentImportFile, options?: ContentOperationOptions): Promise<ImportSession> {
+  async stagePackageFile(file: File | ContentImportFile, options?: import("./content/storage/contracts").ContentImportOptions): Promise<ImportSession> {
     this.beginIdleOperation();
     try {
       await this.ensureInitialized();
@@ -289,7 +332,12 @@ export class ApplicationController {
     try {
       await this.ensureInitialized();
       if (!this.transfer) throw new Error("只读模式不能安装内容包。");
-      return await this.transfer.installSelected(sessionId, candidateIds, onProgress, options, () => this.resolveStoredConflicts());
+      if (options?.newPackagesEnabled) await this.forkOfficialForEdit();
+      let choice: boolean | undefined;
+      const outcomes = await this.transfer.installSelected(sessionId, candidateIds, onProgress, options, () => this.resolveStoredConflicts(choice),
+        Capacitor.isNativePlatform() ? async ids => choice = await this.chooseEmbeddedConflictResolution(ids) : undefined);
+      if (options?.newPackagesEnabled) await this.syncCurrentPlaylist();
+      return outcomes;
     } finally { this.idleOperationRunning = false; }
   }
 
@@ -353,24 +401,45 @@ export class ApplicationController {
   }
 
   private async installedPluginOrder(): Promise<string[]> {
-    if (!this.manager) return [];
-    const packages = await this.manager.listPackages();
-    try {
-      return packages.filter((entry) => entry.pluginPriority !== undefined && entry.currentRevision)
-        .sort((a, b) => a.pluginPriority! - b.pluginPriority!).map((entry) => entry.packageId);
-    } finally { for (const entry of packages) releasePackagePresentation(entry.presentation); }
+    return this.manager?.installedPluginOrder() ?? [];
   }
 
-  private async syncCurrentPlaylist(): Promise<void> {
+  /** Model-only copy-on-edit; UI confirms before invoking the actual mutation. */
+  private async forkOfficialForEdit(id?: string): Promise<SavedPlaylist | null> {
+    if (!this.playlists) return null;
+    const currentId = await this.playlists.currentId();
+    if ((id ?? currentId) !== EMBEDDED_DEFAULT_PLAYLIST_ID) return null;
+    const copy = await this.playlists.copy(EMBEDDED_DEFAULT_PLAYLIST_ID, currentId === EMBEDDED_DEFAULT_PLAYLIST_ID);
+    if (currentId !== EMBEDDED_DEFAULT_PLAYLIST_ID) {
+      await this.manager!.applyPlaylist(copy.document);
+      await this.playlists.select(copy.id);
+    }
+    return copy;
+  }
+
+  async forkCurrentOfficialPlaylist(): Promise<SavedPlaylist | null> {
+    this.beginIdleOperation();
+    try { await this.ensureInitialized(); return await this.forkOfficialForEdit(); }
+    finally { this.idleOperationRunning = false; }
+  }
+
+  private async syncCurrentPlaylist(addedPackageId?: string): Promise<void> {
     if (!this.playlists || !this.repository) return;
+    await this.forkOfficialForEdit();
     const id = await this.playlists.currentId();
     const current = (await this.playlists.list()).find((entry) => entry.id === id);
     if (!current) return;
     const installed = await this.repository.listPackages();
     const ids = new Set(installed.map((entry) => entry.packageId));
     const missing = current.document.packages.filter((entry) => !ids.has(entry.packageId));
-    const enabled = await Promise.all(installed.filter((entry) => entry.enabled).map(async (entry) => ({ packageId: entry.packageId, version: (await this.repository!.readManifest(entry.packageId).catch(() => undefined))?.identity.version })));
-    await this.playlists.updateCurrent(playlistDocument(current.document.name, [...missing, ...enabled], await this.installedPluginOrder()));
+    const incremental = current.document.mode === "incremental";
+    const declared = new Set(current.document.packages.map(entry => entry.packageId));
+    if (addedPackageId) declared.add(addedPackageId);
+    const enabled = await Promise.all(installed.filter((entry) => entry.enabled && (!incremental || declared.has(entry.packageId))).map(async (entry) => ({ packageId: entry.packageId, version: (await this.repository!.readManifest(entry.packageId).catch(() => undefined))?.identity.version })));
+    const entries = [...missing, ...enabled];
+    const included = new Set(entries.map(entry => entry.packageId));
+    const order = (await this.installedPluginOrder()).filter(id => !incremental || included.has(id));
+    await this.playlists.updateCurrent(playlistDocument(current.document.name, entries, order, current.document.mode));
   }
 
   async selectPlaylist(id: string): Promise<{ readonly missing: readonly string[]; readonly versionMismatch: readonly string[] }> {
@@ -381,8 +450,6 @@ export class ApplicationController {
       const selected = (await this.playlists.list()).find((entry) => entry.id === id);
       if (!selected) throw new Error("播放集不存在。");
       const result = await this.manager.applyPlaylist(selected.document);
-      const ordered = await this.installedPluginOrder();
-      await this.manager.setPluginOrder([...selected.document.pluginOrder.filter((item) => ordered.includes(item)), ...ordered.filter((item) => !selected.document.pluginOrder.includes(item))]);
       await this.playlists.select(id);
       return result;
     } finally { this.idleOperationRunning = false; }
@@ -422,8 +489,26 @@ export class ApplicationController {
 
   async renamePlaylist(id: string, name: string): Promise<SavedPlaylist> {
     this.beginIdleOperation();
-    try { await this.ensureInitialized(); if (!this.playlists) throw new Error("只读模式不能管理播放集。"); return await this.playlists.rename(id, name); }
+    try {
+      await this.ensureInitialized(); if (!this.playlists) throw new Error("只读模式不能管理播放集。");
+      const title = PlaylistDocumentSchema.shape.name.parse(name);
+      if (!title) throw new Error("播放集名称不能为空。");
+      const editable = await this.forkOfficialForEdit(id);
+      return await this.playlists.rename(editable?.id ?? id, title);
+    }
     finally { this.idleOperationRunning = false; }
+  }
+
+  async setPlaylistMode(id: string, mode: PlaylistMode): Promise<void> {
+    this.beginIdleOperation();
+    try {
+      await this.ensureInitialized();
+      if (!this.playlists) throw new Error("只读模式不能管理播放集。");
+      const parsed = PlaylistDocumentSchema.shape.mode.unwrap().parse(mode);
+      const editable = await this.forkOfficialForEdit(id), target = editable?.id ?? id;
+      await this.playlists.setMode(target, parsed);
+      if (await this.playlists.currentId() === target) await this.syncCurrentPlaylist();
+    } finally { this.idleOperationRunning = false; }
   }
 
   async copyPlaylist(id: string): Promise<SavedPlaylist> {
@@ -461,19 +546,33 @@ export class ApplicationController {
     try {
       await this.ensureInitialized();
       await this.resolveStoredConflicts();
-      if (!this.embeddedOnly) {
-        const installed = (await this.repository!.listPackages()).filter((entry) => entry.enabled);
-        if (installed.length === 0) throw new Error("没有启用的内容包。");
-        for (const entry of installed) {
-          await this.repository!.verifyPackage(entry.packageId, (progress) => this.options.onProgress?.({ phase: "verifying", ...progress }));
+      const packages = this.embeddedOnly ? await this.embedded.packages()
+        : await this.repository!.verifyEnabledPackages(progress => this.options.onProgress?.({ phase: "verifying", ...progress }));
+      if (packages.length === 0) throw new Error("没有启用的内容包。");
+      for (const access of packages) {
+        try {
+          HocpkgManifestSchema.parse(access.manifest);
+          const compatibilityError = pluginCompatibilityError(access.manifest);
+          if (compatibilityError) {
+            const descriptor = access.manifest.resources.find(resource => resource.type === "plugin.module"
+              && !SUPPORTED_PLUGIN_MODULE_API_VERSIONS.some(version => version === resource.apiVersion))!;
+            throw new ContentStartupError(`内容包 ${access.packageId} 无法启动：${compatibilityError}`, {
+              reason: "api-version-unsupported", packageId: access.packageId, packageTitle: access.manifest.metadata.title,
+              resourceType: descriptor.type, apiVersion: descriptor.apiVersion, supportedApiVersions: SUPPORTED_PLUGIN_MODULE_API_VERSIONS
+            });
+          }
+        } catch (error) {
+          if (error instanceof ContentStartupError) throw error;
+          const cyclic = error instanceof z.ZodError && error.issues.some(issue => issue.code === "custom" && issue.params?.reason === "dependency-cycle");
+          throw new ContentStartupError(`内容包 ${access.packageId} 无法启动：${error instanceof Error ? error.message : String(error)}`, {
+            reason: cyclic ? "dependency-cycle" : "manifest-invalid", packageId: access.packageId, packageTitle: access.manifest.metadata.title
+          }, { cause: error });
         }
       }
       const index = await this.embedded.loadIndex();
-      const source = this.embeddedOnly ? this.embedded : new RepositoryContentSource(this.repository!);
-      const packages = await source.packages();
       // Keep one manifest snapshot for the warning decision and the subsequent plugin/content loads.
       const activeSource = { packages: async () => packages };
-      root.innerHTML = `<main class="loading-shell"><span class="mark">✦</span><p>正在洗牌……</p></main>`;
+      root.innerHTML = loadingScreenMarkup("正在洗牌");
       const persistence = createPersistenceService();
       if (!await ensureLongTermSaveReady(root, persistence)) {
         this.currentState = "idle";
@@ -508,7 +607,7 @@ export class ApplicationController {
           return (rightRank < 0 ? Number.MAX_SAFE_INTEGER : rightRank) - (leftRank < 0 ? Number.MAX_SAFE_INTEGER : leftRank);
         });
         const skillArchetypeArt = mergeSkillArchetypeArt(artOrder.map(({ contribution }) => contribution.skillArchetypeArt ?? {}));
-        return { prepared, contributions: [...contributions.map(({ contribution }) => contribution), { skillArchetypeArt }] };
+        return { prepared, contributions: [...contributions.map(({ contribution }) => contribution), { skillArchetypeArt, mainMenuQuote: selectMainMenuQuote(contributions, savedOrder) }] };
       };
       let activePresentation = createPresentation(content);
       const preparePresentation: NonNullable<import("./runtime-host").MountGameRuntimeOptions["preparePresentation"]> = async (preferences, unlocks) => {
@@ -548,6 +647,7 @@ export class ApplicationController {
           return [[character.metadata.id, { package_id: `${pkg.manifest.identity.authorId}/${pkg.manifest.identity.packageName}`, package_version: pkg.manifest.identity.version, package_name: pkg.manifest.metadata.title }]];
         }))),
         contributions: activePresentation.contributions,
+        storyResources: () => activePresentation.prepared.extensions,
         preparePresentation,
         loadSkinPreviews: (key, signal) => loadSkinPreviews(activeSource, key, signal),
         characterSkins: longTerm?.settings.characterSkins,

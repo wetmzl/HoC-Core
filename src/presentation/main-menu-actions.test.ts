@@ -42,3 +42,18 @@ it("uses portrait capabilities instead of CSS names and distinguishes flows shar
   expect(cards).toContain("<h2>Second trial</h2><p>Second route</p>");
   expect(cards).not.toContain('data-ui-action="ordinary-tool"');
 });
+it("places the built-in notebook and plugin tools in the header", async () => {
+  const openNotebook = vi.fn(async () => {});
+  const builtin = builtinMainMenuActions({ historyCount: 0, openDialog() {}, openSkills() {}, openHistory: async () => {}, openNotebook });
+  const actions = collectMainMenuActions(builtin, [{ uiActions: [{ id: "notebook", slot: "main-menu.tools", label: "笔记本", mount: () => ({ dispose() {} }) }] }], async () => {});
+  const menu = renderLobbyMarkup({ save: createDefaultSave(), menuActions: actions, guests: [], defeated: [], visibleDefeated: [], defeatedRemaining: 0, layer: "menu" });
+  const header = menu.match(/<header[\s\S]*?<\/header>/)![0];
+  const footer = menu.slice(menu.indexOf('<div class="lobby-menu-footer">'));
+  expect(header).toContain('data-open-notebook');
+  expect(header).toContain('data-ui-action="extension:0:notebook"');
+  expect(menu).not.toContain('class="lobby-side-tools"');
+  expect(footer).not.toContain('data-open-notebook');
+  expect(menu.match(/data-open-notebook/g)).toHaveLength(1);
+  await actions.find(action => action.id === "notebook")!.activate();
+  expect(openNotebook).toHaveBeenCalledOnce();
+});

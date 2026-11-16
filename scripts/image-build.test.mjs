@@ -1,11 +1,13 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { buildEmbeddedContent, buildPackageTree, imageBuildPlugin, imageOptions, rewriteImageText } from './image-build.mjs';
+import { createEmbeddedDefaultPlaylist } from './default-playlist.mjs';
+import { syncPackageIndex } from './package-tools.mjs';
 
 let root, sourceImage, sourceManifest;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -91,10 +93,45 @@ test('embedded distribution uses descriptors and immutable directory assets with
   assert.equal(entry.identity.authorId, 'test');
   assert.equal(entry.startup['match.json'], tree.packages[0].files['match.json'].toString());
   assert.equal(entry.startup['assets/portrait.webp'], undefined);
+  assert.deepEqual(JSON.parse(built.files['embedded/default-playlist.json']), {
+    format: 'house-of-chances-playlist', formatVersion: 2, name: '官方播放集',
+    packages: [{ packageId: 'test/sample', version: '1.0.0' }], pluginOrder: []
+  });
+  assert.deepEqual(buildEmbeddedContent({ packages: tree.packages, index: tree.index }).files['embedded/default-playlist.json'], built.files['embedded/default-playlist.json']);
   for (const resource of built.downloads) {
     const bytes = built.files[resource.url.slice(1)];
     assert.equal(bytes.length, resource.bytes); assert.equal(hash(bytes), resource.sha256);
   }
+});
+
+test('default playlist follows an explicit enabled subset and embedded plugin order', () => {
+  const plugin = name => ({ ...sourceManifest, identity: { ...sourceManifest.identity, packageName: name }, resources: [{ type: 'plugin.module' }] });
+  const index = { packages: [
+    { packageId: 'test/first', version: '1.0.0' }, { packageId: 'test/sample', version: '1.0.0' }, { packageId: 'test/second', version: '2.0.0' }
+  ], defaultEnabled: ['test/second', 'test/first'] };
+  const manifests = [plugin('second'), sourceManifest, plugin('first')];
+  assert.deepEqual(createEmbeddedDefaultPlaylist(index, manifests).pluginOrder, ['test/first', 'test/second']);
+  assert.deepEqual(createEmbeddedDefaultPlaylist(index, manifests).packages, [index.packages[0], index.packages[2]]);
+  assert.deepEqual(createEmbeddedDefaultPlaylist({ ...index, defaultEnabled: [] }, manifests).packages, []);
+  assert.throws(() => createEmbeddedDefaultPlaylist({ ...index, defaultEnabled: ['test/missing'] }, manifests), /unknown/);
+});
+
+test('package sync/check keeps defaultEnabled and catches a stale standard default playlist', async () => {
+  const project = await mkdtemp(join(tmpdir(), 'hoc-default-playlist-'));
+  try {
+    await cp(join(root, 'sample'), join(project, 'sample'), { recursive: true });
+    const index = { ...JSON.parse(await readFile(join(root, 'packages.json'))), defaultEnabled: ['test/sample'] };
+    await writeFile(join(project, 'packages.json'), JSON.stringify(index));
+    await syncPackageIndex(project);
+    assert.deepEqual(JSON.parse(await readFile(join(project, 'packages.json'))).defaultEnabled, ['test/sample']);
+    assert.equal(await syncPackageIndex(project, { check: true }), false);
+    const stale = JSON.stringify({ name: 'stale' });
+    await writeFile(join(project, 'default-playlist.json'), stale);
+    assert.equal(await syncPackageIndex(project, { check: true }), true);
+    assert.equal(await readFile(join(project, 'default-playlist.json'), 'utf8'), stale);
+    await syncPackageIndex(project);
+    assert.deepEqual(JSON.parse(await readFile(join(project, 'default-playlist.json'))).packages, [{ packageId: 'test/sample', version: '1.0.0' }]);
+  } finally { await rm(project, { recursive: true, force: true }); }
 });
 
 test('quality changes lossy bytes and cache entries for portraits and covers', async () => {
@@ -164,6 +201,7 @@ test('persistent build cache survives checkout cleanup and preserves encoded byt
     await writeFile(join(project, 'public/assets/sample.png'), sourceImage);
     const first = imageBuildPlugin();
     const staged = await first.config({ root: project });
+    assert.equal(JSON.parse(await readFile(join(staged.publicDir, 'embedded/default-playlist.json'))).name, '官方播放集');
     const builtPath = (await readdir(join(staged.publicDir, 'assets'))).find(path => /^sample\.[a-f0-9]{64}\.webp$/.test(path));
     const bytes = await readFile(join(staged.publicDir, 'assets', builtPath));
     await first.closeBundle();

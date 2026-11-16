@@ -1,0 +1,157 @@
+{
+  "sceneId": "claude-invitation",
+  "trigger": {
+    "on": [
+      "program.completed"
+    ],
+    "when": {
+      "type": "all",
+      "conditions": [
+        {
+          "type": "compare",
+          "left": {
+            "type": "query",
+            "query": {
+              "id": "event.data",
+              "key": "result"
+            }
+          },
+          "operator": "eq",
+          "right": {
+            "type": "literal",
+            "value": "victory"
+          }
+        },
+        {
+          "type": "any",
+          "conditions": [
+            {
+              "type": "compare",
+              "left": {
+                "type": "query",
+                "query": {
+                  "id": "event.data",
+                  "key": "definitionId"
+                }
+              },
+              "operator": "eq",
+              "right": {
+                "type": "literal",
+                "value": "single:grok"
+              }
+            },
+            {
+              "type": "compare",
+              "left": {
+                "type": "query",
+                "query": {
+                  "id": "event.data",
+                  "key": "definitionId"
+                }
+              },
+              "operator": "eq",
+              "right": {
+                "type": "literal",
+                "value": "single:gemini"
+              }
+            },
+            {
+              "type": "compare",
+              "left": {
+                "type": "query",
+                "query": {
+                  "id": "event.data",
+                  "key": "definitionId"
+                }
+              },
+              "operator": "eq",
+              "right": {
+                "type": "literal",
+                "value": "single:qwen"
+              }
+            },
+            {
+              "type": "compare",
+              "left": {
+                "type": "query",
+                "query": {
+                  "id": "event.data",
+                  "key": "definitionId"
+                }
+              },
+              "operator": "eq",
+              "right": {
+                "type": "literal",
+                "value": "single:glm"
+              }
+            }
+          ]
+        },
+        {
+          "type": "compare",
+          "left": {
+            "type": "query",
+            "query": {
+              "id": "context.value",
+              "key": "progression.defeated.grok"
+            }
+          },
+          "operator": "eq",
+          "right": {
+            "type": "literal",
+            "value": true
+          }
+        },
+        {
+          "type": "compare",
+          "left": {
+            "type": "query",
+            "query": {
+              "id": "context.value",
+              "key": "progression.defeated.gemini"
+            }
+          },
+          "operator": "eq",
+          "right": {
+            "type": "literal",
+            "value": true
+          }
+        },
+        {
+          "type": "compare",
+          "left": {
+            "type": "query",
+            "query": {
+              "id": "context.value",
+              "key": "progression.defeated.qwen"
+            }
+          },
+          "operator": "eq",
+          "right": {
+            "type": "literal",
+            "value": true
+          }
+        },
+        {
+          "type": "compare",
+          "left": {
+            "type": "query",
+            "query": {
+              "id": "context.value",
+              "key": "progression.defeated.glm"
+            }
+          },
+          "operator": "eq",
+          "right": {
+            "type": "literal",
+            "value": true
+          }
+        }
+      ]
+    }
+  },
+  "frequency": "save",
+  "priority": 90,
+  "queue": "append",
+  "scope": "global"
+}

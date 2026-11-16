@@ -17,7 +17,7 @@ describe("SS invitation and rematch policy", () => {
     expect(isCharacterUnlocked({ ...boss, unlock: { type: "defeat-any" } }, [defeat("llama")])).toBe(false);
     expect(unlockedCharacterIdsForDefeats([defeat("llama")])).not.toContain(boss.id);
     expect(isCharacterUnlocked(boss, [defeat(boss.id)])).toBe(true);
-    expect(isCharacterUnlocked(await loadCharacter("chatgpt"), [])).toBe(true);
+    expect(isCharacterUnlocked(await loadCharacter("llama"), [])).toBe(true);
   });
   it("selects each skill independently and leaves authored/boss challenge bindings unchanged", async () => {
     const boss = await loadCharacter("claude"), skills = specialOpponentRematchSkills(boss);
@@ -45,6 +45,7 @@ describe("SS invitation and rematch policy", () => {
   it("compiles independent invitations with the legacy loadout and selected skills before runtime starts", async () => {
     const ordinary = await loadCharacter("chatgpt"), special = await loadCharacter("claude");
     const save = createDefaultSave();
+    save.defeats = [defeat("deepseek")];
     expect(characterEncounterCapabilities(ordinary)).toMatchObject({ requiresDefeat: false, rematchSkillChoices: false, playerGun: { capacity: 6 } });
     expect(standaloneFlowDefinition(ordinary, save).playerGun.capacity).toBe(6);
     expect(() => standaloneFlowDefinition(special, save)).toThrow("尚未解锁");

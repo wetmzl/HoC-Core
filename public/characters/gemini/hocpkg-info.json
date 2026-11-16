@@ -5,7 +5,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "gemini",
-    "version": "1.1.19"
+    "version": "1.1.21"
   },
   "metadata": {
     "title": "Gemini 角色包",
@@ -124,14 +124,14 @@
     },
     {
       "path": "resources/character-match.json",
-      "bytes": 4878,
-      "sha256": "00e30e9ae18ce82b0e793b904b609527dfca988e169f560555ab91a8584a571d",
+      "bytes": 5876,
+      "sha256": "61289a88109e5f615505da1be56f187b129fcc93f3a4e53e94d382533b1546d2",
       "mediaType": "application/json"
     },
     {
       "path": "resources/dialogue.json",
-      "bytes": 30025,
-      "sha256": "87fa60f4b6f614a281feac9e6e5d8346f9a9c9bc5fbb7a131080ca45af931d49",
+      "bytes": 30001,
+      "sha256": "6a7ae1e3e69c1734d2a7d812a69e9886cf04aad67fcdffaa97bc9fe6aae6f67e",
       "mediaType": "application/json"
     },
     {

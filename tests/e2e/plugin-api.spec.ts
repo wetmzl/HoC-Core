@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { zipSync } from "fflate";
+import { respondToOfficialPlaylistCopy } from "./playlist-fixture";
 
 for (const missingAny of [false, true]) {
   test(`取消信号兼容层支持已安装插件与反馈生命周期（${missingAny ? "缺失 API" : "原生 API"}）`, async ({ page }) => {
@@ -59,6 +60,7 @@ for (const missingAny of [false, true]) {
     await page.locator("[data-import-file]").setInputFiles({ name: "abort-probe.hocpkg", mimeType: "application/zip", buffer: Buffer.from(zipSync({ ...files, "hocpkg-info.json": Buffer.from(JSON.stringify(manifest)) })) });
     await page.getByRole("button", { name: "安装所选包" }).click();
     await page.locator('[data-package-id="test/abort-probe"]').getByRole("button", { name: "启用", exact: true }).click();
+    await respondToOfficialPlaylistCopy(page, "confirm");
     await expect(page.locator('.package-card[data-package-id="test/abort-probe"]')).toHaveAttribute("data-package-state", "enabled");
     await page.getByRole("button", { name: "关闭资源管理" }).click();
     // Reload proves the already-installed package works with startup installation.
@@ -97,7 +99,7 @@ for (const missingAny of [false, true]) {
   });
 }
 
-test("旧插件明确提示不兼容且启动前不执行模块", async ({ page }) => {
+for (const apiVersion of [1, 999]) test(`API ${apiVersion} 插件只在启动时弹窗，按版本方向指导更新且不执行模块`, async ({ page }) => {
   const files = {
     "module.json": Buffer.from(JSON.stringify({ module: "plugin.js", style: "plugin.css", provides: [] })),
     "plugin.js": Buffer.from("window.__legacyExecuted = true; export function register() { throw new Error('legacy executed'); }"),
@@ -107,7 +109,7 @@ test("旧插件明确提示不兼容且启动前不执行模块", async ({ page 
     format: "house-of-chances-hocpkg", formatVersion: 1,
     identity: { authorId: "test", packageName: "legacy-plugin", version: "1.0.0" },
     metadata: { title: "旧接口测试", description: "Legacy API fixture", tags: [], creators: [{ displayName: "Test", roles: ["design"] }] },
-    resources: [{ id: "module", type: "plugin.module", apiVersion: 1, entry: "module.json", requires: [] }],
+    resources: [{ id: "module", type: "plugin.module", apiVersion, entry: "module.json", requires: [] }],
     files: Object.entries(files).map(([path, bytes]) => ({ path, bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex"), mediaType: path.endsWith(".json") ? "application/json" : path.endsWith(".js") ? "text/javascript" : "text/css" })), extensions: {}
   };
   await page.goto("/");
@@ -115,16 +117,28 @@ test("旧插件明确提示不兼容且启动前不执行模块", async ({ page 
   await page.locator("[data-import-file]").setInputFiles({ name: "legacy.hocpkg", mimeType: "application/zip", buffer: Buffer.from(zipSync({ ...files, "hocpkg-info.json": Buffer.from(JSON.stringify(manifest)) })) });
   await page.getByRole("button", { name: "安装所选包" }).click();
   const card = page.locator('.package-card[data-package-id="test/legacy-plugin"]');
-  await expect(card).toContainText("插件接口版本不兼容");
+  await expect(card).toBeVisible();
+  await expect(card.locator(".package-error")).toHaveCount(0);
   await card.getByRole("button", { name: "启用", exact: true }).click();
+  await respondToOfficialPlaylistCopy(page, "confirm");
   await page.getByRole("button", { name: "关闭资源管理" }).click();
   await page.getByRole("button", { name: "开始游戏", exact: true }).click();
-  await expect(page.locator("#third-party-content-warning")).toBeVisible();
+  const failure = page.locator("[data-startup-error]");
+  await expect(failure).toBeVisible();
+  await expect(failure.locator("[data-startup-error-reason]")).toContainText(apiVersion === 1 ? "插件太旧了" : "更新");
+  await expect(failure.locator("ol")).toContainText(apiVersion === 1 ? "旧版游戏" : "先更新 HoC 客户端");
+  await expect(failure.locator("pre")).toBeHidden();
+  await expect(failure.locator(".startup-error-details p")).toHaveCount(0);
+  await failure.locator("summary").click();
+  await expect(failure.locator("pre")).toContainText("test/legacy-plugin");
   expect(await page.evaluate(() => (window as any).__legacyExecuted)).toBeUndefined();
-  await page.locator("[data-acknowledge-third-party-content]").click();
+  await failure.getByRole("button", { name: "禁用相关内容并重试", exact: true }).click();
   await page.getByRole("button", { name: "我已成年并继续" }).click();
   await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
   expect(await page.evaluate(() => (window as any).__legacyExecuted)).toBeUndefined();
+  await page.locator("[data-exit-launcher]").click();
+  await page.getByRole("button", { name: "资源管理", exact: true }).click();
+  await expect(card.getByRole("button", { name: "启用", exact: true })).toBeVisible();
 });
 
 test("历史详情为扩展提供独立容器并在关闭或替换时释放", async ({ page }) => {

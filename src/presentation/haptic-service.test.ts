@@ -24,6 +24,14 @@ describe("portable haptic service", () => {
     expect(web.vibrate.mock.calls).toEqual([[[8]], [0]]);
     expect(() => createHapticDriver("web", native, {}).play([8])).not.toThrow();
   });
+  it("respects the device preference independently of the animation preference", async () => {
+    const driver = { play: vi.fn(async () => {}), cancel: vi.fn(async () => {}) };
+    let enabled = false;
+    const service = new HapticService(driver, () => enabled); service.configure(true);
+    await service.play([8]); expect(driver.play).not.toHaveBeenCalled();
+    enabled = true; await service.play([8]); expect(driver.play).toHaveBeenCalledOnce();
+    service.configure(false); await service.play([8]); expect(driver.play).toHaveBeenCalledOnce();
+  });
   it("validates the same finite nonnegative waveform contract as Android", () => {
     for (const value of [[], [-1], [0.1], [NaN], [Infinity], [5000, 5001], Array(65).fill(1)]) expect(validHapticPattern(value)).toBe(false);
     for (const value of [[0], [10000], Array(64).fill(1), [25, 75, 25, 75]]) expect(validHapticPattern(value)).toBe(true);

@@ -17,7 +17,9 @@ interface FileSystemWindow {
 export class WebSaveFileWriter implements SaveFileWriter {
   async write(blob: Blob, filename: string, description: string, accept: Record<string, string[]>): Promise<SaveExportMethod> {
     const host = globalThis as unknown as FileSystemWindow;
-    if (host.showSaveFilePicker) {
+    // Desktop exports use Electron's native download/save dialog, without
+    // exposing a filesystem bridge or relying on custom-origin picker support.
+    if (host.showSaveFilePicker && import.meta.env.MODE !== "electron") {
       const handle = await host.showSaveFilePicker({ suggestedName: filename, types: [{ description, accept }] });
       const writable = await handle.createWritable();
       await writable.write(blob);

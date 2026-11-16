@@ -2,7 +2,7 @@ import { getEncounterFlows, encounterUnlockProgress } from "../encounter-flows/c
 import { CHARACTER_CATALOG, defeatedCharacterIdsByFirstDefeat, isCharacterUnlocked, type CharacterDefinition } from "./index";
 import { specialOpponentRematchSkills } from "./rematches";
 import type { LongTermSave } from "../../persistence/schema";
-import { unlockConditionLabel } from "../../presentation/view-helpers";
+import { unlockConditionLabel } from "./unlocks";
 
 /** A legacy defeat implies completion only when that opponent has one authored challenge. */
 export function pendingCharacterChallenges(save: LongTermSave, characterId?: string) {

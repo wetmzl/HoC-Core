@@ -1,3 +1,4 @@
+import { skipStory } from "./story-platform-fixture";
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -111,4 +112,8 @@ test("music volume previews, saves, recovers failed writes and survives reload a
   await expect(page.locator(".table-bottom")).toBeVisible();
   await expect.poll(() => activeVolume(page, "match")).toBeCloseTo(.37);
   expect(errors).toEqual([]);
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.addLocatorHandler(page.locator("[data-story-player]"), async () => { await skipStory(page); });
 });

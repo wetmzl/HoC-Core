@@ -65,7 +65,7 @@ test("播放集入口确认后复用整合包导入，拒绝和关闭不安装",
     await expect(playlistDialog).toBeVisible();
     await expect(importedPackage).toHaveCount(0);
     await expect(page.locator("[data-import-dialog]")).toHaveCount(0);
-    await expect(page.locator(".playlist-current-name")).toHaveText("默认播放集");
+    await expect(page.locator(".playlist-current-name[data-embedded-default-playlist] > span")).toHaveText("官方播放器（只读）");
   }
   await playlistDialog.locator("[data-playlist-file]").setInputFiles(file);
   await prompt.getByRole("button", { name: "是", exact: true }).click();
@@ -122,7 +122,7 @@ test("整合包先确认选择，再保存并切换播放集", async ({ page }) 
   await page.locator("[data-import-skip-playlist]").click();
   await expect(dialog).toHaveCount(0);
   await expect(page.locator('.package-card[data-package-id="bundle/module"]')).toHaveAttribute("data-package-state", "disabled");
-  await expect(page.locator(".playlist-current-name")).toHaveText("默认播放集");
+  await expect(page.locator(".playlist-current-name[data-embedded-default-playlist] > span")).toHaveText("官方播放器（只读）");
   await page.locator("[data-toggle-playlist-menu]").click();
   await expect(page.locator(".playlist-menu")).toContainText("作者推荐");
   await page.locator("[data-toggle-playlist-menu]").click();

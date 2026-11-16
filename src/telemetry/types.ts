@@ -29,10 +29,17 @@ export interface MatchStatistics {
   skills: { id: string; name?: string; level: number; owner: "player" | "opponent"; plays: number; rule_triggers: number }[];
   loadout: { deck: string[]; talents: string[] }; configuration_hash?: string;
 }
-export type TelemetryEvent = EventEnvelope & (
+export type BaseTelemetryEvent = EventEnvelope & (
   { event_type: "app_started"; data: { storage: "persistent" | "ephemeral" } }
   | { event_type: "match_finished"; data: MatchStatistics }
 );
+export type AchievementCatalogItem = [key: string, revision: number];
+export type AchievementUnlockItem = [key: string, revision: number, at: string, allowDebug: boolean];
+export type AchievementTelemetryEvent = EventEnvelope & (
+  { event_type: "achievements_loaded"; data: { catalog_hash: string; part: number; parts: number; items: AchievementCatalogItem[] } }
+  | { event_type: "achievements_unlocked"; data: { items: AchievementUnlockItem[] } }
+);
+export type TelemetryEvent = BaseTelemetryEvent | AchievementTelemetryEvent;
 export interface MatchObservation { restored?: boolean; debugUsed?: boolean; }
 /** The organizer checkpoints summaries; this port never waits for network delivery. */
 export interface EncounterTelemetry {

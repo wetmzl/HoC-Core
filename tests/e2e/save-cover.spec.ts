@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { respondToOfficialPlaylistCopy } from "./playlist-fixture";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { zipSync } from "fflate";
@@ -94,6 +95,7 @@ test("a loaded neutral plugin overrides the card and falls back when its cover i
     buffer: Buffer.from(zipSync({ "hocpkg-info.json": Buffer.from(JSON.stringify(manifest)), ...files })) });
   await page.locator("[data-import-next]").click();
   await page.locator('.package-card[data-package-id="example/save-cover"]').getByRole("button", { name: "启用", exact: true }).click();
+  await respondToOfficialPlaylistCopy(page, "confirm");
   await page.getByRole("button", { name: "关闭资源管理" }).click();
   await startGame(page, true);
   expect((await exportImage(page)).art.equals(pluginCover)).toBe(true);

@@ -14,11 +14,11 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
         const registry = await load("/src/core/abilities/registry.ts");
         const { RANKS } = await load("/src/core/blackjack/types.ts");
         const { createMatch } = await load("/src/core/match/reducer.ts");
-        const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+        const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
         const { createPersistenceService } = await load("/src/persistence/factory.ts");
         const { mountGameRuntime } = await load("/src/match-screen.ts");
         const status = { id: "example-rank-set", defaultDuration: "round", rules: [] };
-        const definition = { id: "example-rank-display", name: "点数集合", description: "通用点数集合展示", sourceKind: "talent", unlock: { type: "defeat-count", count: 1, label: "示例" }, primaryDomain: "intelligence-officer", tags: ["display"], activation: { type: "automatic" }, rules: [], displays: [
+        const definition = { id: "example-rank-display", name: "点数集合", description: "记录中的点数集合及最近选择。", sourceKind: "talent", unlock: { type: "defeat-count", count: 1, label: "示例" }, primaryDomain: "intelligence-officer", tags: ["display"], activation: { type: "automatic" }, rules: [], displays: [
           { id: "ranks", target: "rival", description: "记录中的点数集合及最近选择。", content: [{ type: "text", text: "点数集合" }, { type: "rank-record", target: "owner", statusDefinitionId: status.id }] },
           { id: "value", target: "owner", description: "旧数值节点。", content: [{ type: "text", text: "示例数值：" }, { type: "number", value: 42 }] }
         ] };
@@ -31,7 +31,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
         const repository = createPersistenceService();
         const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false; save.settings.reducedMotion = true; save.tutorialProgress.completedIds.push("adult-content-warning");
         await repository.saveLongTerm(save); await repository.saveRuntime(createRuntimeSave(match));
-        void mountGameRuntime({ root: document.querySelector<HTMLElement>("#app")!, onExitRequest: async () => {} });
+        await mountGameRuntime({ root: document.querySelector<HTMLElement>("#app")!, onExitRequest: async () => {} });
       }, count);
       const board = page.locator(".status-chip-rank-record");
       await expect(board).toBeVisible();

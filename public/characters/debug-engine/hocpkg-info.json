@@ -4,7 +4,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "debug-engine",
-    "version": "1.0.3"
+    "version": "1.0.4"
   },
   "metadata": {
     "title": "官方调试引擎",
@@ -61,8 +61,8 @@
     },
     {
       "path": "module.js",
-      "bytes": 13039,
-      "sha256": "b466884d9c7f53c17ae63398120b4ed7fcaa6eeaf8ff41232af516ef88808fa9",
+      "bytes": 13170,
+      "sha256": "157fec667a86feed9d0224d6544b15706d15f2355dc56c46f2f9fa5042a1b4d8",
       "mediaType": "text/javascript"
     },
     {

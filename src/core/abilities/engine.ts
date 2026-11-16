@@ -1,8 +1,11 @@
+import { abilityRuleWindows, withAbilityRuleWindows, type AbilityRuleWindow } from "../events/rule-windows";
 import { SeededRng } from "../rng/seeded";
+import { captureAbilityFactOrigin, captureMatchFactEffects, captureAbilityPlayFact, withoutMatchFactEvidence } from "../events/production";
 import { allConditionsPass, resolveActor } from "./conditions";
-import { applyEffects } from "./effects";
+import { applyEffects, type EffectContext, type EffectPending } from "./effects";
 import { ABILITY_CATALOG_VERSION, getAbilityDefinition, getStatusDefinition, supportsAbilitySourceKind, type AbilityRegistry } from "./registry";
-import { addAbilityInstance, canConsumeRule, consumeAbilityTriggerTtl, consumeRule, isAbilityInstanceExpired } from "./runtime";
+import { addAbilityInstance, canConsumeRule, consumeAbilityTriggerTtl, consumeRule, garbageCollectAbilityInstances, isAbilityInstanceExpired } from "./runtime";
+import { selectSkillCards } from "./skill-card-selection";
 import type { AbilityActor, AbilityDefinition, AbilityDomainEvent, AbilityEventContext, AbilityEffectResult, AbilityInstance, AbilityRuntimeState, AbilityWorld, DecisionAction, PendingAiThreshold, PendingBustCheck, PendingComparison, PendingDefeat, PendingDraw, PendingLoad, PendingTrigger, PendingTurn } from "./types";
 
 const MAX_ABILITY_DEPTH = 16;
@@ -37,7 +40,7 @@ function collect(runtime: AbilityRuntimeState, trigger: AbilityEventContext["tri
   return rules.sort((left, right) => (left.rule.priority ?? 0) - (right.rule.priority ?? 0) || left.instance.createdAtSequence - right.instance.createdAtSequence || left.index - right.index);
 }
 
-export interface AbilityResolutionInput { readonly owners?: readonly AbilityActor[]; readonly world: AbilityWorld; readonly runtime: AbilityRuntimeState; readonly event: AbilityEventContext; readonly pendingTurn?: PendingTurn; readonly pendingAiThreshold?: PendingAiThreshold; readonly pendingDraw?: PendingDraw; readonly pendingLoad?: PendingLoad; readonly pendingBust?: PendingBustCheck; readonly pendingTrigger?: PendingTrigger; readonly pendingComparison?: PendingComparison; readonly pendingDefeat?: PendingDefeat; readonly directInstanceId?: string; readonly chanceMode?: "roll" | "assume-success"; readonly depth?: number; readonly chain?: readonly string[]; readonly registry?: AbilityRegistry; readonly bustLimitFor?: import("./effects").EffectContext["bustLimitFor"]; readonly forecastHitBust?: import("./effects").EffectContext["forecastHitBust"]; }
+export interface AbilityResolutionInput { readonly owners?: readonly AbilityActor[]; readonly world: AbilityWorld; readonly runtime: AbilityRuntimeState; readonly event: AbilityEventContext; readonly pendingTurn?: PendingTurn; readonly pendingAiThreshold?: PendingAiThreshold; readonly pendingDraw?: PendingDraw; readonly pendingLoad?: PendingLoad; readonly pendingBust?: PendingBustCheck; readonly pendingTrigger?: PendingTrigger; readonly pendingComparison?: PendingComparison; readonly pendingDefeat?: PendingDefeat; readonly directInstanceId?: string; readonly chanceMode?: "roll" | "assume-success"; readonly depth?: number; readonly chain?: readonly string[]; readonly registry?: AbilityRegistry; readonly bustLimitFor?: EffectContext["bustLimitFor"]; readonly forecastHitBust?: EffectContext["forecastHitBust"]; readonly previewComparison?: EffectContext["previewComparison"]; readonly actionWindowFor?: (owner: AbilityActor, world: AbilityWorld) => import("./types").ActionWindow | undefined; }
 export interface AbilityResolution extends AbilityEffectResult { readonly triggered: readonly string[]; }
 
 export interface PlayAbilityInput extends Omit<AbilityResolutionInput, "event" | "directInstanceId"> {
@@ -85,7 +88,7 @@ export function canPlayAbility(input: PlayAbilityInput): boolean {
     if (isAbilityBlockedByStatus(input.world, input.owner, definition, input.registry)) return false;
     const ability: AbilityInstance = instance ?? { ...card!, createdAtSequence: input.runtime.sequence + 1, parameters: {}, ...((definition.activation.uses ?? 1) > 1 ? { remainingUses: definition.activation.uses } : {}) };
     const event = { trigger: "on-ability-played" as const, sourceEventId: `ability:${input.instanceId}`, eventActor: input.owner, roundHitCounts: input.roundHitCounts, pendingTurn: input.pendingTurn };
-    if (!allConditionsPass(definition.activation.availability, { world: input.world, ability, event, registry: input.registry, forecastHitBust: input.forecastHitBust, bustLimitFor: input.bustLimitFor })) return false;
+    if (!allConditionsPass(definition.activation.availability, { world: input.world, runtime: input.runtime, ability, event, registry: input.registry, forecastHitBust: input.forecastHitBust, bustLimitFor: input.bustLimitFor, previewComparison: input.previewComparison })) return false;
     // Mirror the real pre-resolution state with a cloned RNG snapshot. This
     // validates effect context, callbacks and targets before exposing an
     // action; the returned state is deliberately discarded.
@@ -114,25 +117,59 @@ export function playAbility(input: PlayAbilityInput): AbilityResolution {
   if (isAbilityBlockedByStatus(input.world, input.owner, definition, input.registry)) throw new AbilityResolutionError("A status blocks this ability tag");
   const ability: AbilityInstance = instance ?? { ...card!, createdAtSequence: input.runtime.sequence + 1, parameters: {}, ...((definition.activation.uses ?? 1) > 1 ? { remainingUses: definition.activation.uses } : {}) };
   const event = { trigger: "on-ability-played" as const, sourceEventId: `ability:${input.instanceId}`, eventActor: input.owner, roundHitCounts: input.roundHitCounts, pendingTurn: input.pendingTurn };
-  const availabilityContext = { world: input.world, ability, event, registry: input.registry };
-  if (!allConditionsPass(definition.activation.availability, { ...availabilityContext, forecastHitBust: input.forecastHitBust, bustLimitFor: input.bustLimitFor })) throw new AbilityResolutionError("Ability availability conditions are not satisfied");
+  const availabilityContext = { world: input.world, runtime: input.runtime, ability, event, registry: input.registry };
+  if (!allConditionsPass(definition.activation.availability, { ...availabilityContext, forecastHitBust: input.forecastHitBust, bustLimitFor: input.bustLimitFor, previewComparison: input.previewComparison })) throw new AbilityResolutionError("Ability availability conditions are not satisfied");
   const runtime = addAbilityInstance(input.runtime, ability, input.registry);
   const world = definition.activation.consume === "card" && uses === 1 ? { ...input.world, cards: input.world.cards.filter((entry) => entry.instanceId !== input.instanceId) } : input.world;
   const result = resolveAbilityEvent({ ...input, world, runtime, directInstanceId: ability.instanceId, event });
   if (result.triggered.length === 0) {
     if (result.runtime.rng.state !== input.runtime.rng.state) {
       // An eligible probabilistic action can miss without spending the card or a successful-use budget.
-      return { ...result, world: input.world, runtime: { ...input.runtime, rng: result.runtime.rng } };
+      return withAbilityRuleWindows({ ...result, world: input.world, runtime: { ...input.runtime, rng: result.runtime.rng } }, abilityRuleWindows(result));
     }
     throw new AbilityResolutionError("Ability has no triggered direct rules");
   }
   const runtimeAfterUse = definition.activation.consume === "card" && (definition.activation.uses ?? 1) > 1
     ? { ...result.runtime, instances: result.runtime.instances.map((candidate) => candidate.instanceId === ability.instanceId ? { ...candidate, remainingUses: uses - 1 } : candidate) }
     : result.runtime;
-  const updatedRuntime = ability.kind === "player-skill"
+  const updatedRuntime = ability.kind === "player-skill" && ability.owner === "player"
     ? { ...runtimeAfterUse, lastPlayedPlayerSkillDefinitionId: ability.definitionId, lastPlayedPlayerSkillLevel: ability.level ?? 1 }
     : runtimeAfterUse;
-  return { ...result, runtime: updatedRuntime, events: [{ type: "ABILITY_PLAYED", ...((ability.level ?? 1) > 1 ? { level: ability.level } : {}), instanceId: ability.instanceId, definitionId: ability.definitionId, owner: ability.owner }, ...result.events] };
+  const played: AbilityDomainEvent = { type: "ABILITY_PLAYED", ...((ability.level ?? 1) > 1 ? { level: ability.level } : {}), instanceId: ability.instanceId, definitionId: ability.definitionId, owner: ability.owner };
+  captureAbilityFactOrigin([played], ability, event);
+  captureAbilityPlayFact(played, { before: input.world, after: result.world, usesBefore: uses, roundHitCounts: input.roundHitCounts, consumesCard: definition.activation.consume === "card", primaryDomain: definition.primaryDomain });
+  return withAbilityRuleWindows({ ...result, runtime: updatedRuntime, events: [played, ...result.events] },
+    abilityRuleWindows(result).map((window, index) => index === 0 ? window : { ...window, eventOffset: window.eventOffset + 1 }));
+}
+
+/** Select a usable held active card, then use the normal action transaction. */
+function invokeRandomActiveSkill(effect: Extract<import("./types").Effect, { type: "invoke-random-active-skill" }>, context: EffectContext, pending: EffectPending, input: AbilityResolutionInput): AbilityEffectResult {
+  const owner = resolveActor(effect.target, context);
+  const window = owner && input.actionWindowFor?.(owner, context.world);
+  const unchanged = (): AbilityEffectResult => ({ world: context.world, runtime: { ...context.runtime, rng: context.rng.snapshot() }, events: [], pendingTurn: pending.turn, pendingAiThreshold: pending.aiThreshold, pendingDraw: pending.draw, pendingLoad: pending.load, pendingBust: pending.bust, pendingTrigger: pending.trigger, pendingComparison: pending.comparison, pendingDefeat: pending.defeat });
+  if (!owner || !window) return unchanged();
+  const excluded = new Set([...(input.chain ?? []), context.ability.instanceId]);
+  const candidates: PlayAbilityInput[] = [];
+  for (const card of selectSkillCards(context.world, owner, effect.filter, input.registry)) {
+    const definition = getAbilityDefinition(card.definitionId, input.registry, card.level);
+    if (!definition || definition.activation.type !== "action" || excluded.has(card.instanceId)) continue;
+    const candidate: PlayAbilityInput = { ...input, owners: undefined, world: context.world, runtime: { ...context.runtime, rng: context.rng.snapshot() }, instanceId: card.instanceId, owner, window, roundHitCounts: context.event.roundHitCounts,
+      pendingTurn: pending.turn, pendingAiThreshold: pending.aiThreshold, pendingDraw: pending.draw, pendingLoad: pending.load, pendingBust: pending.bust, pendingTrigger: pending.trigger, pendingComparison: pending.comparison, pendingDefeat: pending.defeat,
+      depth: (input.depth ?? 0) + 1, chain: [...(input.chain ?? []), card.instanceId] };
+    if (withoutMatchFactEvidence(() => canPlayAbility(candidate))) candidates.push(candidate);
+  }
+  if (candidates.length === 0) return unchanged();
+  const selected = candidates[context.rng.nextInt(candidates.length)]!;
+  const played = playAbility({ ...selected, runtime: { ...selected.runtime, rng: context.rng.snapshot() } });
+  const after = played.events.some(event => event.type === "ABILITY_PLAYED")
+    ? resolveAbilityEvent({ ...selected, world: played.world, runtime: played.runtime, directInstanceId: undefined,
+      pendingTurn: played.pendingTurn, pendingAiThreshold: played.pendingAiThreshold, pendingDraw: played.pendingDraw, pendingLoad: played.pendingLoad, pendingBust: played.pendingBust, pendingTrigger: played.pendingTrigger, pendingComparison: played.pendingComparison, pendingDefeat: played.pendingDefeat,
+      event: { trigger: "after-ability-played", sourceEventId: `${context.event.sourceEventId}:after-ability:${selected.instanceId}`, eventActor: owner, playedAbilityKind: "player-skill", roundHitCounts: context.event.roundHitCounts } })
+    : { ...played, events: [] };
+  const world = after.world;
+  const runtime = garbageCollectAbilityInstances(after.runtime, world.cards, input.registry);
+  return withAbilityRuleWindows({ ...after, world, runtime, gainedAbilities: undefined, acquiredCards: undefined, events: [...played.events, ...after.events] },
+    [...abilityRuleWindows(played), ...abilityRuleWindows(after).map(occurrence => ({ ...occurrence, eventOffset: played.events.length + occurrence.eventOffset }))]);
 }
 
 export function resolveAbilityEvent(input: AbilityResolutionInput): AbilityResolution {
@@ -157,6 +194,8 @@ export function resolveAbilityEvent(input: AbilityResolutionInput): AbilityResol
     initialHandCardCounts: { player: input.world.hands.player.cards.length, opponent: input.world.hands.opponent.cards.length }
   };
   let events: readonly AbilityDomainEvent[] = [];
+  const windows: AbilityRuleWindow[] = [{ event: { ...event, pendingTurn, pendingAiThreshold,
+    pendingDraw, pendingLoad, pendingBust, pendingTrigger, pendingComparison, pendingDefeat }, eventOffset: 0 }];
   const triggered: string[] = [];
   for (const entry of collect(runtime, event.trigger, input.directInstanceId, input.registry)) {
     if (input.owners && !input.owners.includes(entry.instance.owner)) continue;
@@ -170,7 +209,7 @@ export function resolveAbilityEvent(input: AbilityResolutionInput): AbilityResol
     const counterRuleId = entry.status
       ? `status[${encodeURIComponent(entry.status.statusDefinitionId)},${entry.status.owner},${entry.status.createdAtSequence}]:${entry.rule.id}`
       : entry.rule.id;
-    const context = { world, ability: liveInstance, registry: input.registry, event: { ...event, statusOwner: entry.status?.owner, pendingTurn, pendingAiThreshold, pendingDraw, pendingBust, pendingDefeat, pendingComparison }, forecastHitBust: input.forecastHitBust, bustLimitFor: input.bustLimitFor };
+    const context = { world, runtime, ability: liveInstance, registry: input.registry, event: { ...event, statusOwner: entry.status?.owner, pendingTurn, pendingAiThreshold, pendingDraw, pendingBust, pendingDefeat, pendingComparison }, forecastHitBust: input.forecastHitBust, bustLimitFor: input.bustLimitFor, previewComparison: input.previewComparison };
     try {
       // A rescue is a single claim on this defeat. Skip the whole competing
       // transaction before costs, chance RNG, TTL or counters can be consumed.
@@ -183,7 +222,9 @@ export function resolveAbilityEvent(input: AbilityResolutionInput): AbilityResol
         runtime = { ...runtime, rng: abilityRng.snapshot() };
         continue;
       }
-      const result = applyEffects(entry.rule.effects, { ...context, rng: abilityRng, runtime, registry: input.registry, ruleId: entry.rule.id, forecastHitBust: input.forecastHitBust, bustLimitFor: input.bustLimitFor }, { turn: pendingTurn, aiThreshold: pendingAiThreshold, draw: pendingDraw, load: pendingLoad, bust: pendingBust, trigger: pendingTrigger, comparison: pendingComparison, defeat: pendingDefeat });
+      const result = applyEffects(entry.rule.effects, { ...context, rng: abilityRng, runtime, registry: input.registry, ruleId: entry.rule.id,
+        invokeRandomActiveSkill: (effect, invocationContext, invocationPending) => invokeRandomActiveSkill(effect, invocationContext, invocationPending, input) }, { turn: pendingTurn, aiThreshold: pendingAiThreshold, draw: pendingDraw, load: pendingLoad, bust: pendingBust, trigger: pendingTrigger, comparison: pendingComparison, defeat: pendingDefeat });
+      windows.push(...abilityRuleWindows(result).map(occurrence => ({ ...occurrence, eventOffset: events.length + occurrence.eventOffset })));
       world = result.world;
       pendingTurn = result.pendingTurn;
       pendingAiThreshold = result.pendingAiThreshold;
@@ -193,23 +234,28 @@ export function resolveAbilityEvent(input: AbilityResolutionInput): AbilityResol
       pendingTrigger = result.pendingTrigger;
       pendingComparison = result.pendingComparison;
       pendingDefeat = result.pendingDefeat;
-      runtime = { ...result.runtime, rng: abilityRng.snapshot() };
+      runtime = entry.rule.effects.some(effect => effect.type === "invoke-random-active-skill") ? result.runtime : { ...result.runtime, rng: abilityRng.snapshot() };
+      // An empty or blocked invocation pool does not spend trigger limits or
+      // announce a successful cast. Probability misses retain their RNG advance.
+      if (entry.rule.effects.every(effect => effect.type === "invoke-random-active-skill") && !result.events.some(effectEvent => effectEvent.type === "ABILITY_PLAYED")) continue;
       if (runtime.instances.some(instance => instance.instanceId === entry.instance.instanceId)) runtime = consumeRule(runtime, entry.instance.instanceId, counterRuleId, entry.rule.limit, event.sourceEventId);
       const ttl = consumeAbilityTriggerTtl(runtime, world.cards, entry.instance.instanceId, input.registry);
       runtime = ttl.runtime;
       world = { ...world, cards: ttl.cards, statuses: ttl.runtime.statuses };
-      events = [
-        ...events,
-        ...result.events,
+      const completed: AbilityDomainEvent[] = [
         { type: "ABILITY_TRIGGERED", ...((entry.instance.level ?? 1) > 1 ? { level: entry.instance.level } : {}), instanceId: entry.instance.instanceId, definitionId: entry.instance.definitionId, ruleId: entry.rule.id, owner: entry.instance.owner },
         ...ttl.expiredStatuses.map((status) => ({ type: "STATUS_REMOVED" as const, statusDefinitionId: status.statusDefinitionId, owner: status.owner, reason: "expired" as const })),
         ...ttl.expired.map((instance) => ({ type: "ABILITY_EXPIRED" as const, ...((instance.level ?? 1) > 1 ? { level: instance.level } : {}), instanceId: instance.instanceId, definitionId: instance.definitionId, owner: instance.owner, reason: "triggers" as const }))
       ];
+      captureAbilityFactOrigin(completed, entry.instance, event, entry.rule.id);
+      captureMatchFactEffects(completed[0], result);
+      events = [...events, ...result.events, ...completed];
       triggered.push(`${entry.instance.instanceId}:${entry.rule.id}`);
       for (const instance of result.gainedAbilities ?? []) {
         const gained = resolveAbilityEvent({ ...input, world, runtime, directInstanceId: instance.instanceId, depth: depth + 1,
           event: { ...event, trigger: "on-ability-gained", sourceEventId: `${event.sourceEventId}:gained:${instance.instanceId}`, eventActor: instance.owner },
           pendingTurn, pendingAiThreshold, pendingDraw, pendingLoad, pendingBust, pendingTrigger, pendingComparison, pendingDefeat });
+        windows.push(...abilityRuleWindows(gained).map(window => ({ ...window, eventOffset: events.length + window.eventOffset })));
         world = gained.world; runtime = gained.runtime;
         pendingTurn = gained.pendingTurn; pendingAiThreshold = gained.pendingAiThreshold; pendingDraw = gained.pendingDraw;
         pendingLoad = gained.pendingLoad; pendingBust = gained.pendingBust; pendingTrigger = gained.pendingTrigger; pendingComparison = gained.pendingComparison; pendingDefeat = gained.pendingDefeat;
@@ -220,6 +266,7 @@ export function resolveAbilityEvent(input: AbilityResolutionInput): AbilityResol
         const acquired = resolveAbilityEvent({ ...input, world, runtime, directInstanceId: undefined, depth: depth + 1,
           event: { ...event, trigger: "after-card-acquired", sourceEventId: `${event.sourceEventId}:${entry.instance.instanceId}:${entry.rule.id}:acquired:${actor}:${card.id}`, eventActor: actor, acquiredCards },
           pendingTurn, pendingAiThreshold, pendingDraw, pendingLoad, pendingBust, pendingTrigger, pendingComparison, pendingDefeat });
+        windows.push(...abilityRuleWindows(acquired).map(window => ({ ...window, eventOffset: events.length + window.eventOffset })));
         world = acquired.world; runtime = acquired.runtime;
         pendingTurn = acquired.pendingTurn; pendingAiThreshold = acquired.pendingAiThreshold; pendingDraw = acquired.pendingDraw;
         pendingLoad = acquired.pendingLoad; pendingBust = acquired.pendingBust; pendingTrigger = acquired.pendingTrigger; pendingComparison = acquired.pendingComparison; pendingDefeat = acquired.pendingDefeat;
@@ -230,7 +277,7 @@ export function resolveAbilityEvent(input: AbilityResolutionInput): AbilityResol
       throw new AbilityResolutionError(`${entry.instance.instanceId}/${entry.rule.id}: ${reason}`, [...triggered, `${entry.instance.instanceId}:${entry.rule.id}`], { instanceId: entry.instance.instanceId, definitionId: entry.instance.definitionId, ruleId: entry.rule.id });
     }
   }
-  return { world, pendingTurn, pendingAiThreshold, pendingDraw, pendingLoad, pendingBust, pendingTrigger, pendingComparison, pendingDefeat, runtime, events, triggered };
+  return withAbilityRuleWindows({ world, pendingTurn, pendingAiThreshold, pendingDraw, pendingLoad, pendingBust, pendingTrigger, pendingComparison, pendingDefeat, runtime, events, triggered }, windows);
 }
 
 export { MAX_ABILITY_DEPTH };

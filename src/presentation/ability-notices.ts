@@ -2,6 +2,7 @@ import { resolveValue } from "../core/abilities/value-expressions";
 import { getAbilityDefinition, getStatusDefinition, STATUS_DEFINITIONS } from "../core/abilities/registry";
 import { getActiveBustLimit, type PendingTriggerPreview } from "../core/match/reducer";
 import type { MatchState, GameEvent } from "../core/match/types";
+import type { MatchFactBatch } from "../core/events";
 import type { AbilityRule, Effect } from "../core/abilities/types";
 
 export type AbilityNoticeTone = "player" | "ai" | "notification";
@@ -183,6 +184,10 @@ export function abilityTriggerNotice(events: readonly GameEvent[], opponentName:
   return formatAbilityNotices(groups, opponentName);
 }
 
+export function abilityTriggerNoticesFromFacts(batch: MatchFactBatch, opponentName: string): AbilityNotice[] {
+  return abilityTriggerNotice(batch.facts.map(fact => fact.event), opponentName, batch.after);
+}
+
 /** Formats deterministic before-trigger previews for the heartbeat window. */
 export function pendingTriggerAbilityNotices(preview: PendingTriggerPreview, opponentName: string): AbilityNotice[] {
   const groups = new Map<string, GroupedAbilityNotice>();
@@ -218,4 +223,8 @@ export function abilityExpiredNotices(events: readonly GameEvent[]): AbilityNoti
       tone: "notification",
       text: `${getAbilityDefinition(event.definitionId, undefined, event.level)?.name ?? "被动技能"}的效果已耗尽`
     }));
+}
+
+export function abilityExpiredNoticesFromFacts(batch: MatchFactBatch): AbilityNotice[] {
+  return abilityExpiredNotices(batch.facts.map(fact => fact.event));
 }

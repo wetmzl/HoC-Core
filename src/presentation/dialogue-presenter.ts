@@ -1,4 +1,5 @@
 import { escapeHtml } from "./view-helpers";
+import { TextOutputHaptics } from "./text-output-haptics";
 import type { MatchState } from "../core/match/types";
 import { type CharacterDefinition } from "../content/characters";
 export interface DialoguePresenterDependencies {
@@ -14,12 +15,14 @@ export interface DialogueRenderSnapshot {
     readonly scrollTop: number;
 }
 export class DialoguePresenter {
+    private outputFeedback?: TextOutputHaptics;
     constructor(private readonly deps: DialoguePresenterDependencies) { }
     dispose = (): void => {
         window.clearInterval(this.dialogueTimer);
         window.clearTimeout(this.dialogueShakeTimer);
         this.dialogueTimer = undefined;
         this.dialogueShakeTimer = undefined;
+        this.outputFeedback?.stop(); this.outputFeedback = undefined;
         this.lastDialogueKey = null;
         this.dialogueAutoFollow = true;
     };
@@ -45,6 +48,12 @@ export class DialoguePresenter {
             });
         }
         if (snapshot.shouldType || snapshot.resumeTyping) {
+            if (snapshot.shouldType) {
+                this.outputFeedback?.stop();
+                this.outputFeedback = new TextOutputHaptics({ enabled: () => !this.deps.save.settings.reducedMotion && !document.hidden
+                    && !document.body.classList.contains("reduced-motion") && !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+                    && !document.querySelector("dialog[open]") && this.deps.root.isConnected });
+            }
             this.lastDialogueKey = key;
             this.startTypewriter(text, snapshot.initialLength);
         }
@@ -121,10 +130,12 @@ export class DialoguePresenter {
         this.dialogueTimer = window.setInterval(() => {
             index += 1;
             node.textContent = text.slice(0, index);
+            this.outputFeedback?.progress(node.textContent);
             followLatest();
             if (index >= text.length) {
                 window.clearInterval(this.dialogueTimer);
                 node.dataset.typing = "false";
+                this.outputFeedback?.complete(text);
             }
         }, 24);
     };

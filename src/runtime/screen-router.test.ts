@@ -95,6 +95,47 @@ describe("RuntimeScreenRouter", () => {
 });
 
 describe("internal and contributed route adapters", () => {
+  it("reports entered and left screens only after their mount and disposal succeed", async () => {
+    const { context } = harness();
+    const changes: string[] = [];
+    const router = new RuntimeScreenRouter(context, {}, change => {
+      if (change.from) changes.push(`left:${change.from}`);
+      if (change.to) changes.push(`entered:${change.to}`);
+    });
+    const dispose = deferred<void>();
+    await router.navigateModule(async () => ({ mount: async () => ({ dispose: () => dispose.promise }) }), undefined, "lobby");
+    expect(router.screenId).toBe("lobby");
+    const navigation = router.navigateModule(async () => ({ mount: async () => ({ dispose() {} }) }), undefined, "history");
+    await vi.waitFor(() => expect(router.screenId).toBeUndefined());
+    expect(changes).toEqual(["entered:lobby"]);
+    dispose.resolve();
+    await navigation;
+    expect(changes).toEqual(["entered:lobby", "left:lobby", "entered:history"]);
+    await router.navigateModule(async () => { throw new Error("import failed"); }, undefined, "missing");
+    expect(changes).toEqual(["entered:lobby", "left:lobby", "entered:history"]);
+    await router.navigateModule(async () => ({ mount: async () => { throw new Error("mount failed"); } }), undefined, "broken");
+    expect(changes).toEqual(["entered:lobby", "left:lobby", "entered:history", "left:history"]);
+    expect(router.screenId).toBeUndefined();
+    await router.dispose();
+    expect(changes).toHaveLength(4);
+  });
+
+  it("never announces a mounting page superseded by another navigation", async () => {
+    const { context } = harness();
+    const changes = vi.fn();
+    const router = new RuntimeScreenRouter(context, {}, changes);
+    const pending = deferred<MountedScreen>();
+    const mounting = vi.fn(() => pending.promise);
+    const stale = router.navigateModule(async () => ({ mount: mounting }), undefined, "stale");
+    await vi.waitFor(() => expect(mounting).toHaveBeenCalledOnce());
+    await router.navigateModule(async () => ({ mount: async () => ({ dispose() {} }) }), undefined, "current");
+    pending.resolve({ dispose() {} });
+    await stale;
+    expect(changes.mock.calls).toEqual([[{ to: "current" }]]);
+    await router.dispose();
+    expect(changes.mock.calls).toEqual([[{ to: "current" }], [{ from: "current" }]]);
+  });
+
   it("aborts a mounting page immediately when a newer destination is requested", async () => {
     const { context } = harness();
     const router = new RuntimeScreenRouter(context, {});

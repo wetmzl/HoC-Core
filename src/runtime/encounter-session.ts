@@ -13,22 +13,45 @@ import type { LongTermSave, RuntimeSave } from "../persistence/schema";
 import type { EncounterPlan } from "./match-owner";
 import type { EncounterTelemetry } from "../telemetry/types";
 import { flowSnapshot, runtimeFlow, flowMemory, singleMatchFlow } from "./encounter-snapshot";
+import { createMatchFactBatch, type MatchFactBatch } from "../core/events";
+import { MatchFactRuntime } from "./match-fact-runtime";
+import { matchPublicEventBatch, type PublicEventScopes } from "../core/events/public-events";
+import type { RuntimeEventHub } from "./public-event-hub";
+import { createProgramLifecycleBatch, publishProgramLifecycle, type ProgramLifecycleChange } from "./program-events";
+import { PendingMatchFacts } from "./pending-match-facts";
 export { challengeSnapshot } from "./encounter-snapshot";
 
 const sameRun = (left: FlowRun, right: FlowRun): boolean => JSON.stringify(FlowRunSchema.parse(left)) === JSON.stringify(FlowRunSchema.parse(right));
 
 /** One state owner and one ordered writer for the entire run, including its table. */
 export class EncounterSession {
+  readonly events = new MatchFactRuntime();
   private current: RuntimeSave | null = null;
+  private durableMatch: MatchState | null = null;
+  private readonly pendingMatchFacts = new PendingMatchFacts();
   private pending: Promise<void> = Promise.resolve();
   private attachment = 0;
   constructor(private readonly repository: SaveRepository, private readonly saves: {
     get(): LongTermSave;
     set(save: LongTermSave): void;
-  }, private readonly telemetry?: EncounterTelemetry) {}
+  }, private readonly telemetry?: EncounterTelemetry, private readonly isDebugEnabled: () => boolean = () => false,
+    private readonly publicEvents?: RuntimeEventHub, private readonly publicScopes: PublicEventScopes = {}) {}
 
   get snapshot(): RuntimeSave | null { return this.current; }
   get match(): MatchState | null { return this.current?.activeMatch ?? null; }
+  closingPublicEvents() {
+    const run = this.run;
+    return run ? [createProgramLifecycleBatch(this.publicScopes, { id: run.id, definitionId: run.definition.id,
+      nodeId: run.encounter?.nodeId, visitIndex: run.encounterIndex, status: run.phase }, [
+      ...(run.encounter ? [{ type: "node-left", nodeId: run.encounter.nodeId, visitIndex: run.encounterIndex }] : []),
+      { type: "abandoned", reason: "game-stopped" }], "runtime-closed")] : [];
+  }
+  adoptCheckpoint(snapshot: RuntimeSave | null): void {
+    const next = runtimeFlow(snapshot);
+    if (snapshot && !next) throw new Error("剧情命令不能把牌局流程替换为其他运行时");
+    if (next && this.run && next.id !== this.run.id) throw new Error("剧情命令所属流程已改变");
+    this.current = snapshot; this.durableMatch = snapshot?.activeMatch ?? null; this.pendingMatchFacts.clear(); this.attachment++;
+  }
   get run(): FlowRun | null { return runtimeFlow(this.current); }
   get node() {
     const run = this.run;
@@ -48,11 +71,34 @@ export class EncounterSession {
   flush = (): Promise<void> => this.pending;
   restore(snapshot: RuntimeSave): void {
     this.attachment++; this.current = snapshot;
+    this.durableMatch = snapshot.activeMatch;
+    this.pendingMatchFacts.clear();
     const run = runtimeFlow(snapshot), match = snapshot.activeMatch;
-    if (run && match) this.pending = this.pending.catch(() => undefined).then(() => this.report(match, run, true));
+    if (run) this.pending = this.pending.catch(() => undefined).then(async () => {
+      this.lifecycle(run, [{ type: "restored", restored: true }], "restore");
+      if (match) await this.deliverCommitted(createMatchFactBatch(undefined, match, { restored: true }), run);
+    });
   }
-  private async report(match: MatchState, run: FlowRun, restored = false): Promise<void> {
-    try { await this.telemetry?.observe(match, run, { restored, debugUsed: Boolean(this.saves.get().settings.debugEngineEnabled) }); }
+  private lifecycle(run: FlowRun, changes: readonly ProgramLifecycleChange[], command: string): void {
+    publishProgramLifecycle(this.publicEvents, this.publicScopes, { id: run.id, definitionId: run.definition.id,
+      nodeId: run.encounter?.nodeId, visitIndex: run.encounterIndex, status: run.phase }, changes, command);
+  }
+  private checkpoint(run: FlowRun, changes: readonly ProgramLifecycleChange[], command: string, batch?: MatchFactBatch) {
+    return { ...(batch ? { matchFacts: this.pendingMatchFacts.forCheckpoint(batch) } : {}), publicEvents: [...(batch ? [matchPublicEventBatch(batch, { ...this.publicScopes, program: run.id })] : []),
+      createProgramLifecycleBatch(this.publicScopes, { id: run.id, definitionId: run.definition.id,
+        nodeId: run.encounter?.nodeId, visitIndex: run.encounterIndex, status: run.phase }, changes, command)] };
+  }
+  private async deliverCommitted(batch: MatchFactBatch, run: FlowRun, report = true): Promise<void> {
+    const debugUsed = this.isDebugEnabled();
+    const flow = Object.freeze({ id: run.id, definition: Object.freeze({ id: run.definition.id }),
+      encounter: run.encounter ? Object.freeze({ nodeId: run.encounter.nodeId, matchId: run.encounter.matchId }) : null,
+      encounterIndex: run.encounterIndex });
+    this.events.publish("committed", Object.freeze({ ...batch, context: Object.freeze({ flow, debugUsed }) }));
+    if (this.publicEvents) this.publicEvents.publish("committed", matchPublicEventBatch(batch, { ...this.publicScopes, program: run.id }));
+    if (!report) return;
+    try {
+      await this.telemetry?.observe(batch.after, run, { restored: batch.restored, debugUsed });
+    }
     catch { /* Telemetry storage/network must never change a game transaction's outcome. */ }
   }
 
@@ -63,14 +109,44 @@ export class EncounterSession {
     return result;
   }
   replace(snapshot: RuntimeSave): Promise<void> {
-    return this.commit(async () => { await this.repository.saveRuntime(snapshot); this.attachment++; this.current = snapshot; });
+    return this.commit(async () => {
+      await this.repository.saveRuntime(snapshot);
+      this.pendingMatchFacts.clear();
+      this.attachment++; this.current = snapshot; this.durableMatch = snapshot.activeMatch;
+    });
   }
-  begin(run: FlowRun): Promise<void> { return this.replace(flowSnapshot(run, null)); }
+  begin(run: FlowRun): Promise<void> {
+    return this.commit(async () => {
+      const snapshot = flowSnapshot(run, null);
+      await this.repository.saveRuntime(snapshot, this.checkpoint(run, [{ type: "started" }], "begin"));
+      this.attachment++; this.current = snapshot; this.durableMatch = null;
+      this.lifecycle(run, [{ type: "started" }], "begin");
+    });
+  }
   abandon(): Promise<void> {
     return this.commit(async () => {
-      if (this.run && this.match?.status === "finished") await this.report(this.match, this.run);
-      await this.repository.deleteRuntime(); this.attachment++; this.current = null;
+      const run = this.run, match = this.match;
+      const batch = match ? createMatchFactBatch(this.durableMatch?.id === match.id ? this.durableMatch : undefined, match) : undefined;
+      const previous = this.saves.get();
+      const projected = batch ? this.events.project({ longTerm: previous, runtime: null }, batch) : { longTerm: previous, runtime: null };
+      const changes: readonly ProgramLifecycleChange[] = [...(run?.encounter ? [{ type: "node-left", nodeId: run.encounter.nodeId, visitIndex: run.encounterIndex }] : []), { type: "abandoned" }];
+      const checkpoint = run ? this.checkpoint(run, changes, "abandon", batch) : undefined;
+      if (projected.longTerm !== previous) {
+        await this.repository.commitMatchResult(projected.longTerm, null, checkpoint);
+        this.saves.set(projected.longTerm);
+      } else await this.repository.deleteRuntime(checkpoint);
+      this.attachment++; this.current = null; this.durableMatch = null;
+      this.pendingMatchFacts.clear();
+      if (run) this.lifecycle(run, changes, "abandon");
+      if (run && batch) await this.deliverCommitted(batch, run, match?.status === "finished");
     });
+  }
+  /** The host has already durably cleared this runtime; do not write a second checkpoint. */
+  runtimeClosed(): void {
+    const run = this.run;
+    this.current = null; this.durableMatch = null; this.pendingMatchFacts.clear(); this.attachment++;
+    if (run) this.lifecycle(run, [...(run.encounter ? [{ type: "node-left", nodeId: run.encounter.nodeId, visitIndex: run.encounterIndex }] : []),
+      { type: "abandoned", reason: "game-stopped" }], "runtime-closed");
   }
   prepare(nodeId: string): { run: FlowRun; plan: EncounterPlan } | null {
     const run = this.run;
@@ -97,23 +173,39 @@ export class EncounterSession {
         } else if (!this.isCurrent(opening) || this.match !== source) throw new Error("牌局已改变");
       } else if (run) throw new Error("牌局已改变");
       // Reattaching an unchanged durable table must work while storage is unavailable.
-      if (this.match !== match) {
-        const snapshot = flowSnapshot(opening, match);
-        await this.repository.saveRuntime(snapshot);
-        this.current = snapshot;
+      const reattached = this.match === match && this.durableMatch === match;
+      const batch = createMatchFactBatch(this.durableMatch?.id === match.id ? this.durableMatch : undefined, match, { restored: reattached });
+      const changes: readonly ProgramLifecycleChange[] = !current || current.phase === "selection" ? [
+        ...(!current ? [{ type: "started" }] : [{ type: "choice-selected", choiceId: opening.encounter!.nodeId }]),
+        { type: "node-entered", nodeId: opening.encounter!.nodeId, visitIndex: opening.encounterIndex }] : [];
+      const checkpoint = this.checkpoint(opening, changes, "attach", batch);
+      if (!reattached) {
+        const previous = this.saves.get();
+        const projected = this.events.project({ longTerm: previous, runtime: flowSnapshot(opening, match) }, batch);
+        if (projected.longTerm !== previous) {
+          await this.repository.commitMatchResult(projected.longTerm, projected.runtime, checkpoint);
+          this.saves.set(projected.longTerm);
+        } else if (projected.runtime) await this.repository.saveRuntime(projected.runtime, checkpoint);
+        this.current = projected.runtime;
+        this.durableMatch = match;
+        this.pendingMatchFacts.committed(batch);
       }
       this.attachment++;
-      await this.report(match, opening, expected?.activeMatch?.id === match.id);
+      if (!reattached && changes.length) this.lifecycle(opening, changes, "attach");
+      await this.deliverCommitted(batch, opening);
     });
     return this.matchHandle(match.id, this.attachment);
   }
   private matchHandle(matchId: string, attachment: number): AutosaveController {
+    let lastFactBatch: MatchFactBatch | undefined;
     const getState = (): MatchState => {
       const match = this.match;
       if (!match || match.id !== matchId || this.attachment !== attachment) throw new Error("牌局已结束");
       return match;
     };
     return {
+      factEvents: this.events,
+      getLastFactBatch: () => lastFactBatch,
       getState, getSave: this.saves.get, flush: this.flush,
       updateProgress: update => this.commit(async () => {
         getState();
@@ -138,13 +230,28 @@ export class EncounterSession {
         if (action.type === "ACK_MATCH_RESULT") return before;
         const next = gameReducer(before, action);
         if (next === before) return before;
+        const batch = createMatchFactBatch(before, next);
+        this.pendingMatchFacts.retain(batch);
+        lastFactBatch = batch;
         const snapshot = { ...this.current!, updatedAt: new Date().toISOString(), activeMatch: next };
         this.current = snapshot;
         this.pending = this.pending.catch(() => undefined).then(async () => {
           getState();
-          await this.repository.saveRuntime(snapshot);
+          // A failed earlier write leaves its facts pending. The next durable
+          // checkpoint includes all accepted history since the last success.
+          const durableBatch = createMatchFactBatch(this.durableMatch?.id === next.id ? this.durableMatch : undefined, next);
+          const previous = this.saves.get();
+          const projected = this.events.project({ longTerm: previous, runtime: snapshot }, durableBatch);
+          const context = { matchFacts: this.pendingMatchFacts.forCheckpoint(durableBatch) };
+          if (projected.longTerm !== previous) {
+            await this.repository.commitMatchResult(projected.longTerm, projected.runtime, context);
+            this.saves.set(projected.longTerm);
+          } else if (projected.runtime) await this.repository.saveRuntime(projected.runtime, context);
+          this.pendingMatchFacts.committed(durableBatch);
+          if (this.current === snapshot) this.current = projected.runtime;
+          this.durableMatch = next;
           const run = runtimeFlow(snapshot);
-          if (run) await this.report(next, run);
+          if (run) await this.deliverCommitted(durableBatch, run);
         });
         void this.pending.catch(() => undefined);
         return next;
@@ -157,9 +264,19 @@ export class EncounterSession {
       if (!run || !match) throw new Error("当前流程已结束");
       const next = claimFlowReward(run, match, kind);
       if (next.run === run) return;
-      const snapshot = flowSnapshot(next.run, next.match);
-      await this.repository.saveRuntime(snapshot);
-      this.current = snapshot;
+      const batch = createMatchFactBatch(this.durableMatch?.id === match.id ? this.durableMatch : undefined, next.match);
+      const previous = this.saves.get();
+      const projected = this.events.project({ longTerm: previous, runtime: flowSnapshot(next.run, next.match) }, batch);
+      const checkpoint = this.checkpoint(next.run, [{ type: "reward-claimed", rewardId: kind }], "claim", batch);
+      if (projected.longTerm !== previous) {
+        await this.repository.commitMatchResult(projected.longTerm, projected.runtime, checkpoint);
+        this.saves.set(projected.longTerm);
+      } else if (projected.runtime) await this.repository.saveRuntime(projected.runtime, checkpoint);
+      this.current = projected.runtime;
+      this.durableMatch = next.match;
+      this.pendingMatchFacts.committed(batch);
+      this.lifecycle(next.run, [{ type: "reward-claimed", rewardId: kind }], "claim");
+      await this.deliverCommitted(batch, next.run, false);
     });
   }
   settle(withdraw = false): Promise<void> {
@@ -173,23 +290,38 @@ export class EncounterSession {
       const progress = finishFlowNode(run.definition, run, acknowledged);
       if (progress === run || progress.phase === "encounter") throw new Error("本场结算尚未完成");
       const next: FlowRun = { ...run, ...progress, nextNodeId: progress.nextNodeId, playerGun: acknowledged.roulette.player };
-      const snapshot = next.phase === "finished" ? null : flowSnapshot(next, null, { player: capturePlayerSkills(withdraw ? match : acknowledged) });
+      let snapshot = next.phase === "finished" ? null : flowSnapshot(next, null, { player: capturePlayerSkills(withdraw ? match : acknowledged) });
       const records = flowRecordsResult(run.definition, run, acknowledged);
       const completionId = next.phase === "finished" && next.result === "victory" ? run.definition.completionId : undefined;
       const counted = records ? acknowledgeMatchResult(this.saves.get(), acknowledged) : recordCharacterDefeat(this.saves.get(), acknowledged);
       const completed = completionId ? { ...counted,
           completedChallenges: [...new Set([...(counted.completedChallenges ?? []), completionId])] } : counted;
-      const save = grantDeclaredSkinUnlocks(completed, CHARACTER_CATALOG);
+      const batch = createMatchFactBatch(this.durableMatch?.id === match.id ? this.durableMatch : undefined, acknowledged);
+      const projected = this.events.project({ longTerm: grantDeclaredSkinUnlocks(completed, CHARACTER_CATALOG), runtime: snapshot }, batch);
+      const save = projected.longTerm;
+      snapshot = projected.runtime;
+      const changes: readonly ProgramLifecycleChange[] = [{ type: "node-left", nodeId: run.encounter!.nodeId, visitIndex: run.encounterIndex },
+        ...(next.phase === "finished" ? [{ type: next.result === "abandoned" ? "abandoned" : "completed", result: next.result,
+          ...(next.result === "abandoned" ? { reason: "declared-end" } : {}) }] : [])];
+      const checkpoint = this.checkpoint(next, changes, withdraw ? "withdraw" : "settle", batch);
       if (records || completionId || save !== this.saves.get()) {
-        await this.repository.commitMatchResult(save, snapshot);
+        await this.repository.commitMatchResult(save, snapshot, checkpoint);
         this.saves.set(save);
-      } else if (snapshot) await this.repository.saveRuntime(snapshot);
-      else await this.repository.deleteRuntime();
+      } else if (snapshot) await this.repository.saveRuntime(snapshot, checkpoint);
+      else await this.repository.deleteRuntime(checkpoint);
       // A failed withdrawal must remain playable and must not publish a fictitious escape.
       // Guards are included even when their node deliberately writes no local history.
-      await this.report(acknowledged, run);
       this.attachment++;
       this.current = snapshot;
+      this.durableMatch = null;
+      this.pendingMatchFacts.committed(batch);
+      if (this.publicEvents) this.publicEvents.publish("resolved", matchPublicEventBatch(batch, { ...this.publicScopes, program: run.id }));
+      this.lifecycle(next, changes, withdraw ? "withdraw" : "settle");
+      await this.deliverCommitted(batch, run);
     });
+  }
+  async dispose(): Promise<void> {
+    try { await this.flush(); }
+    finally { this.pendingMatchFacts.clear(); this.events.dispose(); }
   }
 }

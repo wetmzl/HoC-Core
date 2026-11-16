@@ -4,8 +4,9 @@ import { createCard } from "../core/blackjack/card";
 import { createHand } from "../core/blackjack/hand";
 import type { Rank } from "../core/blackjack/types";
 import type { GameEvent, MatchState, RoundOutcome, RoundPhase } from "../core/match/types";
+import { createMatchFactBatch } from "../core/events";
 import type { SoundCue } from "./game-audio";
-import { presentMatchAudio, syncMatchAudioState, type MatchAudioPort } from "./match-audio";
+import { presentMatchAudio, presentMatchAudioFacts, presentMatchAudioTransition, syncMatchAudioState, type MatchAudioPort } from "./match-audio";
 
 class RecordingAudio implements MatchAudioPort {
   readonly calls: string[] = [];
@@ -63,6 +64,30 @@ describe("match audio presentation mapping", () => {
     const audio = new RecordingAudio();
     presentMatchAudio(audio, before, next);
     expect(audio.calls).toEqual(["play:stand:0", "play:shuffle:220", "play:naturalBlackjack:380"]);
+  });
+
+  it("uses the complete fact batch across a round boundary without replaying restoration effects", () => {
+    const before = playerHand(createMatch("fact-boundary-audio"), ["2", "3"]);
+    const after = withEvents({ ...before, roundIndex: 1 }, "turns",
+      { type: "ROUND_RESULT_ACKNOWLEDGED" },
+      { type: "ROUND_STARTED", roundIndex: 1 },
+      { type: "SKILL_DRAW_OPENED", offerId: "next-offer", candidateDefinitionIds: ["neutral"] });
+    const audio = new RecordingAudio();
+    presentMatchAudioFacts(audio, createMatchFactBatch(before, after));
+    expect(audio.calls).toEqual(["play:stand:0", "play:skillDraw:0", "play:shuffle:220"]);
+    const restored = withEvents(after, "roulette-trigger",
+      { type: "TRIGGER_PULLED", actor: "opponent", result: "fired", fired: true, baseProbability: 1, probability: 1, misfireChance: 0 });
+    audio.calls.length = 0;
+    presentMatchAudioFacts(audio, createMatchFactBatch(undefined, restored, { restored: true }));
+    syncMatchAudioState(audio, restored);
+    expect(audio.calls).toEqual(["heartbeat:start"]);
+  });
+
+  it("continues accepting explicit events through the legacy transition entry", () => {
+    const state = createMatch("legacy-audio-transition");
+    const audio = new RecordingAudio();
+    presentMatchAudioTransition(audio, { before: state, after: state, events: [{ type: "PLAYER_STOOD" }] });
+    expect(audio.calls).toEqual(["play:stand:0"]);
   });
 
   it("does not reward ordinary 21, hidden opponent naturals or settlement events", () => {
