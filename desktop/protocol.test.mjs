@@ -45,5 +45,5 @@ test('serves exact binary bytes, MIME and CSP; blocks writes and missing files',
 
 test('telemetry connects only to its two fixed receivers', () => {
   const connect = CONTENT_SECURITY_POLICY.split('; ').find(value => value.startsWith('connect-src '));
-  assert.equal(connect, "connect-src 'self' blob: https://hoc-platform.house-of-chances.workers.dev/v1/events https://hoc-events.10170923.xyz/v1/events");
+  assert.equal(connect, "connect-src 'self' blob: https://nf2b0512679159c197d.pages.dev/v1/events https://hoc-events.10170923.xyz/v1/events");
 });

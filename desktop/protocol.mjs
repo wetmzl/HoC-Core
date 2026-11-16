@@ -10,7 +10,7 @@ export const CONTENT_SECURITY_POLICY = [
   "img-src 'self' blob: data:",
   "media-src 'self' blob:",
   "font-src 'self' data:",
-  "connect-src 'self' blob: https://hoc-platform.house-of-chances.workers.dev/v1/events https://hoc-events.10170923.xyz/v1/events",
+  "connect-src 'self' blob: https://nf2b0512679159c197d.pages.dev/v1/events https://hoc-events.10170923.xyz/v1/events",
   "object-src 'none'",
   "frame-src 'none'",
   "base-uri 'none'",
