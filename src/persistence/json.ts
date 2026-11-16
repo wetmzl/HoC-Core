@@ -1,14 +1,27 @@
 import { CURRENT_GAME_VERSION, SaveValidationError, validateLongTermSave, type LongTermSave } from "./schema";
 import { createSaveFileWriter, type SaveExportMethod, type SaveFileWriter } from "./file-exchange";
 import { recoverLongTermSave } from "./recover-save";
+import { imageToPng } from "../platform/image-png";
+import { validateStorySave, type StorySave } from "../runtime/story-checkpoint";
+import { NotebookSaveSchema, validateNotebookSave, type NotebookSave } from "./character-records";
 
 export type { SaveExportMethod } from "./file-exchange";
 
 const PNG_SIGNATURE = Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10);
 const SAVE_CHUNK_TYPE = "svJS";
 
-export function exportSaveJson(save: LongTermSave): string {
-  return JSON.stringify(validateLongTermSave({ ...save, gameVersion: CURRENT_GAME_VERSION }), null, 2);
+export const SAVE_TRANSFER_FORMAT = "hoc-story-transfer";
+export const SAVE_TRANSFER_VERSION = 1;
+export const NOTEBOOK_TRANSFER_FORMAT = "hoc-notebook-transfer";
+export const NOTEBOOK_TRANSFER_VERSION = 1;
+export interface SaveTransfer { readonly longTerm: LongTermSave; readonly story: StorySave | null; readonly notebook?: NotebookSave | null }
+
+export function exportSaveJson(save: LongTermSave, story?: unknown, notebook?: unknown): string {
+  const longTerm = validateLongTermSave({ ...save, gameVersion: CURRENT_GAME_VERSION });
+  return JSON.stringify({ ...longTerm,
+    ...(story === undefined || story === null ? {} : { storyTransfer: { format: SAVE_TRANSFER_FORMAT, formatVersion: SAVE_TRANSFER_VERSION, story: validateStorySave(story) } }),
+    ...(notebook === undefined || notebook === null ? {} : { notebookTransfer: { format: NOTEBOOK_TRANSFER_FORMAT, formatVersion: NOTEBOOK_TRANSFER_VERSION, notebook: validateNotebookSave(notebook) } })
+  }, null, 2);
 }
 
 function isPng(bytes: Uint8Array): boolean {
@@ -56,9 +69,9 @@ function pngChunks(bytes: Uint8Array): readonly { offset: number; end: number; t
 }
 
 /** Embeds validated durable-save JSON in a private ancillary PNG chunk. */
-export function embedSaveInPng(png: Uint8Array, save: LongTermSave): Uint8Array {
+export function embedSaveInPng(png: Uint8Array, save: LongTermSave, story?: unknown, notebook?: unknown): Uint8Array {
   const chunks = pngChunks(png);
-  const saveChunk = makePngChunk(SAVE_CHUNK_TYPE, new TextEncoder().encode(exportSaveJson(save)));
+  const saveChunk = makePngChunk(SAVE_CHUNK_TYPE, new TextEncoder().encode(exportSaveJson(save, story, notebook)));
   const retained = chunks.filter((chunk) => chunk.type !== SAVE_CHUNK_TYPE);
   const outputLength = PNG_SIGNATURE.length + retained.reduce((total, chunk) => total + chunk.end - chunk.offset, 0) + saveChunk.length;
   const output = new Uint8Array(outputLength);
@@ -81,7 +94,7 @@ export function extractSaveJsonFromPng(png: Uint8Array): string {
   return new TextDecoder().decode(png.subarray(chunk.offset + 8, chunk.end - 4));
 }
 
-export async function importSave(input: string | File): Promise<LongTermSave> {
+export async function importSaveTransfer(input: string | File): Promise<SaveTransfer> {
   let text: string;
   if (typeof input === "string") text = input;
   else {
@@ -91,20 +104,47 @@ export async function importSave(input: string | File): Promise<LongTermSave> {
   let parsed: unknown;
   try { parsed = JSON.parse(text) as unknown; }
   catch { throw new SaveValidationError("long-term", "Invalid save JSON: unable to parse file", text); }
-  return recoverLongTermSave(parsed);
+  const original = parsed;
+  const recover = (value: unknown): LongTermSave => {
+    try { return recoverLongTermSave(value); }
+    catch (error) { throw new SaveValidationError("long-term", error instanceof Error ? error.message : "存档不可读取", original); }
+  };
+  let notebook: NotebookSave | undefined;
+  if (parsed && typeof parsed === "object" && "notebookTransfer" in parsed) {
+    const { notebookTransfer, ...rest } = parsed;
+    const transfer = notebookTransfer as { format?: unknown; formatVersion?: unknown; notebook?: unknown } | null;
+    if (!transfer || transfer.format !== NOTEBOOK_TRANSFER_FORMAT || transfer.formatVersion !== NOTEBOOK_TRANSFER_VERSION)
+      throw new SaveValidationError("long-term", "不支持的人物记录传输版本", original);
+    try { notebook = NotebookSaveSchema.parse(transfer.notebook); }
+    catch { throw new SaveValidationError("long-term", "人物记录传输扩展不可读取", original); }
+    parsed = rest;
+  }
+  if (parsed && typeof parsed === "object" && "storyTransfer" in parsed) {
+    const { storyTransfer, ...longTerm } = parsed;
+    if (!storyTransfer || typeof storyTransfer !== "object") throw new SaveValidationError("long-term", "剧情传输扩展不可读取", original);
+    const transfer = storyTransfer as { format?: unknown; formatVersion?: unknown; story?: unknown };
+    if (transfer.format !== SAVE_TRANSFER_FORMAT || transfer.formatVersion !== SAVE_TRANSFER_VERSION) throw new SaveValidationError("long-term", "不支持的存档传输版本", original);
+    try { return { longTerm: recover(longTerm), story: validateStorySave(transfer.story), ...(notebook ? { notebook } : {}) }; }
+    catch (error) { throw new SaveValidationError("long-term", error instanceof Error ? error.message : "剧情存档不可读取", original); }
+  }
+  return { longTerm: recover(parsed), story: null, ...(notebook ? { notebook } : {}) };
 }
 
-export async function downloadSaveImage(save: LongTermSave, coverImageUrl: string, filename = "house-of-chances-save.png", writer: SaveFileWriter = createSaveFileWriter()): Promise<SaveExportMethod> {
+export async function importSave(input: string | File): Promise<LongTermSave> { return (await importSaveTransfer(input)).longTerm; }
+
+export async function downloadSaveImage(save: LongTermSave, coverImageUrl: string, filename = "house-of-chances-save.png", writer: SaveFileWriter = createSaveFileWriter(), story?: unknown, notebook?: unknown): Promise<SaveExportMethod> {
   const response = await fetch(coverImageUrl);
   if (!response.ok) throw new Error(`Unable to load save cover image (${response.status})`);
-  const png = embedSaveInPng(new Uint8Array(await response.arrayBuffer()), save);
+  const cover = new Uint8Array(await response.arrayBuffer());
+  const carrier = isPng(cover) ? cover : await imageToPng(cover, response.headers.get("content-type") ?? "application/octet-stream");
+  const png = embedSaveInPng(carrier, save, story, notebook);
   const pngBuffer = new ArrayBuffer(png.byteLength);
   new Uint8Array(pngBuffer).set(png);
   return writer.write(new Blob([pngBuffer], { type: "image/png" }), filename, "PNG image save", { "image/png": [".png"] });
 }
 
-export async function downloadSaveJson(save: LongTermSave, filename = "house-of-chances-save.json", writer: SaveFileWriter = createSaveFileWriter()): Promise<SaveExportMethod> {
-  return writer.write(new Blob([exportSaveJson(save)], { type: "application/json" }), filename, "JSON save", { "application/json": [".json"] });
+export async function downloadSaveJson(save: LongTermSave, filename = "house-of-chances-save.json", writer: SaveFileWriter = createSaveFileWriter(), story?: unknown, notebook?: unknown): Promise<SaveExportMethod> {
+  return writer.write(new Blob([exportSaveJson(save, story, notebook)], { type: "application/json" }), filename, "JSON save", { "application/json": [".json"] });
 }
 
 export async function downloadRawSave(input: unknown, filename = "house-of-chances-unmigrated-save.json", writer: SaveFileWriter = createSaveFileWriter()): Promise<SaveExportMethod> {

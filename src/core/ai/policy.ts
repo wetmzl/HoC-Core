@@ -10,7 +10,6 @@ export const AI_NOISE_MAX = 0.3;
 export function decideOptimalAction(observation: MatchObservation): AiAction {
   const side = observation.viewer === "player" ? observation.player : observation.opponent;
   const knownCards = side.cards.filter((card): card is Card => card !== null);
-  if (knownCards.length === 0) return "stand";
   return handValue({ cards: knownCards }) < 17 ? "hit" : "stand";
 }
 
@@ -42,7 +41,7 @@ export function calculateAiThreshold(observation: MatchObservation, profile: AiP
 export function decideAiAction(observation: MatchObservation, profile: AiProfile, noise: AiNoiseState, bySkill = 0): AiDecision {
   const side = observation.viewer === "player" ? observation.player : observation.opponent;
   const knownCards = side.cards.filter((card): card is Card => card !== null);
-  const value = knownCards.length === 0 ? 0 : handValue({ cards: knownCards });
+  const value = handValue({ cards: knownCards });
   const bulletDifference = observation.roulette.playerBullets - observation.roulette.opponentBullets;
   const threshold = calculateAiThreshold(observation, profile, noise, bySkill);
   return {
@@ -52,6 +51,6 @@ export function decideAiAction(observation: MatchObservation, profile: AiProfile
     bulletDifference,
     matchNoise: noise.match,
     playNoise: noise.play,
-    action: knownCards.length > 0 && value <= threshold ? "hit" : "stand"
+    action: value <= threshold ? "hit" : "stand"
   };
 }

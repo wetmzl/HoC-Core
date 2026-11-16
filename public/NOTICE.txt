@@ -11,11 +11,13 @@ International（CC BY-NC-SA 4.0）。
 官方条款：https://creativecommons.org/licenses/by-nc-sa/4.0/
 
 适用范围：characters/chatgpt/、characters/claude/、characters/deepseek/、
-characters/gemini/、characters/llama/ 中的图片；favicon.ico、favicon.svg、icons/ 中的图标，
+characters/gemini/、characters/llama/、characters/glm/、characters/grok/、
+characters/qwen/ 中的图片；favicon.ico、favicon.svg、icons/ 中的图标，
 以及 Android res/ 下的 ic_launcher*.png 与 splash.png；
 assets/save-share-cover.png 默认存档分享封面；
-assets/backgrounds/launcher-ai-hall.png 启动器背景；
-characters/character-tap/cover.png、characters/debug-engine/cover.png 官方插件封面。
+assets/backgrounds/launcher-ai-hall.png 与 assets/backgrounds/launcher-v0.3.0-beta1.png 启动器背景；
+characters/character-tap/cover.png、characters/debug-engine/cover.png 官方插件封面；
+characters/official-built-in-achievements/ 中的25张成就封面。
 项目包含基于原始角色美术生成改绘、缩放与裁切后的资源；再分发或改编时请保留
 ZipZipPipe 署名与许可信息、标明修改，并遵守非商业性使用及相同方式共享条件。
 网页与应用图标、启动图基于 DeepSeek 角色美术经 AI 改绘为 Q 版铁盆造型，
@@ -29,8 +31,22 @@ ZipZipPipe 署名与许可信息、标明修改，并遵守非商业性使用及
 官方拍一拍和调试引擎封面参考 DeepSeek 角色美术，经 AI 改绘为黑底 Q 版插画并缩放，
 角色美术原作者仍为 ZipZipPipe，沿用 CC BY-NC-SA 4.0；逐包声明见 ART-CREDITS.md。
 
+官方成就封面参考五位官方角色美术，经 AI 改绘为各达成主题的 Q 版插画，
+再缩放至512×512；角色原作者仍为 ZipZipPipe，沿用 CC BY-NC-SA 4.0。
+逐图参考角色及修改说明见 characters/official-built-in-achievements/ART-CREDITS.md。
+
+新版启动器背景 launcher-v0.3.0-beta1.png 参考 DeepSeek、GLM 与 Grok 现有角色图，
+经 AI 改绘为红黑银行场景海报，再裁切与等比缩放。三位角色原画作者均为
+ZipZipPipe，角色原画与改绘沿用 CC BY-NC-SA 4.0；逐包说明见 ART-CREDITS.md。
+
+characters/glm/、characters/grok/、characters/qwen/ 的封面和六态立绘由 AI 改绘：
+身份与服装依据用户提供的 ZipZipPipe 人设图，画风与规格参考同作者的 DeepSeek 立绘。
+用户于 2026-11-16 确认，原作者已给予与 DeepSeek 等既有角色相同的口头许可和
+许可证，角色原画与改绘沿用 CC BY-NC-SA 4.0。来源和修改记录见各包 ART-CREDITS.md。
+
 其余项目美术：AI 生成，使用 CC0 1.0 Universal。
-适用范围：assets/ 中除 save-share-cover.png、backgrounds/launcher-ai-hall.png 外的图片、characters/official-built-in-skills/ 和
+适用范围：assets/ 中除 save-share-cover.png、backgrounds/launcher-ai-hall.png、
+backgrounds/launcher-v0.3.0-beta1.png 外的图片、characters/official-built-in-skills/ 和
 characters/official-built-in-talents/ 中的图片，以及
 characters/official-factions/intelligent-core.png 共享阵营徽标。
 智能核心徽标由 AI 独立生成，未引用角色原画。
@@ -50,3 +66,7 @@ result.ogg 使用 CC0 1.0；详见音频署名清单。
 依赖库及其他第三方文件保留各自的许可证。
 
 依赖组件许可及版权声明：THIRD-PARTY-NOTICES.txt
+
+官方剧情包全身立绘：DeepSeek、Llama 与 ChatGPT 按 ZipZipPipe 完整原图经 AI 改绘，制作透明全身稿与表情差分；原作者仍为 ZipZipPipe。新原图的逐图许可状态及来源以 characters/official-story/ART-CREDITS.md、LICENSE-ART.md 和 LICENSE-AUTHOR-SHARING.md 为准；Llama 与 ChatGPT 的目录记录仅确认作者分享／再创作说明，不作统一标准许可证的扩展推断。
+
+官方剧情包中的 GLM、Grok 与 Qwen 全身改绘同样沿用 ZipZipPipe 的 CC BY-NC-SA 4.0；具体文件及来源见 characters/official-story/ART-CREDITS.md。

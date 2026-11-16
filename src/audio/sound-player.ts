@@ -27,6 +27,9 @@ export class SoundPlayer {
   private fallbackHeartbeat?: HTMLAudioElement;
   private readonly fetchControllers = new Set<AbortController>();
   private readonly fallbackVoices = new Set<HTMLAudioElement>();
+  private readonly fallbackCues = new Map<HTMLAudioElement, SoundCue>();
+  private readonly activeSources = new Map<SoundCue, Set<AudioBufferSourceNode>>();
+  private readonly cueVersions = new Map<SoundCue, number>();
   private readonly fallbackTimers = new Set<number>();
   private generation = 0;
 
@@ -35,15 +38,16 @@ export class SoundPlayer {
   createEffect(url: string, release: () => void): PluginSound {
     let disposed = false;
     const voices = new Set<() => void>();
+    const playing = new Map<HTMLAudioElement, () => void>();
+    let paused = false;
     const stop = () => { for (const stopVoice of [...voices]) stopVoice(); };
-    const effect: PluginSound & { stop(): void } = {
-      stop,
-      play: (options = {}) => {
-        if (disposed || !this.enabled || !this.unlocked || options.signal?.aborted) return;
+    const start = (options: import("./plugin-audio").PluginSoundOptions = {}, complete: () => void = () => {}) => {
+        if (disposed || !this.enabled || !this.unlocked || options.signal?.aborted) { complete(); return; }
         const volume = options.volume ?? 1;
-        if (!Number.isFinite(volume) || volume < 0 || volume > 1) return;
+        if (!Number.isFinite(volume) || volume < 0 || volume > 1) { complete(); return; }
         const audio = new Audio(url);
         audio.volume = volume;
+        audio.loop = options.loop ?? false;
         let finished = false;
         const cleanup = () => {
           if (finished) return;
@@ -55,12 +59,26 @@ export class SoundPlayer {
           audio.removeEventListener("ended", cleanup);
           audio.removeEventListener("error", cleanup);
           voices.delete(cleanup);
+          playing.delete(audio);
+          complete();
         };
         voices.add(cleanup);
+        playing.set(audio, cleanup);
         options.signal?.addEventListener("abort", cleanup, { once: true });
         audio.addEventListener("ended", cleanup, { once: true });
         audio.addEventListener("error", cleanup, { once: true });
-        void audio.play().catch(cleanup);
+        if (!paused) void audio.play().catch(cleanup);
+    };
+    const effect: PluginSound & { stop(): void } = {
+      stop,
+      play: options => start(options),
+      playAndWait: options => new Promise<void>(resolve => start(options, resolve)),
+      setPaused: value => {
+        paused = value;
+        for (const [audio, cleanup] of playing) {
+          if (value) audio.pause();
+          else if (this.enabled) void audio.play().catch(cleanup);
+        }
       },
       dispose: () => {
         if (disposed) return;
@@ -77,6 +95,7 @@ export class SoundPlayer {
   configure(enabled: boolean): void {
     this.enabled = enabled;
     if (!enabled) {
+      this.stop("achievementUnlock");
       this.effects.forEach((effect) => effect.stop());
       this.stopHeartbeat();
       return;
@@ -112,8 +131,9 @@ export class SoundPlayer {
     }
     void this.resumeContext();
     const generation = this.generation;
+    const cueVersion = this.cueVersions.get(cue);
     void this.loadBuffer(cue, context).then((buffer) => {
-      if (generation !== this.generation || context !== this.context) return;
+      if (generation !== this.generation || context !== this.context || cueVersion !== this.cueVersions.get(cue)) return;
       if (!buffer || !this.enabled || !this.unlocked) {
         if (!buffer) this.playFallback(cue, false, delayMs);
         return;
@@ -124,8 +144,32 @@ export class SoundPlayer {
       gain.gain.value = SOUND_VOLUME[cue];
       source.connect(gain);
       gain.connect(this.output ?? context.destination);
+      const sources = this.activeSources.get(cue) ?? new Set<AudioBufferSourceNode>();
+      this.activeSources.set(cue, sources);
+      sources.add(source);
+      source.addEventListener("ended", () => {
+        sources.delete(source);
+        source.disconnect();
+        gain.disconnect();
+      }, { once: true });
       source.start(context.currentTime + Math.max(0, delayMs) / 1000);
     });
+  }
+
+  /** Cancel a cue's active voices and outstanding decode callbacks without affecting music. */
+  stop(cue: Exclude<SoundCue, "heartbeat">): void {
+    this.cueVersions.set(cue, (this.cueVersions.get(cue) ?? 0) + 1);
+    for (const source of this.activeSources.get(cue) ?? []) {
+      try { source.stop(); } catch { /* A short source may already have ended. */ }
+      source.disconnect();
+    }
+    this.activeSources.delete(cue);
+    for (const [voice, voiceCue] of this.fallbackCues) {
+      if (voiceCue !== cue) continue;
+      voice.pause();
+      this.fallbackVoices.delete(voice);
+      this.fallbackCues.delete(voice);
+    }
   }
 
   startHeartbeat(): boolean {
@@ -256,14 +300,19 @@ export class SoundPlayer {
 
   private playFallback(cue: SoundCue, loop: boolean, delayMs = 0): void {
     const generation = this.generation;
+    const cueVersion = this.cueVersions.get(cue);
     const sample = new Audio(SOUND_SOURCES[cue]);
     this.fallbackVoices.add(sample);
-    sample.addEventListener?.("ended", () => this.fallbackVoices.delete(sample), { once: true });
+    this.fallbackCues.set(sample, cue);
+    sample.addEventListener?.("ended", () => {
+      this.fallbackVoices.delete(sample);
+      this.fallbackCues.delete(sample);
+    }, { once: true });
     sample.loop = loop;
     sample.volume = SOUND_VOLUME[cue];
     if (cue === "heartbeat") this.fallbackHeartbeat = sample;
     const start = () => {
-      if (generation !== this.generation || !this.enabled || !this.unlocked) return;
+      if (generation !== this.generation || cueVersion !== this.cueVersions.get(cue) || !this.enabled || !this.unlocked) return;
       void sample.play().catch(() => undefined);
     };
     if (delayMs > 0) {
@@ -279,11 +328,18 @@ export class SoundPlayer {
   async dispose(): Promise<void> {
     for (const effect of [...this.effects]) effect.dispose();
     this.generation += 1;
+    for (const sources of this.activeSources.values()) for (const source of sources) {
+      try { source.stop(); } catch { /* The source may already have ended. */ }
+      source.disconnect();
+    }
+    this.activeSources.clear();
+    this.cueVersions.clear();
     this.stopHeartbeat();
     for (const timer of this.fallbackTimers) globalThis.clearTimeout(timer);
     this.fallbackTimers.clear();
     for (const voice of this.fallbackVoices) voice.pause();
     this.fallbackVoices.clear();
+    this.fallbackCues.clear();
     for (const controller of this.fetchControllers) controller.abort();
     this.fetchControllers.clear();
     this.encodedAudio.clear();

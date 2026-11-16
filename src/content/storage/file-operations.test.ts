@@ -7,6 +7,11 @@ import { copyFile, inspectFiles } from "./file-operations";
 import { encodeText, sha256 } from "./encoding";
 
 describe("host file operations", () => {
+  it("matches the standard CRC-32 vector for empty input and a nonzero-offset byte view", () => {
+    expect(crc32(new Uint8Array())).toBe(0);
+    const bytes = encodeText("prefix123456789suffix");
+    expect(crc32(bytes.subarray(6, 15))).toBe(0xcbf43926);
+  });
   it("accepts up to 4096 small entries while rejecting larger central directories", async () => {
     const fs = new MemoryContentHostProvider().fileSystem;
     const files = Object.fromEntries(Array.from({ length: 4096 }, (_, i) => [`clips/${i}.ogg`, new Uint8Array([i % 256])]));

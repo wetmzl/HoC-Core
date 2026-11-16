@@ -19,7 +19,11 @@ async function mountTable(page: Page, options: { text: string; reducedMotion?: b
     const character = { ...baseCharacter, id: "example-table", name: "示例对手", tags: [], unlock: undefined, aiSkills: [],
       portraitScales: { ...baseCharacter.portraitScales, table: options.anchors ? 1.3 : baseCharacter.portraitScales.table },
       tablePortrait: options.anchors ? { anchorY: .92, images: [{ image: baseCharacter.assets.conflicted, anchorY: .82 }] } : baseCharacter.tablePortrait,
-      dialogue: { ...baseCharacter.dialogue, pools: Object.fromEntries(Object.keys(baseCharacter.dialogue.pools).map(id => [id, [options.text]])) } };
+      dialogue: { ...baseCharacter.dialogue,
+        // This fixture controls body anchors through tablePortrait; authored
+        // dialogue portraits can otherwise override them with their own anchor.
+        ...(options.anchors ? { poolPortraits: {} } : {}),
+        pools: Object.fromEntries(Object.keys(baseCharacter.dialogue.pools).map(id => [id, [options.text]])) } };
     installCharacterCatalog([{ id: character.id, name: character.name, subtitle: "布局验证", tier: "D", tags: [],
       previewImage: "/assets/package-cover-fallback.png", portraitScales: character.portraitScales }], character.id);
     installCharacterDefinitions([character]);
@@ -31,7 +35,7 @@ async function mountTable(page: Page, options: { text: string; reducedMotion?: b
     registry.installAbilityRegistry([...registry.ABILITY_DEFINITIONS, ai], [...registry.STATUS_DEFINITIONS, { id: "example-rank-record", defaultDuration: "match", rules: [] }], registry.ABILITY_CATALOG_VERSION);
     const { createMatch } = await load("/src/core/match/reducer.ts");
     const { createCard } = await load("/src/core/blackjack/card.ts");
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const { createPersistenceService } = await load("/src/persistence/factory.ts");
     const { mountGameRuntime } = await load("/src/match-screen.ts");
     const base = createMatch("neutral-table-layout", { opponentId: character.id,
@@ -84,8 +88,8 @@ for (const viewport of viewports) {
     await mountTable(page, { text: "示例对白。", displays: 12 });
     await page.evaluate(async () => {
       const { NotificationController } = await import("/src/presentation/notification-controller.ts");
-      const { createDefaultSave } = await import("/src/persistence/boot.ts");
-      const notices = new NotificationController({ root: document.querySelector<HTMLDivElement>("#app")!, save: createDefaultSave(), currentCharacter: { name: "示例对手" } as any, offerTutorial: () => {} });
+      const { createDefaultSave } = await import("/tests/e2e/runtime-fixture.ts");
+      const notices = new NotificationController({ root: document.querySelector<HTMLDivElement>("#app")!, save: createDefaultSave(), currentCharacter: { name: "示例对手" } as any });
       notices.enqueueAbilityNotices([{ owner: "player", tone: "player", text: "策展人 · 示例技能：获得一张衍生牌" }]);
     });
     const banner = await page.locator("#ability-notices").boundingBox();

@@ -7,18 +7,31 @@ import type {
   RuntimeScreenModule
 } from "./contracts";
 
+export interface RuntimeScreenChange {
+  readonly from?: string;
+  readonly to?: string;
+}
+
 export class RuntimeScreenRouter {
   private readonly modules = new Map<RuntimeScreenId, RuntimeScreenModule>();
   private readonly pendingModules = new Map<RuntimeScreenId, Promise<RuntimeScreenModule>>();
-  private current?: { readonly mounted: MountedScreen; readonly controller: AbortController };
+  private current?: { readonly mounted: MountedScreen; readonly controller: AbortController; readonly id: string };
   private navigationToken = 0;
   private mountingController?: AbortController;
   private disposed = false;
 
   constructor(
     private readonly context: RuntimeScreenContext,
-    private readonly loaders: Readonly<Partial<Record<RuntimeScreenId, RuntimeScreenLoader>>>
+    private readonly loaders: Readonly<Partial<Record<RuntimeScreenId, RuntimeScreenLoader>>>,
+    private readonly changed?: (change: RuntimeScreenChange) => void
   ) {}
+
+  get screenId(): string | undefined { return this.current?.id; }
+
+  private notify(change: RuntimeScreenChange): void {
+    try { this.changed?.(change); }
+    catch (error) { console.warn("页面生命周期观察者失败", error); }
+  }
 
   async navigate(destination: RuntimeNavigation): Promise<void> {
     if (this.disposed) return;
@@ -34,13 +47,13 @@ export class RuntimeScreenRouter {
   }
 
   /** Adapts internal and contributed pages without changing public plugin routes. */
-  async navigateModule(loader: RuntimeScreenLoader, params?: Readonly<Record<string, unknown>>): Promise<void> {
+  async navigateModule(loader: RuntimeScreenLoader, params?: Readonly<Record<string, unknown>>, screenId = "custom"): Promise<void> {
     if (this.disposed) return;
     this.mountingController?.abort();
-    await this.mountLoaded(loader, params, ++this.navigationToken);
+    await this.mountLoaded(loader, params, ++this.navigationToken, undefined, screenId);
   }
 
-  private async mountLoaded(loader: RuntimeScreenLoader, params: Readonly<Record<string, unknown>> | undefined, token: number, id?: RuntimeScreenId): Promise<void> {
+  private async mountLoaded(loader: RuntimeScreenLoader, params: Readonly<Record<string, unknown>> | undefined, token: number, id?: RuntimeScreenId, screenId = id ?? "custom"): Promise<void> {
     let module: RuntimeScreenModule;
     try {
       module = await (id ? this.loadModule(id, loader) : loader());
@@ -54,6 +67,7 @@ export class RuntimeScreenRouter {
     this.current = undefined;
     previous?.controller.abort();
     await previous?.mounted.dispose();
+    if (previous) this.notify({ from: previous.id });
     if (token !== this.navigationToken || this.disposed) return;
 
     const controller = new AbortController();
@@ -72,7 +86,8 @@ export class RuntimeScreenRouter {
       return;
     }
     this.mountingController = undefined;
-    this.current = { mounted, controller };
+    this.current = { mounted, controller, id: screenId };
+    this.notify({ to: screenId });
   }
 
   async dispose(): Promise<void> {
@@ -85,6 +100,7 @@ export class RuntimeScreenRouter {
     this.current = undefined;
     current?.controller.abort();
     await current?.mounted.dispose();
+    if (current) this.notify({ from: current.id });
     this.pendingModules.clear();
     this.modules.clear();
   }

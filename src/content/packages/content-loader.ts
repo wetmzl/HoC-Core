@@ -1,3 +1,8 @@
+import { gameAudio } from "../../audio/game-audio";
+import { prepareMusicResources, type InstalledMusicResource } from "./music";
+import { prepareAchievementCatalogs, type InstalledAchievementDefinition } from "./achievements";
+import { setTelemetryAchievementCatalog } from "../../telemetry";
+import { installAchievementUiCatalog } from "../../runtime/achievement-ui";
 import { installEncounterFlows, validateEncounterFlow, validateEncounterProgram, type EncounterFlowResource } from "../encounter-flows/catalog";
 import { compileLegacyFlow, instantiateProgramTemplate } from "../../core/flow/program-templates";
 import { installChallenges, validateChallenges } from "../challenges/catalog";
@@ -34,6 +39,8 @@ export interface LoadContentOptions {
 }
 
 export interface PreparedContentRuntime {
+  readonly achievements?: readonly InstalledAchievementDefinition[];
+  readonly music?: readonly InstalledMusicResource[];
   readonly characterImages?: readonly { url: string; packageId: string; path: string }[];
   readonly encounterFlows: readonly EncounterFlowResource[];
   readonly challenges: readonly ChallengeDefinition[];
@@ -217,9 +224,10 @@ export function prepareContentRuntime(content: LoadedContent): PreparedContentRu
       ? { label: factionValue.name, image: faction.resolvePath(factionValue.badge) }
       : legacyBadge;
     const matchMusicSources: string[] = [];
+    const matchMusicPriorities: ("character" | "faction")[] = [];
     const appendMusic = (path: string | undefined, owner: Pick<LoadedHocpkgPackage, "resolvePath">, ownerId: string, descriptor = matchResult.descriptor) => {
       if (!path) return;
-      try { matchMusicSources.push(owner.resolvePath(path)); }
+      try { matchMusicSources.push(owner.resolvePath(path)); matchMusicPriorities.push(descriptor.type === "presentation.faction" ? "faction" : "character"); }
       catch { diagnostics.push(Object.freeze({
         packageId: ownerId, resourceId: descriptor.id, type: descriptor.type,
         state: "dormant", reason: "media-unavailable", error: `牌局音乐不可用：${path}`
@@ -246,7 +254,7 @@ export function prepareContentRuntime(content: LoadedContent): PreparedContentRu
       : linkedFlow ? linkedFlow.program ?? compileLegacyFlow(linkedFlow.definition) : undefined;
     characters.push(Object.freeze({ ...metadata, ...data,
       ...(program ? { program } : {}),
-      ...(matchMusicSources.length ? { matchMusicSources: Object.freeze([...new Set(matchMusicSources)]) } : {})
+      ...(matchMusicSources.length ? { matchMusicSources: Object.freeze(matchMusicSources), matchMusicPriorities: Object.freeze(matchMusicPriorities) } : {})
     }));
   }
   const defaultCharacterId = catalog.find((character) => character.id === content.index.defaultCharacterId)?.id
@@ -279,6 +287,8 @@ export function prepareContentRuntime(content: LoadedContent): PreparedContentRu
   });
   for (const character of effectiveCharacters) if (character.program) validateEncounterProgram(character.program, effectiveCharacters, abilityRegistry);
   return Object.freeze({
+    achievements: prepareAchievementCatalogs(content.registry.extensions["achievement.catalog"] ?? []),
+    music: prepareMusicResources(content.registry.extensions["presentation.music"] ?? []),
     characterImages: Object.freeze(characterImages),
     encounterFlows: Object.freeze(encounterFlows),
     challenges: Object.freeze(challenges),
@@ -294,6 +304,7 @@ export function prepareContentRuntime(content: LoadedContent): PreparedContentRu
 }
 
 export function activateContentRuntime(prepared: PreparedContentRuntime): void {
+  gameAudio.installMusic(prepared.music ?? []);
   clearCharacterImages();
   for (const { url, packageId, path } of prepared.characterImages ?? []) registerCharacterImage(url, { packageId, path });
   installAbilityRegistry(prepared.definitions, prepared.statuses, prepared.abilityRegistry.catalogVersion);
@@ -301,9 +312,14 @@ export function activateContentRuntime(prepared: PreparedContentRuntime): void {
   installCharacterDefinitions(prepared.characters);
   installChallenges(prepared.challenges);
   installEncounterFlows(prepared.encounterFlows);
+  installAchievementUiCatalog(prepared.achievements ?? []);
+  // Only successfully activated catalogs count as loaded. Preparation and transient teardown do not.
+  setTelemetryAchievementCatalog(prepared.achievements ?? []);
 }
 
 export function deactivateContentRuntime(): void {
+  installAchievementUiCatalog([]);
+  gameAudio.installMusic([]);
   installChallenges([]);
   installEncounterFlows([]);
   clearCharacterImages();

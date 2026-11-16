@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createMatch, gameReducer } from "../core/match/reducer";
 import type { GameEvent, MatchState } from "../core/match/types";
-import { extractDialogueEvent, restoreDialogueEvent, DialogueEventRegistry } from "./events";
+import { extractDialogueEvent, extractDialogueEvents, restoreDialogueEvent, DialogueEventRegistry } from "./events";
 import { CORE_DIALOGUE_PRIMITIVES } from "./facts";
 import { DialogueEngine } from "./engine";
 import { DialoguePrimitiveRegistry } from "./registry";
@@ -11,6 +11,29 @@ const s = () => createMatch("event-layer");
 const event = (id: string, type = "core.action"): DialogueEvent => ({ id, type, apiVersion: 1, data: type === "core.action" ? { actor: "player", action: "hit" } : { roundIndex: 0 } });
 const appended = (state: MatchState, events: GameEvent[], phase = state.round.phase): MatchState => ({ ...state, history: [...state.history, ...events], round: { ...state.round, phase } });
 afterEach(() => vi.restoreAllMocks());
+it("preserves cross-match snapshot queries when the next history is longer", () => {
+  const base = s(), before = { ...base, id: "previous-query", history: [{ type: "ROUND_STARTED", roundIndex: 0 } as const] };
+  const after: MatchState = { ...base, id: "next-query", history: [
+    { type: "ROUND_STARTED", roundIndex: 0 }, { type: "PLAYER_HIT", value: 12 },
+    { type: "ABILITY_PLAYED", definitionId: "neutral", instanceId: "skill", owner: "player" }
+  ], round: { ...base.round, phase: "turns" } };
+  expect(extractDialogueEvent(before, after)).toEqual({ id: "next-query:0:core.action:1", type: "core.action", apiVersion: 1, data: { actor: "player", action: "hit" } });
+  expect(extractDialogueEvents(before, after).map(event => ({ id: event.id, type: event.type }))).toEqual([
+    { id: "next-query:0:core.action:1", type: "core.action" },
+    { id: "next-query:0:core.ability-played:2", type: "core.ability-played" }
+  ]);
+});
+it("preserves cross-match snapshot queries when the next history is shorter", () => {
+  const base = s();
+  const before: MatchState = { ...base, id: "previous-query", history: [
+    { type: "ROUND_STARTED", roundIndex: 0 }, { type: "PLAYER_HIT", value: 12 }, { type: "PLAYER_STOOD" }
+  ] };
+  const after: MatchState = { ...base, id: "next-query", history: [
+    { type: "ROUND_STARTED", roundIndex: 0 }, { type: "PLAYER_HIT", value: 14 }
+  ], round: { ...base.round, phase: "turns" } };
+  expect(extractDialogueEvent(before, after)).toBeUndefined();
+  expect(extractDialogueEvents(before, after)).toEqual([]);
+});
 it("coalesces actual actions against final result, round and phase", () => {
   const before = s();
   expect(extractDialogueEvent(before, before)).toBeUndefined();

@@ -2,7 +2,7 @@ import { cardRank, cardSuit } from "../core/blackjack/card";
 import type { Card } from "../core/blackjack/types";
 import { getLegalActions } from "../core/match/reducer";
 import type { Action, GameEvent, MatchState } from "../core/match/types";
-import { CHARACTER_CATALOG, getCharacterMetadata, type CharacterUnlockCondition } from "../content/characters";
+export { unlockConditionLabel } from "../content/characters/unlocks";
 import { RESET_LONG_TERM_CONFIRM_MESSAGE } from "../persistence/long-term-recovery";
 import { suitPresentation } from "./cards";
 import { STAFF_REVOLVER_URL } from "../resources/cache-policy";
@@ -121,28 +121,6 @@ export function actionButton(label: string, action: Action, state: MatchState, c
 export const TALENT_PLACEHOLDER_MILESTONES = Object.freeze([3, 5, 7, 10]);
 
 export function wireActions(container: ParentNode, handler: (action: Action) => void): void { container.querySelectorAll<HTMLButtonElement>("[data-action]").forEach((element) => element.addEventListener("click", () => handler(JSON.parse(element.dataset.action ?? "{}") as Action))); }
-
-export function unlockConditionLabel(condition: CharacterUnlockCondition | undefined): string {
-    if (!condition)
-        return "完成条件后";
-    if (condition.type === "defeat-any")
-        return "击败任意角色";
-    if (condition.type === "defeat-count")
-        return `击败 ${condition.count} 名不同与会者`;
-    if (condition.type === "defeat-faction-count") {
-        const faction = CHARACTER_CATALOG.find(character => character.faction === condition.faction && character.badge)?.badge?.label ?? condition.faction;
-        return `击败「${faction}」阵营的 ${condition.count} 名不同角色`;
-    }
-    const tagLabel = (tag: string): string => {
-        const tier = /^tier:(d|c|b|a|s|ss)$/.exec(tag)?.[1];
-        return tier ? `${tier.toUpperCase()}级` : `带有「${tag}」标签的`;
-    };
-    if (condition.type === "defeat-any-tag")
-        return `击败一名${tagLabel(condition.tag)}角色`;
-    if (condition.type === "defeat-character")
-        return `击败指定角色 ${getCharacterMetadata(condition.characterId)?.name ?? condition.characterId}`;
-    return `击败${tagLabel(condition.tag)}角色的 ${condition.percentage}%`;
-}
 
 export const REVOLVER_REFERENCE_ART_HEIGHT = 149.333;
 

@@ -40,7 +40,7 @@ async function mount(page: Page) {
     const opponent = { ...base.opponent, hand: { cards: [publicCard, ...base.opponent.hand.cards.slice(1)] } };
     const match = { ...base, opponent, abilities: runtime, playerSkills: { ...base.playerSkills, cards }, roulette: { ...base.roulette, opponent: { capacity: 6, bullets: 0 } },
       round: { ...base.round, opponent, phase: "roulette-trigger", currentActor: null, outcome: { reason: "comparison", winner: "player", penaltyTarget: "opponent", bulletsAdded: 1 } } };
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const repo = (await load("/src/persistence/factory.ts")).createPersistenceService();
     const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false; save.settings.reducedMotion = true;
     save.tutorialProgress.completedIds.push("adult-content-warning");

@@ -1,7 +1,11 @@
+import { openUiDialog } from "../presentation/dialog-motion";
+import { MusicPackageOrderSchema } from "../content/packages/music";
 import { haptics } from "../presentation/haptic-service";
+import { hapticPreferences } from "../presentation/haptic-preferences";
 import { presentationStore } from "../persistence/presentation";
 import { resetSave } from "../persistence/boot";
-import { downloadRawSave, downloadSaveImage, downloadSaveJson, importSave } from "../persistence/json";
+import { downloadRawSave, downloadSaveImage, downloadSaveJson, importSaveTransfer, type SaveTransfer } from "../persistence/json";
+import { replaceTransferredSave } from "../persistence/save-transfer";
 import { SaveValidationError, type LongTermSave } from "../persistence/schema";
 import { gameAudio } from "../audio/game-audio";
 import { DEFAULT_MUSIC_VOLUME } from "../audio/music-volume";
@@ -9,9 +13,11 @@ import { resourceLoader } from "../resources/resource-loader";
 import { selectSaveCoverImage } from "./save-cover";
 import { confirmGameDialog } from "../game-dialog";
 import { RESET_CONFIRM_MESSAGE, uiError } from "../presentation/view-helpers";
-import { gameTelemetry } from "../telemetry";
+import { loadingIndicatorMarkup } from "../presentation/loading-indicator";
 export interface SettingsControllerDependencies {
     clearActiveMatch: () => void;
+    flushEncounters?: () => Promise<void>;
+    saveReplaced?: () => void;
     deckQueue: {
         get: () => import("../core/skills/deck").SkillDeck;
         subscribe(listener: (deck: import("../core/skills/deck").SkillDeck, status: import("../presentation/deck-save-queue").DeckSaveStatus) => void): () => void;
@@ -31,6 +37,7 @@ export interface SettingsControllerDependencies {
 export class SettingsController {
     constructor(private readonly deps: SettingsControllerDependencies) { }
     pendingImportedSave: unknown;
+    private importingSave = false;
     resetCurrentData = async (): Promise<void> => {
         await this.flushPluginSettings();
         await this.deps.deckQueue?.flush();
@@ -47,6 +54,7 @@ export class SettingsController {
         gameAudio.stopHeartbeat();
         document.body.classList.remove("reduced-motion");
         gameAudio.configure(this.deps.save.settings.soundEnabled, this.deps.save.settings.musicVolume ?? DEFAULT_MUSIC_VOLUME);
+        gameAudio.musicDirector.setOrder(this.deps.save.settings.musicPackageOrder ?? []);
         haptics.configure(!this.deps.save.settings.reducedMotion);
         await this.deps.repository.saveLongTerm(this.deps.save);
         await this.deps.renderLobby(this.deps.lobbyLayer);
@@ -91,16 +99,30 @@ export class SettingsController {
         this.settingsWriteQueue = write;
         return write;
     };
+    writeMusicOrder = (order: readonly string[]): Promise<void> => {
+        const requested = MusicPackageOrderSchema.parse(order);
+        const write = this.settingsWriteQueue.catch(() => {}).then(async () => {
+            await this.deps.deckQueue?.flush();
+            const current = this.deps.autosave?.getSave() ?? this.deps.save;
+            // Preserve preferences for temporarily absent packages.
+            const complete = [...requested, ...(current.settings.musicPackageOrder ?? []).filter(id => !requested.includes(id))];
+            const next = { ...current, settings: { ...current.settings, musicPackageOrder: complete }, updatedAt: new Date().toISOString() };
+            await this.deps.repository.saveLongTerm(next);
+            this.deps.autosave?.updateSave(next); this.deps.save = next;
+            gameAudio.musicDirector.setOrder(complete);
+        });
+        this.settingsWriteQueue = write;
+        return write;
+    };
     updateSettings = (event: Event): Promise<void> => {
         const input = event.target as HTMLInputElement;
         const setting = input.dataset.setting;
-        if (setting === "telemetryEnabled") {
-            input.disabled = true;
-            return (gameTelemetry()?.setEnabled(input.checked) ?? Promise.resolve()).catch(() => {
-                input.checked = gameTelemetry()?.enabled ?? false;
-                const status = this.deps.root.querySelector<HTMLParagraphElement>("#lobby-status");
-                if (status) status.textContent = "统计偏好保存失败，请重试。";
-            }).finally(() => { input.disabled = false; });
+        if (setting === "hapticsEnabled" || setting === "outputHapticsEnabled") {
+            const persisted = hapticPreferences.update(setting === "hapticsEnabled" ? { enabled: input.checked } : { output: input.checked });
+            if (!input.checked) void haptics.stop();
+            const status = this.deps.root.querySelector<HTMLParagraphElement>("#lobby-status");
+            if (status) status.textContent = persisted ? "设备震动设置已保存。" : "震动设置已应用；设备存储不可用，本次会话有效。";
+            return Promise.resolve();
         }
         if (setting !== "reducedMotion" && setting !== "soundEnabled" && setting !== "autoSkipAfterStand" && setting !== "musicVolume") return Promise.resolve();
         const value = setting === "musicVolume" ? input.valueAsNumber : input.checked;
@@ -156,11 +178,15 @@ export class SettingsController {
         const status = this.deps.root.querySelector<HTMLParagraphElement>("#lobby-status");
         try {
             await this.flushPluginSettings();
-            const currentSave = this.deps.autosave?.getSave() ?? this.deps.save;
+            await this.deps.flushEncounters?.();
+            await this.deps.autosave?.flush();
+            const snapshot = await this.deps.repository.readSnapshot();
+            const currentSave = snapshot.longTerm as LongTermSave ?? this.deps.save;
+            const story = snapshot.story;
             const format = this.deps.root.querySelector<HTMLSelectElement>("[data-export-format]")?.value ?? "image";
             const method = format === "json"
-                ? await downloadSaveJson(currentSave)
-                : await downloadSaveImage(currentSave, await this.saveCoverImage(currentSave));
+                ? await downloadSaveJson(currentSave, undefined, undefined, story, snapshot.notebook)
+                : await downloadSaveImage(currentSave, await this.saveCoverImage(currentSave), undefined, undefined, story, snapshot.notebook);
             if (status)
                 status.textContent = this.exportStatus(method);
         }
@@ -169,7 +195,24 @@ export class SettingsController {
                 status.textContent = uiError(error, "导出失败。");
         }
     };
-    applyImportedSave = async (next: LongTermSave): Promise<void> => { await this.flushPluginSettings(); await this.deps.deckQueue?.flush(); this.deps.deckQueue = undefined; await this.deps.repository.saveLongTerm(next); this.deps.save = next; this.deps.pluginSettingsSession?.sync(this.deps.save.settings.pluginSettings ?? {}); document.body.classList.toggle("reduced-motion", this.deps.save.settings.reducedMotion); gameAudio.configure(this.deps.save.settings.soundEnabled, this.deps.save.settings.musicVolume ?? DEFAULT_MUSIC_VOLUME); haptics.configure(!this.deps.save.settings.reducedMotion); this.pendingImportedSave = undefined; await this.deps.renderLobby(this.deps.lobbyLayer); };
+    applyImportedSave = async (next: LongTermSave, story: SaveTransfer["story"] = null, notebook: SaveTransfer["notebook"] = null): Promise<void> => {
+        await this.flushPluginSettings();
+        await this.deps.deckQueue?.flush();
+        await this.deps.flushEncounters?.();
+        await this.deps.autosave?.flush();
+        await replaceTransferredSave(this.deps.repository, { longTerm: next, story, notebook });
+        this.deps.deckQueue = undefined;
+        this.deps.saveReplaced?.();
+        this.deps.clearActiveMatch();
+        this.deps.save = next;
+        this.deps.pluginSettingsSession?.sync(next.settings.pluginSettings ?? {});
+        document.body.classList.toggle("reduced-motion", next.settings.reducedMotion);
+        gameAudio.configure(next.settings.soundEnabled, next.settings.musicVolume ?? DEFAULT_MUSIC_VOLUME);
+        gameAudio.musicDirector.setOrder(next.settings.musicPackageOrder ?? []);
+        haptics.configure(!next.settings.reducedMotion);
+        this.pendingImportedSave = undefined;
+        await this.deps.renderLobby(this.deps.lobbyLayer);
+    };
     showUnsupportedImportPrompt = (error: SaveValidationError): void => {
         this.pendingImportedSave = error.input;
         const dialog = this.deps.root.querySelector<HTMLDialogElement>("#save-import-error");
@@ -179,7 +222,7 @@ export class SettingsController {
             copy.textContent = "这份文件无法识别或不符合支持的存档格式，无法转换。原件仍可导出留底，当前存档未被修改。";
         if (status)
             status.textContent = "导入失败：请导出原件留底或暂不处理。";
-        dialog?.showModal();
+        openUiDialog(dialog);
     };
     handleImportFailure = (error: unknown): void => {
         if (error instanceof SaveValidationError && error.kind === "long-term") {
@@ -203,11 +246,35 @@ export class SettingsController {
         }
     };
     importFile = (event: Event): void => {
+        if (this.importingSave) return;
         const input = event.target as HTMLInputElement;
         const file = input.files?.[0];
         if (!file)
             return;
-        void importSave(file).then(this.applyImportedSave).catch(this.handleImportFailure).finally(() => { input.value = ""; });
+        this.importingSave = true;
+        const settings = input.closest("dialog");
+        const disabled = new Map([...(settings?.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>("input,button,select") ?? [input])].map(node => [node, node.disabled]));
+        const loading = document.createElement("dialog");
+        loading.className = "import-review-dialog is-loading";
+        loading.setAttribute("aria-label", "导入存档");
+        loading.innerHTML = `<div class="import-review-body">${loadingIndicatorMarkup({ label: "导入存档" })}</div>`;
+        loading.addEventListener("cancel", event => event.preventDefault());
+        const run = async (): Promise<void> => {
+            try {
+                disabled.forEach((_, node) => { node.disabled = true; });
+                this.deps.root.append(loading);
+                openUiDialog(loading);
+                const transfer = await importSaveTransfer(file);
+                await this.applyImportedSave(transfer.longTerm, transfer.story, transfer.notebook);
+            } finally {
+                if (loading.open) loading.close();
+                loading.remove();
+                disabled.forEach((value, node) => { node.disabled = value; });
+                input.value = "";
+                this.importingSave = false;
+            }
+        };
+        void run().catch(this.handleImportFailure);
     };
-    requestImport = (): void => { this.deps.root.querySelector<HTMLInputElement>("#save-file")?.click(); };
+    requestImport = (): void => { if (!this.importingSave) this.deps.root.querySelector<HTMLInputElement>("#save-file")?.click(); };
 }

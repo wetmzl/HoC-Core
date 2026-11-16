@@ -1,3 +1,4 @@
+import { skipStory } from "./story-platform-fixture";
 import { expectSkillSheet } from "./skill-sheet-assertions";
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
@@ -14,7 +15,7 @@ async function enter(page: Page, count = 10): Promise<string[]> {
     await (await load("/src/content/packages/content-loader.ts")).bootstrapContent({ fetch: window.fetch.bind(window) });
     const { PLAYER_SKILL_DEFINITIONS } = await load("/src/core/skills/definitions.ts");
     const ids = PLAYER_SKILL_DEFINITIONS.filter((skill: any) => !skill.unlock && skill.drop.enabled && skill.drop.baseWeight > 0).map((skill: any) => skill.id);
-    const save = (await load("/src/persistence/boot.ts")).createDefaultSave();
+    const save = (await load("/tests/e2e/runtime-fixture.ts")).createDefaultSave();
     save.skipTutorial = true;
     save.settings.soundEnabled = false;
     save.profile.skillDeck = { carried: ids.slice(0, count), reserve: ids.slice(count) };
@@ -66,6 +67,7 @@ test("八组真实截图：小卡、筛选、详情、排序、跨区、落位�
   await page.locator(".deck-detail .skill-sheet summary").click();
   await shot("03-detail-390.png");
   await page.locator("[data-deck-detail-close]").click();
+  await expect(page.locator(".deck-detail")).not.toBeVisible();
   await startDrag(page, ids[0]);
   const target = await point(page, `[data-deck-id="${ids[3]}"]`);
   await page.mouse.move(target.x - 12, target.y);
@@ -267,7 +269,7 @@ test("中性胜利奖励一键加入后，确认结果仍保留卡组和解锁�
     registry.installAbilityRegistry([...registry.ABILITY_DEFINITIONS, { ...base, id: "example-deck-reward", name: "示例奖励技能", unlock: { opponentId: "llama", label: "示例胜利奖励" } }], registry.STATUS_DEFINITIONS, registry.ABILITY_CATALOG_VERSION);
     const { PLAYER_SKILL_DEFINITIONS } = await load("/src/core/skills/definitions.ts");
     const ids = PLAYER_SKILL_DEFINITIONS.filter((skill: any) => !skill.unlock && skill.drop.enabled).map((skill: any) => skill.id);
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const { createMatch, gameReducer } = await load("/src/core/match/reducer.ts");
     const save = createDefaultSave();
     save.profile.skillDeck = { carried: ids.slice(0, 8), reserve: ids.slice(8) };
@@ -309,7 +311,7 @@ for (const width of [390, 320]) test(`大量技能：分区独立滚动、拖到
     registry.installAbilityRegistry([...registry.ABILITY_DEFINITIONS, ...examples], registry.STATUS_DEFINITIONS, registry.ABILITY_CATALOG_VERSION);
     const { PLAYER_SKILL_DEFINITIONS } = await load("/src/core/skills/definitions.ts");
     const ids = PLAYER_SKILL_DEFINITIONS.filter((skill: any) => !skill.unlock && skill.drop.enabled).map((skill: any) => skill.id);
-    const save = (await load("/src/persistence/boot.ts")).createDefaultSave();
+    const save = (await load("/tests/e2e/runtime-fixture.ts")).createDefaultSave();
     save.profile.skillDeck = { carried: ids.slice(0, 60), reserve: ids.slice(60) };
     save.skipTutorial = true;
     save.settings.soundEnabled = false;
@@ -358,4 +360,8 @@ for (const width of [390, 320]) test(`大量技能：分区独立滚动、拖到
   expect(await reserve.evaluate((element) => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(3);
   await page.waitForTimeout(250);
   await page.screenshot({ path: resolve(screenshots, `10-reserve-scroll-${width}.png`), animations: "disabled" });
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.addLocatorHandler(page.locator("[data-story-player]"), async () => { await skipStory(page); });
 });

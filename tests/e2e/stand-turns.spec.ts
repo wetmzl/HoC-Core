@@ -1,3 +1,4 @@
+import { skipStory } from "./story-platform-fixture";
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -20,7 +21,7 @@ async function mountFixture(page: Page, restore = false, autoSkipAfterStand = fa
     const load = (path: string): Promise<any> => import(/* @vite-ignore */ path);
     await load("/src/table-screen-module.ts");
     await (await load("/src/content/packages/content-loader.ts")).bootstrapContent({ fetch: window.fetch.bind(window) });
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const repo = (await load("/src/persistence/factory.ts")).createPersistenceService();
     if (!restore) {
       const { createMatch } = await load("/src/core/match/reducer.ts");
@@ -54,7 +55,7 @@ test("设置默认开启、保存、刷新及新牌局快照", async ({ page }) 
   await page.goto("/");
   await expect(page.getByRole("button", { name: "开始游戏", exact: true })).toBeEnabled();
   await page.evaluate(async () => {
-    const { createDefaultSave } = await import(/* @vite-ignore */ "/src/persistence/boot.ts");
+    const { createDefaultSave } = await import(/* @vite-ignore */ "/tests/e2e/runtime-fixture.ts");
     const { createPersistenceService } = await import(/* @vite-ignore */ "/src/persistence/factory.ts");
     const save = createDefaultSave(); save.skipTutorial = true; save.settings.reducedMotion = true;
     save.tutorialProgress.completedIds.push("adult-content-warning");
@@ -77,6 +78,9 @@ test("设置默认开启、保存、刷新及新牌局快照", async ({ page }) 
   await expect(checkbox).not.toBeChecked();
   await page.locator('#settings [data-close]').click();
   await page.locator('[data-enter-duel]').click();
+  await expect(page.locator("[data-story-player]")).toBeVisible();
+  await skipStory(page);
+  await expect(page.locator("[data-story-player]")).toHaveCount(0);
   await page.locator('[data-invite-character]').first().click();
   await page.locator('[data-profile-start]').click();
   await expect(page.locator("main.table-shell")).toBeVisible();
@@ -98,9 +102,9 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 720 }
     await expect(skill).toBeEnabled();
     await capture(page, `stood-skills-${viewport.width}`);
     await skill.click();
-    await expect(skill).toHaveAccessibleName("使用临界判断，剩余2次");
+    await expect(skill).toHaveAccessibleName("使用临界判断，情报官，剩余2次");
     await skill.click();
-    await expect(skill).toHaveAccessibleName("使用临界判断，剩余1次");
+    await expect(skill).toHaveAccessibleName("使用临界判断，情报官，剩余1次");
     await expect(stand).toBeEnabled();
     await expect(hit).toBeDisabled();
     await page.getByRole("button", { name: "抽取技能，剩余 1 次", exact: true }).click();

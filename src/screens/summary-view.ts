@@ -68,9 +68,9 @@ export function projectSummaryView({ state, character, save, settlement }: Summa
         const actions = settlement?.actions ?? (escaped
           ? [{ label: "返回大厅", destination: "lobby", primary: true }]
           : playerWon ? [{ label: "查看历史记录", destination: "history", primary: true }, { label: "返回大厅", destination: "lobby" }]
-          : [{ label: "回溯时空（重开一局）", destination: "rewind", primary: true }, { label: "返回大厅", destination: "lobby" }]);
+          : [{ label: "重开一局", destination: "rewind", primary: true }, { label: "返回大厅", destination: "lobby" }]);
         const summaryActions = `${resourcePanel}<p role="status" data-encounter-status></p><div class="controls action-dock summary-actions">${actions.map(action => `<button class="${action.primary ? "primary-button" : "secondary-button"}" data-summary-action="${action.destination}" ${pending.length ? "disabled" : ""}>${escapeHtml(action.label)}</button>`).join("")}</div>`;
-        const html = `<main class="summary-shell"><p class="eyebrow">终局</p><img class="summary-character" src="${image}" alt="${imageAlt}" /><p class="kicker">${escaped ? "策展人提前离席" : playerWon ? "与会者已被击败" : "与会者拿下了这一局"}</p><h1>${escaped ? "已离席" : playerWon ? "策展人胜利" : "策展人落败"}</h1><p class="summary-copy">${escapeHtml(summaryCopy)}</p>${characterUnlockPanel}${unlockPanel}${summaryActions}</main>`;
+        const html = `<main class="summary-shell"><p class="eyebrow">终局</p><img class="summary-character" src="${image}" alt="${imageAlt}" /><h1>${escaped ? "已离席" : playerWon ? "胜利" : "失败"}</h1><p class="summary-copy">${escapeHtml(summaryCopy)}</p>${characterUnlockPanel}${unlockPanel}${summaryActions}</main>`;
 
   return Object.freeze({ html, newlyUnlocked: Object.freeze(newlyUnlocked) });
 }

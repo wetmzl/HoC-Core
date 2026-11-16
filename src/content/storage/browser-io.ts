@@ -15,7 +15,7 @@ export function browserIo<T>(request: unknown, options?: ContentOperationOptions
       if (event.data.progress) { options?.onProgress?.(event.data.progress); return; }
       finish();
       if (options?.signal?.aborted) reject(options.signal.reason);
-      else if (event.data.error) reject(new Error(event.data.error));
+      else if (event.data.error) reject(Object.assign(new Error(event.data.error), { code: event.data.code }));
       else resolve(event.data.result as T);
     };
     worker.postMessage(request);
@@ -25,7 +25,7 @@ export function browserIo<T>(request: unknown, options?: ContentOperationOptions
 export async function openBrowserArchive(fs: ContentFileSystem, source: ContentFileSource, options?: ContentOperationOptions, inWorker = false): Promise<ContentArchive> {
   if (inWorker) {
     const archive = await browserIo<{ entries: ContentArchiveEntry[]; source: ContentFileSource }>({ action: "index", source }, options);
-    return { entries: archive.entries, extractMany: (files, options) => browserIo<ContentDigest[]>({ action: "extractMany", source: archive.source, files }, options), extract: (path, destination, options) => browserIo<ContentDigest>({ action: "extract", source: archive.source, path, destination }, options), async close() {} };
+    return { entries: archive.entries, extractMany: (files, options) => browserIo<ContentDigest[]>({ action: "extractMany", source: archive.source, files, password: options?.password }, options), extract: (path, destination, options) => browserIo<ContentDigest>({ action: "extract", source: archive.source, path, destination, password: options?.password }, options), async close() {} };
   }
   // Neutral in-memory hosts and unit tests exercise the same bounded ZIP reader.
   const blob = source.kind === "blob" ? source.blob : source.kind === "stored"
@@ -36,7 +36,7 @@ export async function openBrowserArchive(fs: ContentFileSystem, source: ContentF
     checkCancelled(options);
     const entry = entries.find(entry => entry.path === path);
     if (!entry) throw new Error(`ZIP 条目不存在：${path}`);
-    const bytes = await extractZipEntry(archive, entry, () => checkCancelled(options));
+    const bytes = await extractZipEntry(archive, entry, () => checkCancelled(options), options?.password);
     const digest = { bytes: bytes.length, sha256: await sha256(bytes) };
     checkCancelled(options);
     await fs.write(destination, bytes);

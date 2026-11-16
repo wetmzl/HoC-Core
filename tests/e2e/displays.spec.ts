@@ -14,17 +14,17 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await bootstrapContent({ fetch: window.fetch.bind(window) });
       const registry = await load("/src/core/abilities/registry.ts");
       const { createMatch } = await load("/src/core/match/reducer.ts");
-      const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+      const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
       const { createPersistenceService } = await load("/src/persistence/factory.ts");
       const { mountGameRuntime } = await load("/src/match-screen.ts");
       const memory = { id: "example-memory", defaultDuration: "match", rules: [] };
       const query = (key: string) => ({ type: "status-parameter", target: "owner", statusDefinitionId: memory.id, key });
       const talent = {
-        id: "example-display-talent", name: "记忆展示", description: "中性展示夹具", sourceKind: "talent", primaryDomain: "gambler", tags: ["display"], activation: { type: "automatic" }, unlock: { type: "defeat-count", count: 1, label: "示例" },
+        id: "example-display-talent", name: "记忆展示", description: "当前记住的牌。", sourceKind: "talent", primaryDomain: "gambler", tags: ["display"], activation: { type: "automatic" }, unlock: { type: "defeat-count", count: 1, label: "示例" },
         rules: [{ id: "remember", trigger: "on-match-created", effects: [{ type: "add-status", target: "owner", statusDefinitionId: memory.id, parameters: { rank: "Q", suit: "spades" } }] }],
         displays: [{ id: "memory", target: "owner", description: "当前记住的牌。", content: [{ type: "text", text: "记忆：" }, { type: "card", rank: query("rank"), suit: query("suit") }] }, { id: "zero", target: "owner", description: "零值仍显示。", content: [{ type: "text", text: "数值：" }, { type: "number", value: 0 }] }]
       };
-      const ai = { id: "example-display-ai", name: "对手展示", description: "中性展示夹具", sourceKind: "ai-skill", primaryDomain: "gambler", tags: ["display"], activation: { type: "automatic" }, rules: [], displays: [
+      const ai = { id: "example-display-ai", name: "对手展示", description: "百分比展示。", sourceKind: "ai-skill", primaryDomain: "gambler", tags: ["display"], activation: { type: "automatic" }, rules: [], displays: [
         { id: "probability", target: "owner", description: "百分比展示。", content: [{ type: "text", text: "概率：" }, { type: "number", value: 0.5, format: "percent" }] },
         { id: "missing", target: "owner", description: "数据缺失。", content: [{ type: "text", text: "待记忆：" }, { type: "card", rank: query("rank"), suit: query("suit") }] }
       ] };
@@ -42,13 +42,11 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       registry.installAbilityRegistry([...registry.ABILITY_DEFINITIONS, talent, ai], [...registry.STATUS_DEFINITIONS, memory], registry.ABILITY_CATALOG_VERSION);
       const match = createMatch("neutral-display-layout", { opponentId: "chatgpt", talentIds: [talent.id], opponentAiSkills: [{ definitionId: ai.id, enabled: true, parameters: {} }] });
       const repo = createPersistenceService();
-      const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false;
+      const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false; save.settings.reducedMotion = true; save.tutorialProgress.completedIds.push("adult-content-warning");
       await repo.saveLongTerm(save); await repo.saveRuntime(createRuntimeSave(match));
       const root = document.querySelector<HTMLElement>("#app")!;
       void mountGameRuntime({ root, onExitRequest: async () => {} });
     }, displayCount);
-    const warning = page.locator("#adult-content-warning");
-    if (await warning.isVisible()) await warning.getByRole("button", { name: "我已成年并继续" }).click();
     const panel = page.locator(".display-panel");
     const layout = () => page.evaluate(() => ({
       pageFits: document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth,
@@ -61,7 +59,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     const dockTop = (await layout()).dockTop;
     await expect(panel.locator("[data-display-toggle]")).toHaveCount(0);
     await expect(page.locator(".status-chip:visible")).toHaveCount(displayCount);
-    expect(await panel.locator(".display-scroll").evaluate(element => getComputedStyle(element).overflowY)).toBe("auto");
+    await expect(panel.locator(".display-scroll")).toHaveCSS("overflow-y", "auto");
     await expect(page.locator("[data-display-actor=player] .status-chip")).toHaveCount(displayCount === 1 ? 0 : displayCount === 2 ? 1 : 2);
     await expect(page.locator("[data-display-actor=opponent] .status-chip")).toHaveCount(displayCount <= 3 ? 1 : displayCount - 2);
     await expect(page.locator("[data-display-actor=opponent] .status-chip").first()).toContainText("概率：50%");

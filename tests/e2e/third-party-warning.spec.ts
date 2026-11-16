@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { respondToOfficialPlaylistCopy } from "./playlist-fixture";
 
 async function installProbe(page: Page, packageName = "warning-probe"): Promise<void> {
   await page.evaluate(async (packageName) => {
@@ -26,6 +27,14 @@ async function installProbe(page: Page, packageName = "warning-probe"): Promise<
   }, packageName);
   await page.reload();
   await expect(page.locator("[data-start-game]")).toBeEnabled();
+  await page.locator("[data-open-packages]").click();
+  const card = page.locator(`.package-card[data-package-id="example/${packageName}"]`);
+  if (await card.getAttribute("data-package-state") === "disabled") {
+    const official = await page.locator("[data-embedded-default-playlist]").count();
+    await card.locator('[data-package-action="enable"]').click();
+    if (official) await respondToOfficialPlaylistCopy(page, "confirm");
+  }
+  await page.locator("[data-close-packages]").click();
 }
 
 async function executions(page: Page): Promise<number> {

@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 import builtinIndex from "../../public/characters/packages.json" with { type: "json" };
+import { respondToOfficialPlaylistCopy } from "../e2e/playlist-fixture";
+import { skipStory } from "../e2e/story-platform-fixture";
 
 test("direct embedded startup, management and optional complete offline download", async ({ page, context }, testInfo) => {
   test.setTimeout(150000);
@@ -22,18 +24,21 @@ test("direct embedded startup, management and optional complete offline download
   const packageId = builtinIndex.packages.find(entry => entry.packageId.endsWith('/debug-engine'))!.packageId;
   const card = page.locator(`.package-card[data-package-id="${packageId}"]`);
   await card.locator('[data-package-action="disable"]').click();
+  await respondToOfficialPlaylistCopy(page, "confirm");
   await expect(card).toHaveAttribute('data-package-state', 'disabled');
   await page.screenshot({ path: testInfo.outputPath('02-embedded-management.png'), fullPage: true });
   await page.locator('[data-close-packages]').click();
   await page.reload(); await expect(page.locator('[data-start-game]')).toBeEnabled();
   await page.locator('[data-open-packages]').click(); await expect(card).toHaveAttribute('data-package-state', 'disabled');
   await card.locator('[data-package-action="enable"]').click(); await page.locator('[data-close-packages]').click();
+  await page.locator('[data-open-launcher-settings]').click();
   await page.locator('[data-open-offline]').click();
   await expect(page.locator('[data-offline-dialog] [data-offline-download]')).toBeEnabled();
   await page.locator('[data-offline-dialog] [data-offline-download]').click();
   await expect(page.locator('[data-offline-dialog] [data-embedded-offline]')).toHaveAttribute('data-offline-state', 'complete', { timeout: 90000 });
   await page.screenshot({ path: testInfo.outputPath('03-complete-offline.png'), fullPage: true });
   await page.locator('[data-close-offline]').click();
+  await page.locator('[data-close-launcher-settings]').click();
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
   await page.reload();
   const cdp = await context.newCDPSession(page); await cdp.send('Network.clearBrowserCache');
@@ -43,6 +48,9 @@ test("direct embedded startup, management and optional complete offline download
   await expect(page.locator('main.lobby-menu-shell')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('04-offline-lobby.png'), fullPage: true });
   await page.locator('[data-enter-duel]').click();
+  await expect(page.locator('[data-story-player]')).toBeVisible();
+  await skipStory(page);
+  await expect(page.locator('[data-story-player]')).toHaveCount(0);
   await page.locator('[data-invite-character]').first().click();
   await page.locator('[data-profile-start]').click();
   await expect(page.locator('main.table-shell')).toBeVisible();
@@ -74,6 +82,7 @@ test("offline download can cancel, report failure, retry and clear at narrow wid
     };
   });
   await page.goto('/'); await expect(page.locator('[data-start-game]')).toBeEnabled();
+  await page.locator('[data-open-launcher-settings]').click();
   await page.locator('[data-open-offline]').click();
   const controls = page.locator('[data-offline-dialog] [data-embedded-offline]');
   await expect(controls).toHaveAttribute('data-offline-state', 'idle');
@@ -96,5 +105,6 @@ test("offline download can cancel, report failure, retry and clear at narrow wid
   await page.screenshot({ path: testInfo.outputPath('20-cache-cleared.png'), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.locator('[data-close-offline]').click();
+  await page.locator('[data-close-launcher-settings]').click();
   await expect(page.locator('[data-start-game]')).toBeEnabled();
 });

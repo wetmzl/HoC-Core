@@ -28,11 +28,4 @@ export function mountCharacterIntel(root: HTMLElement, matchSeed: string, previo
   main?.addEventListener("click", event => {
     if (event.target instanceof Node && !sheet.contains(event.target)) sheet.open = false;
   }, { capture: true });
-  main?.addEventListener("keydown", event => {
-    if (event.key === "Escape" && sheet.open) {
-      event.stopPropagation();
-      sheet.open = false;
-      sheet.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
-    }
-  });
 }

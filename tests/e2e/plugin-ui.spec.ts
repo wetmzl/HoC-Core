@@ -1,12 +1,14 @@
+import { skipStory } from "./story-platform-fixture";
 import { test, expect, type Page } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { zipSync } from "fflate";
+import { respondToOfficialPlaylistCopy } from "./playlist-fixture";
 
-function plugin(name: string, apiVersion = 8) {
+function plugin(name: string, apiVersion = 8, quote = false) {
   const files: Record<string, Buffer> = {
     "module.json": Buffer.from(JSON.stringify({ module: "plugin.js", style: "plugin.css", provides: [] })),
     "plugin.css": Buffer.from("/* neutral UI fixture */"),
-    "plugin.js": Buffer.from(`export function register(){return {handlers:[],createRuntime(){return {uiActions:[
+    "plugin.js": Buffer.from(`export function register(){return {handlers:[],createRuntime(){return {${quote ? `mainMenuQuote:{lines:[{text:"${name} <b>quotation</b>"},{text:"Choose wisely.",emphasis:true}]},` : ""}uiActions:[
       {id:'catalog',slot:'main-menu.secondary',label:'${name}目录',description:'<img src=x onerror=alert(1)>',order:25,async mount(context,signal){
         const log=window.__uiLog??=[]; log.push('mount:${name}');
         window.__uiContextKeys=Object.keys(context).sort(); window.__lastUiContext=context;
@@ -41,12 +43,14 @@ async function start(page: Page) {
   await page.locator("[data-start-game]").click();
   await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
 }
-async function install(page: Page, names: string[]) {
+async function install(page: Page, names: string[], quote = false) {
   await page.getByRole("button", { name: "资源管理", exact: true }).click();
-  await page.locator("[data-import-file]").setInputFiles({ name: "ui-fixtures.zip", mimeType: "application/zip", buffer: Buffer.from(zipSync(Object.fromEntries(names.map(name => [`${name}.hocpkg`, plugin(name)])))) });
+  await page.locator("[data-import-file]").setInputFiles({ name: "ui-fixtures.zip", mimeType: "application/zip", buffer: Buffer.from(zipSync(Object.fromEntries(names.map(name => [`${name}.hocpkg`, plugin(name, quote ? 13 : 8, quote)])))) });
   await page.getByRole("button", { name: "安装所选包" }).click();
   for (const name of names) {
+    const official = await page.locator("[data-embedded-default-playlist]").count();
     await page.locator(`[data-package-action="enable"][data-package-id="test/${name}"]`).click();
+    if (official) await respondToOfficialPlaylistCopy(page, "confirm");
     await expect(page.locator(`.package-card[data-package-id="test/${name}"]`)).toHaveAttribute("data-package-state", "enabled");
   }
   await page.getByRole("button", { name: "关闭资源管理" }).click();
@@ -124,4 +128,43 @@ test("failed and late page mounts can return safely and release their signals", 
   await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
   await expect.poll(() => page.evaluate(() => (window as any).__uiLog)).toEqual(["abort:failure:alpha", "abort:slow:alpha", "dispose:slow:alpha"]);
   await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
+});
+
+
+
+test("main-menu quotes follow plugin priority, disable and runtime restart", async ({ page }) => {
+  await start(page);
+  await expect(page.locator("[data-main-menu-quote]")).toHaveCount(0);
+  await page.locator("[data-exit-launcher]").click();
+  await install(page, ["alpha", "beta"], true);
+  await page.getByRole("button", { name: "资源管理", exact: true }).click();
+  await page.locator('[data-plugin-move="up"][data-package-id="test/beta"]').click();
+  await page.getByRole("button", { name: "关闭资源管理" }).click();
+  await start(page);
+  await expect(page.locator("[data-main-menu-quote]")).toContainText("beta <b>quotation</b>");
+  await page.locator("[data-exit-launcher]").click();
+  await page.getByRole("button", { name: "资源管理", exact: true }).click();
+  await page.locator('[data-plugin-move="up"][data-package-id="test/alpha"]').click();
+  await page.getByRole("button", { name: "关闭资源管理" }).click();
+  await start(page);
+  const quote = page.locator("[data-main-menu-quote]");
+  await expect(quote).toContainText("alpha <b>quotation</b>");
+  await expect(quote.locator("b")).toHaveCount(0);
+  await expect(quote.locator("strong")).toHaveText("Choose wisely.");
+  await page.reload();
+  await start(page);
+  await expect(quote).toContainText("alpha <b>quotation</b>");
+  for (const [disabled, next] of [["alpha", "beta"], ["beta", ""]]) {
+    await page.locator("[data-exit-launcher]").click();
+    await page.getByRole("button", { name: "资源管理", exact: true }).click();
+    await page.locator(`[data-package-action="disable"][data-package-id="test/${disabled}"]`).click();
+    await page.getByRole("button", { name: "关闭资源管理" }).click();
+    await start(page);
+    if (next) await expect(quote).toContainText(`${next} <b>quotation</b>`);
+    else await expect(quote).toHaveCount(0);
+  }
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.addLocatorHandler(page.locator("[data-story-player]"), async () => { await skipStory(page); });
 });

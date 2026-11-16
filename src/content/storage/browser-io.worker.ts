@@ -2,6 +2,8 @@ import type { ContentFileSource, ContentOperationProgress } from "./contracts";
 import { archiveBlob, extractZipEntry, zipIndex } from "./browser-archive";
 import { sha256 } from "./encoding";
 import { copyBrowserFiles } from "./browser-file-copy";
+import { createBrowserStoredFileReader } from "./browser-stored-file";
+import { createBrowserDirectoryResolver, type BrowserDirectoryResolver } from "./browser-directories";
 
 const scope = globalThis as unknown as { onmessage: (event: MessageEvent) => void; postMessage(value: unknown): void };
 let cancelled = false;
@@ -12,17 +14,14 @@ function segments(path: string): string[] {
   if (parts.some(part => !/^[A-Za-z0-9._-]+$/.test(part) || part === "." || part === "..")) throw new Error("非法内容路径。");
   return parts;
 }
-async function blobFor(source: ContentFileSource, root: FileSystemDirectoryHandle): Promise<Blob> {
+async function blobFor(source: ContentFileSource, readStoredFile: (path: string) => Promise<File>): Promise<Blob> {
   if (source.kind === "blob") return source.blob;
   if (source.kind === "asset") {
     const response = await fetch(source.path);
     if (!response.ok) throw new Error(`内容读取失败：${source.path}`);
     return response.blob();
   }
-  const parts = segments(source.path);
-  let parent = root;
-  for (const part of parts.slice(0, -1)) parent = await parent.getDirectoryHandle(part);
-  return (await parent.getFileHandle(parts.at(-1)!)).getFile();
+  return readStoredFile(source.path);
 }
 function progress(phase: ContentOperationProgress["phase"], path: string, bytes: number): void {
   const now = performance.now();
@@ -30,13 +29,12 @@ function progress(phase: ContentOperationProgress["phase"], path: string, bytes:
   lastProgress = now;
   scope.postMessage({ progress: { phase, path, completedBytes: bytes, totalBytes: bytes } });
 }
-async function write(root: FileSystemDirectoryHandle, destination: string, bytes: Uint8Array) {
+async function write(directory: BrowserDirectoryResolver, destination: string, bytes: Uint8Array) {
   check();
   const digest = { bytes: bytes.length, sha256: await sha256(bytes) };
   check();
   const parts = segments(destination);
-  let parent = root;
-  for (const part of parts.slice(0, -1)) parent = await parent.getDirectoryHandle(part, { create: true });
+  const parent = await directory(parts.slice(0, -1), true);
   const handle = await parent.getFileHandle(parts.at(-1)!, { create: true });
   const writable = await handle.createWritable();
   // A cancelled operation acknowledges only after the writable has closed.
@@ -49,8 +47,10 @@ scope.onmessage = (event) => {
   if (event.data.cancel) { cancelled = true; return; }
   void (async () => {
     const root = await navigator.storage.getDirectory();
-    const { action, source, paths, path, destination, files } = event.data as {
-      action: string; source: ContentFileSource; paths: string[]; path: string; destination: string;
+    const directory = createBrowserDirectoryResolver(root, check);
+    const readStoredFile = createBrowserStoredFileReader(root, check);
+    const { action, source, paths, path, destination, files, password } = event.data as {
+      password?: string; action: string; source: ContentFileSource; paths: string[]; path: string; destination: string;
       files: { source: ContentFileSource; path: string; destination: string }[];
     };
     check();
@@ -58,7 +58,7 @@ scope.onmessage = (event) => {
       const results = [];
       for (const path of paths) {
         check();
-        const bytes = new Uint8Array(await (await blobFor({ kind: "stored", path }, root)).arrayBuffer());
+        const bytes = new Uint8Array(await (await readStoredFile(path)).arrayBuffer());
         results.push({ bytes: bytes.length, sha256: await sha256(bytes) });
         progress("verifying", path, bytes.length);
       }
@@ -67,12 +67,12 @@ scope.onmessage = (event) => {
     if (action === "copyMany") {
       return copyBrowserFiles(files, async file => {
         check();
-        const digest = await write(root, file.destination, new Uint8Array(await (await blobFor(file.source, root)).arrayBuffer()));
+        const digest = await write(directory, file.destination, new Uint8Array(await (await blobFor(file.source, readStoredFile)).arrayBuffer()));
         progress("copying", file.destination, digest.bytes);
         return digest;
       }, check);
     }
-    const blob = await blobFor(source, root);
+    const blob = await blobFor(source, readStoredFile);
     check();
     if (action === "index") {
       const archive = await archiveBlob(blob);
@@ -87,13 +87,13 @@ scope.onmessage = (event) => {
         check();
         const entry = entries.find(entry => entry.path === file.path);
         if (!entry) throw new Error(`ZIP 条目不存在：${file.path}`);
-        results.push(await write(root, file.destination, await extractZipEntry(archive, entry, check)));
+        results.push(await write(directory, file.destination, await extractZipEntry(archive, entry, check, password)));
         progress("extracting", file.path, entry.bytes);
       }
       check(); return action === "extract" ? results[0] : results;
     }
-    const digest = await write(root, destination, new Uint8Array(await blob.arrayBuffer()));
+    const digest = await write(directory, destination, new Uint8Array(await blob.arrayBuffer()));
     progress("copying", destination, digest.bytes);
     return digest;
-  })().then(result => scope.postMessage({ result }), error => scope.postMessage({ error: error instanceof Error ? error.message : String(error) }));
+  })().then(result => scope.postMessage({ result }), error => scope.postMessage({ error: error instanceof Error ? error.message : String(error), code: (error as { code?: string })?.code }));
 };

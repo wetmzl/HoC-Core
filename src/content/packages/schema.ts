@@ -105,7 +105,7 @@ export const HocpkgManifestSchema = boundedContentJson(z.object({
   for (const [index, resource] of manifest.resources.entries()) {
     for (const [requiresIndex, dependency] of resource.requires.entries()) {
       if (!resourceIds.has(dependency)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["resources", index, "requires", requiresIndex], message: `依赖不存在：${dependency}` });
-      if (dependency === resource.id) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["resources", index, "requires", requiresIndex], message: "资源不能依赖自身" });
+      if (dependency === resource.id) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["resources", index, "requires", requiresIndex], params: { reason: "dependency-cycle" }, message: "资源不能依赖自身" });
     }
     const fileIndex = filePaths.get(resource.entry);
     if (fileIndex === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["resources", index, "entry"], message: `资源入口未在 files 中声明：${resource.entry}` });
@@ -116,7 +116,7 @@ export const HocpkgManifestSchema = boundedContentJson(z.object({
   const visit = (id: string, trail: readonly string[]): void => {
     if (state.get(id) === "visited") return;
     if (state.get(id) === "visiting") {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["resources"], message: `资源依赖不得成环：${[...trail, id].join(" -> ")}` });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["resources"], params: { reason: "dependency-cycle" }, message: `资源依赖不得成环：${[...trail, id].join(" -> ")}` });
       return;
     }
     state.set(id, "visiting");

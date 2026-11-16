@@ -1,3 +1,5 @@
+import type { RuntimeEventHub } from "./public-event-hub";
+import { createPublicEvent, createPublicEventBatch, matchPublicEventBatch, type PublicEventScopes } from "../core/events/public-events";
 import type { EncounterPlan, MatchOwner } from "./match-owner";
 import { previewPendingTrigger, reconcileMatchAbilities, type CreateMatchOptions } from "../core/match/reducer";
 import { isIntrinsicAbility } from "../core/intrinsic-abilities";
@@ -11,14 +13,19 @@ import { DialogueSession } from "../dialogue/session";
 import { presentationStore } from "../persistence/presentation";
 import { getCharacterMetadata, loadCharacter, type CharacterDefinition } from "../content/characters";
 import type { AutosaveController } from "../persistence/autosave";
-import { abilityTriggerNotice, pendingTriggerAbilityNotices } from "../presentation/ability-notices";
-import { presentMatchHapticsTransition } from "../presentation/haptics";
+import { abilityTriggerNoticesFromFacts, pendingTriggerAbilityNotices } from "../presentation/ability-notices";
+import { presentMatchHapticsFacts } from "../presentation/haptics";
 import { gameAudio } from "../audio/game-audio";
-import { presentMatchAudioTransition, syncMatchAudioState } from "../audio/match-audio";
+import { presentMatchAudioFacts, syncMatchAudioState } from "../audio/match-audio";
 import { characterResourcePlan, resourceLoader } from "../resources/resource-loader";
-import { legal } from "../presentation/view-helpers";
-import { createMatchTransition, type MatchTransition } from "./match-transition";
+import { loadingScreenMarkup } from "../presentation/loading-indicator";
+import { createMatchTransition, type MatchTransition, type MatchFactTransition } from "./match-transition";
+import { createMatchFactBatch } from "../core/events";
+import { MatchFactRuntime } from "./match-fact-runtime";
 export interface MatchSessionDependencies {
+    readonly isInteractionBlocked?: () => boolean;
+    readonly events?: RuntimeEventHub;
+    readonly eventScopes?: PublicEventScopes;
     enterMatch: () => Promise<void>;
     selectedCharacterId: string;
     getDeckQueue: () => {
@@ -41,12 +48,33 @@ export interface MatchSessionDependencies {
     resetDialogue: () => void;
     renderMatch: (state: import("../core/match/types").MatchState) => void;
     runtimeContributions: readonly import("../content/packages/plugin-contracts").PluginRuntimeContribution[];
-    offerTutorial: (cue: "skill-draw-available") => void;
     scheduleAiTurn: (state: import("../core/match/types").MatchState) => void;
     presentDelta: (transition: MatchTransition) => void;
 }
 export class MatchSession {
     constructor(private readonly deps: MatchSessionDependencies) { }
+    private readonly fallbackFactEvents = new MatchFactRuntime();
+    private observedFactEvents: MatchFactRuntime | undefined;
+    private factObservers: AbortController | undefined;
+    private get factEvents(): MatchFactRuntime {
+        const events = this.autosave?.factEvents ?? this.fallbackFactEvents;
+        if (this.observedFactEvents !== events) {
+            this.factObservers?.abort();
+            this.factObservers = new AbortController();
+            this.observedFactEvents = events;
+            const options = { signal: this.factObservers.signal };
+            events.subscribe("resolved", batch => {
+                this.deps.events?.publish("resolved", matchPublicEventBatch(batch, this.deps.eventScopes));
+            }, options);
+            events.subscribe("resolved", batch => { gameAudio.updateMusicFacts(batch); }, options);
+            events.subscribe("resolved", batch => { this.deps.presentDelta(batch as MatchFactTransition); }, options);
+            events.subscribe("resolved", batch => { presentMatchAudioFacts(gameAudio, batch); }, options);
+            events.subscribe("resolved", batch => { this.presentPluginMatchEvents(batch as MatchFactTransition); }, options);
+            events.subscribe("resolved", batch => { presentMatchHapticsFacts(batch, !this.deps.save.settings.reducedMotion); }, options);
+            events.subscribe("resolved", () => { this.deps.notifyExtensions(); }, options);
+        }
+        return events;
+    }
     private generation = 0;
     private disposed = false;
     private paused = false;
@@ -75,7 +103,8 @@ export class MatchSession {
         this.characterLoadInFlight = false;
         this.deps.clearAiSchedule();
         this.stopPluginMatch();
-        await this.autosave?.flush();
+        try { await this.autosave?.flush(); }
+        finally { this.fallbackFactEvents.dispose(); }
     };
     autosave: AutosaveController | null = null;
     private owner: MatchOwner | undefined;
@@ -91,9 +120,11 @@ export class MatchSession {
         this.leave();
         this.autosave = null;
         this.owner = undefined;
+        gameAudio.updateMusicContext();
         this.deps.notifyExtensions();
     };
     leave = (): void => {
+        gameAudio.updateMusicContext();
         this.characterLoadToken++;
         this.characterLoadInFlight = false;
         this.deps.clearAiSchedule();
@@ -101,6 +132,9 @@ export class MatchSession {
     };
     stopPluginMatch = (): void => {
         this.generation++;
+        this.factObservers?.abort();
+        this.factObservers = undefined;
+        this.observedFactEvents = undefined;
         void this.dialogueSession?.dispose();
         this.dialogueSession = undefined;
         this.pluginMatchController?.abort();
@@ -156,7 +190,7 @@ export class MatchSession {
             await this.waitForResume();
             if (this.disposed || requestToken !== this.characterLoadToken)
                 return false;
-            this.deps.root.innerHTML = `<main class="loading-shell"><span class="mark">✦</span><p>正在布置牌桌……</p></main>`;
+            this.deps.root.innerHTML = loadingScreenMarkup("布置牌桌");
             this.currentCharacter = character;
             this.deps.selectedCharacterId = character.id;
             this.lastAction = null;
@@ -164,7 +198,7 @@ export class MatchSession {
             const match = encounter.match;
             await this.resumeMatch(match, owner, character, false);
             if (!this.disposed && requestToken === this.characterLoadToken)
-                this.deps.enqueueAbilityNotices(abilityTriggerNotice(match.history, character.name, match));
+                this.deps.enqueueAbilityNotices(abilityTriggerNoticesFromFacts(createMatchFactBatch(undefined, match), character.name));
             return !this.disposed && requestToken === this.characterLoadToken;
         }
         catch (error) {
@@ -214,7 +248,7 @@ export class MatchSession {
             return;
         this.currentCharacter = character;
         this.owner = owner;
-        gameAudio.setMatchMusic(character.matchMusicSources);
+        gameAudio.setMatchMusic(character.matchMusicSources, character.matchMusicPriorities);
         gameAudio.setBgmScene("match");
         gameAudio.preloadMatch();
         await this.prepareMatchResources(this.currentCharacter, match);
@@ -274,8 +308,18 @@ export class MatchSession {
             if (triggerPreview)
                 this.deps.enqueueAbilityNotices(pendingTriggerAbilityNotices(triggerPreview, this.currentCharacter.name));
             syncMatchAudioState(gameAudio, state, restored);
-            if (legal(state, { type: "OPEN_SKILL_DRAW" }))
-                this.deps.offerTutorial("skill-draw-available");
+        }
+        gameAudio.updateMusicContext(state, [], restored);
+        // Initialization shares the same public source and precedes automatic actions.
+        this.deps.events?.publish("resolved", matchPublicEventBatch(createMatchFactBatch(undefined, state, { restored }), this.deps.eventScopes));
+        if (restored && this.deps.events) {
+            const id = this.deps.events.nextId(`match:${state.id}:restored`);
+            const batch = createPublicEventBatch({ id, facts: [createPublicEvent({ id, type: "match.restored",
+                scopes: { ...this.deps.eventScopes, match: state.id, round: `${state.id}:${state.roundIndex}` },
+                data: { roundIndex: state.roundIndex, historyIndex: state.history.length }
+            })], context: { match: state } });
+            this.deps.events.publish("resolved", batch);
+            this.deps.events.publish("committed", batch);
         }
         // Runtime subscribers may open contextual UI; its screen must already exist.
         this.deps.notifyExtensions();
@@ -299,25 +343,20 @@ export class MatchSession {
         this.owner?.summary(match);
     };
     dispatch = (action: Action): void => {
-        if (this.disposed || this.paused || !this.autosave)
+        if (this.disposed || this.paused || this.deps.isInteractionBlocked?.() || !this.autosave)
             return;
         const before = this.autosave.getState();
         const after = this.autosave.dispatch(action);
         if (after === before)
             return;
-        const transition = createMatchTransition(before, after);
-        this.dialogueSession?.transition(after);
+        const transition = createMatchTransition(before, after, this.autosave.getLastFactBatch?.());
+        this.dialogueSession?.transitionFacts(transition);
         this.lastAction = action;
-        this.lastDomainEvent = transition.events.at(-1)?.type ?? null;
-        if (after.scene === "match" && after.view === "match-summary")
-            this.showSummary(after);
-        else if (after.scene === "match")
-            this.deps.renderMatch(after);
-        this.deps.presentDelta(transition);
-        presentMatchAudioTransition(gameAudio, transition);
-        this.presentPluginMatchEvents(transition);
-        presentMatchHapticsTransition(transition, !this.deps.save.settings.reducedMotion);
-        this.deps.notifyExtensions();
-        this.deps.scheduleAiTurn(after);
+        this.lastDomainEvent = transition.facts.at(-1)?.type ?? null;
+        // Rendering is required orchestration: do not advance AI behind a failed table.
+        if (after.scene === "match" && after.view === "match-summary") this.showSummary(after);
+        else if (after.scene === "match") this.deps.renderMatch(after);
+        this.factEvents.publish("resolved", transition);
+        this.deps.scheduleAiTurn(this.autosave.getState());
     };
 }

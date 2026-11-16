@@ -1,7 +1,8 @@
 import { expect, it, vi } from "vitest";
 import { createMatch } from "../core/match/reducer";
 import type { GameEvent, MatchState } from "../core/match/types";
-import { extractDialogueEvents, restoreDialogueEvent } from "./events";
+import { createMatchFactBatch } from "../core/events";
+import { extractDialogueEvents, extractDialogueEventsFromFacts, restoreDialogueEvent } from "./events";
 import { CORE_DIALOGUE_PRIMITIVES } from "./facts";
 import { DialogueEngine } from "./engine";
 import { DialogueSession } from "./session";
@@ -40,6 +41,24 @@ it("keeps ordinary events, puts ability responses after actions, and gives final
   const next = { ...append(before, [played, { type: "ROUND_STARTED", roundIndex: 1 }, triggered]), roundIndex: 1 };
   expect(extractDialogueEvents(before, next).map(e => e.type)).toEqual(["core.round-start", "core.ability-triggered"]);
 });
+it("projects the shared facts with unchanged dialogue identities and current-round priority", () => {
+  const before = base();
+  const outcome = { winner: "player", reason: "comparison", penaltyTarget: "opponent", bulletsAdded: 1 } as const;
+  const after = { ...append(before, [played, { type: "ROUND_RESOLVED", outcome }, { type: "ROUND_STARTED", roundIndex: 1 }, triggered, { type: "PLAYER_HIT", value: 14 }, played]), roundIndex: 1 };
+  const batch = createMatchFactBatch(before, after);
+  expect(batch.facts).toHaveLength(6);
+  const events = extractDialogueEventsFromFacts(batch);
+  expect(events.map(event => event.type)).toEqual(["core.action", "core.ability-triggered", "core.ability-played"]);
+  expect(events.map(event => event.id)).toEqual([
+    `${after.id}:1:core.action:${before.history.length + 4}`,
+    `${after.id}:1:core.ability-triggered:${before.history.length + 3}`,
+    `${after.id}:1:core.ability-played:${before.history.length + 5}`
+  ]);
+  expect(events).toEqual(extractDialogueEvents(before, after));
+  const restored = createMatchFactBatch(undefined, after, { restored: true });
+  expect(restored.facts).toEqual([]);
+  expect(extractDialogueEventsFromFacts(restored)).toEqual([restoreDialogueEvent(after)]);
+});
 it("queries ability identity and per-round successful plays without treating passive triggers as plays", () => {
   const before = base(), state = append(before, [played, triggered, played]);
   const event = extractDialogueEvents(before, state)[0];
@@ -58,11 +77,21 @@ it("atomically resolves a batch's images and keeps the action when no ability ru
   const before = base(), after = append(before, [{ type: "PLAYER_HIT", value: 14 }, played, triggered]);
   const changed = vi.fn();
   const session = new DialogueSession(new DialogueEngine(program, "neutral"), before, new PresentationStore(new MemoryPresentationDriver()), async () => true, changed);
-  await session.start([], false); session.transition(after);
+  await session.start([], false); session.transitionFacts(createMatchFactBatch(before, after));
   await vi.waitFor(() => expect(session.peek().line).toBe("技能"));
   expect(changed).toHaveBeenCalledTimes(2); // initial fallback and one completed transition
   session.transition(append(after, [{ type: "PLAYER_HIT", value: 16 }, { ...played, definitionId: "other" }]));
   await vi.waitFor(() => expect(session.peek().line).toBe("行动"));
+  await session.dispose();
+});
+it("restores an ordinary cue through the fact entry without replaying a skill response", async () => {
+  const before = base(), after = append(before, [{ type: "PLAYER_HIT", value: 14 }, played]);
+  const selected = vi.fn();
+  const session = new DialogueSession(new DialogueEngine(program, "neutral"), before, new PresentationStore(new MemoryPresentationDriver()), async () => true, undefined, selected);
+  await session.start([], false);
+  session.transitionFacts(createMatchFactBatch(undefined, after, { restored: true }));
+  await vi.waitFor(() => expect(session.peek().line).toBe("行动"));
+  expect(selected.mock.lastCall![1]).toBe(true);
   await session.dispose();
 });
 it("discards a pending ability image if a newer transition or disposal supersedes it", async () => {

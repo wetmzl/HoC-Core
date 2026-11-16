@@ -1,4 +1,4 @@
-import { cardRank, cardValue } from "./card";
+import { cardPointValue, cardRank, isCardCountedInPointTotal } from "./card";
 import type { Card, Hand } from "./types";
 
 export function createHand(cards: readonly Card[] = []): Hand {
@@ -14,8 +14,8 @@ export function handValueAtLimit(hand: Hand, bustLimit: number): number {
   let total = 0;
   let aces = 0;
   for (const card of hand.cards) {
-    total += cardValue(cardRank(card));
-    if (cardRank(card) === "A") aces += 1;
+    total += cardPointValue(card);
+    if (cardRank(card) === "A" && isCardCountedInPointTotal(card)) aces += 1;
   }
   while (total > bustLimit && aces > 0) {
     total -= 10;

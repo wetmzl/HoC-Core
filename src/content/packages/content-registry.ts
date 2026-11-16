@@ -4,6 +4,7 @@ import type { AbilityDefinition, AiSkillAbilityDefinition, StatusDefinition, Tal
 import type { HocpkgResourceResult } from "./loader";
 import type { CharacterMatchResource, ContentDiagnostic, ExtensionResource, PlayerSkillResource } from "./resources";
 import type { HocpkgManifest } from "./schema";
+import { ContentStartupError } from "./startup-error";
 
 export interface LoadedHocpkgPackage {
   readonly manifest: HocpkgManifest;
@@ -57,7 +58,11 @@ export function buildContentRegistry(packages: readonly LoadedHocpkgPackage[]): 
       const isCore = result.descriptor.type.startsWith("game.");
       if (isCore) {
         if (result.state !== "active") {
-          throw new Error(`内容资源未激活：${packageId}#${result.descriptor.id} (${result.reason ?? result.state}) ${result.error ?? ""}`);
+          throw new ContentStartupError(`内容资源未激活：${packageId}#${result.descriptor.id} (${result.reason ?? result.state}) ${result.error ?? ""}`, {
+            packageId, packageTitle: loaded.manifest.metadata.title,
+            reason: result.reason ?? result.state, resourceType: result.descriptor.type,
+            apiVersion: result.descriptor.apiVersion, supportedApiVersions: result.supportedApiVersions
+          });
         }
         const value = result.value;
         switch (result.descriptor.type) {

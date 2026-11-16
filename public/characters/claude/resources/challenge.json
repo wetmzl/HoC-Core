@@ -5,7 +5,7 @@
   "ownerId": "claude",
   "unlock": {
     "type": "defeat-faction-count",
-    "count": 4,
+    "count": 7,
     "faction": "hoc-core/official-factions#intelligent-core",
     "exclude": [
       "claude"

@@ -1,7 +1,16 @@
+import { skipStory } from "./story-platform-fixture";
 import { expect, test, type Page } from "@playwright/test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { respondToOfficialPlaylistCopy } from "./playlist-fixture";
 
+const root = resolve("public/characters");
+const index = JSON.parse(readFileSync(resolve(root, "packages.json"), "utf8"));
+const characters: { id: string; faction?: string }[] = index.packages.flatMap((entry: { manifest: string }) => {
+  const manifest = JSON.parse(readFileSync(resolve(root, entry.manifest), "utf8"));
+  return manifest.resources.filter((resource: { type: string }) => resource.type === "game.character-match")
+    .map((resource: { entry: string }) => JSON.parse(readFileSync(resolve(root, entry.manifest, "..", resource.entry), "utf8")).metadata);
+});
 const output = resolve("output/factions");
 async function directory(page: Page, hasBadge: boolean) {
   await page.locator("[data-start-game]").click();
@@ -10,8 +19,8 @@ async function directory(page: Page, hasBadge: boolean) {
     await page.locator("[data-load-more-defeated]").scrollIntoViewIfNeeded();
     await page.waitForTimeout(200);
   }
-  await expect(page.locator(".character-card")).toHaveCount(5);
-  await expect(page.locator(".character-badge")).toHaveCount(hasBadge ? 5 : 0);
+  await expect.poll(() => page.locator(".character-card").evaluateAll(cards => cards.map(card => card.getAttribute("data-character-id")).sort())).toEqual(characters.map(character => character.id).sort());
+  await expect(page.locator(".character-badge")).toHaveCount(hasBadge ? characters.filter(character => character.faction).length : 0);
   if (hasBadge) {
     const badge = page.locator('[data-character-id="chatgpt"] .character-badge');
     await badge.click();
@@ -22,7 +31,7 @@ async function directory(page: Page, hasBadge: boolean) {
 async function manager(page: Page) { await page.getByRole("button", { name: "资源管理", exact: true }).click(); }
 const card = (page: Page) => page.locator('.package-card[data-package-id="hoc-core/official-factions"]');
 
-test("standalone faction package can be disabled, deleted and restored without blocking matches or saved-game resume", async ({ page }) => {
+test("standalone faction package can be disabled and restored without blocking matches or saved-game resume", async ({ page }) => {
   test.setTimeout(120_000);
   const errors: string[] = []; page.on("pageerror", e => errors.push(e.message));
   await page.addLocatorHandler(page.locator("#adult-content-warning"), async dialog => {
@@ -30,13 +39,13 @@ test("standalone faction package can be disabled, deleted and restored without b
   });
   await page.goto("/");
   await expect(page.locator("[data-start-game]")).toBeEnabled();
-  await page.evaluate(async () => {
+  await page.evaluate(async ids => {
     const load = (p: string): Promise<any> => import(/* @vite-ignore */ p);
     const save = (await load("/src/persistence/boot.ts")).createDefaultSave();
     save.skipTutorial = true; save.settings.soundEnabled = false;
-    save.defeats = ["chatgpt", "claude", "gemini", "deepseek", "llama"].map(opponentId => ({ opponentId, timestamp: "2026-10-24T00:00:00.000Z" }));
+    save.defeats = ids.map(opponentId => ({ opponentId, timestamp: "2026-10-24T00:00:00.000Z" }));
     await (await load("/src/persistence/factory.ts")).createPersistenceService().saveLongTerm(save);
-  });
+  }, characters.map(character => character.id));
   mkdirSync(output, { recursive: true });
   await manager(page);
   await expect(card(page)).toContainText("阵营 ×1");
@@ -58,6 +67,7 @@ test("standalone faction package can be disabled, deleted and restored without b
   await page.reload(); await expect(page.locator("[data-start-game]")).toBeEnabled();
   await manager(page);
   await card(page).locator('[data-package-action="disable"]').click();
+  await respondToOfficialPlaylistCopy(page, "confirm");
   await expect(card(page)).toHaveAttribute("data-package-state", "disabled");
   await page.getByRole("button", { name: "关闭资源管理" }).click();
   await page.locator("[data-start-game]").click();
@@ -70,17 +80,21 @@ test("standalone faction package can be disabled, deleted and restored without b
   });
   await page.reload(); await expect(page.locator("[data-start-game]")).toBeEnabled();
   await manager(page);
-  await card(page).locator('[data-package-action="remove"]').click();
-  await page.locator("[data-game-dialog]").getByRole("button", { name: "删除", exact: true }).click();
-  await expect(card(page)).toHaveAttribute("data-package-state", "not-installed");
+  // Embedded content is now read directly and cannot be deleted from the vault.
+  await expect(card(page).locator('[data-package-action="remove"]')).toHaveCount(0);
+  await expect(card(page)).toHaveAttribute("data-package-state", "disabled");
   await page.getByRole("button", { name: "关闭资源管理" }).click();
   await directory(page, false);
   await page.locator('[data-character-id="chatgpt"]').screenshot({ path: resolve(output, "core-missing.png") });
   await page.reload(); await expect(page.locator("[data-start-game]")).toBeEnabled();
   await manager(page);
-  await card(page).locator('[data-package-action="restore"]').click();
+  await card(page).locator('[data-package-action="enable"]').click();
   await expect(card(page)).toHaveAttribute("data-package-state", "enabled");
   await page.getByRole("button", { name: "关闭资源管理" }).click();
   await directory(page, true);
   expect(errors).toEqual([]);
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.addLocatorHandler(page.locator("[data-story-player]"), async () => { await skipStory(page); });
 });

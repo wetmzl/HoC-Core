@@ -1,4 +1,3 @@
-import { pluginCompatibilityError } from "./plugin-version";
 import type { ContentInstallOptions, ContentRepository, InstalledContentPackage } from "../storage/contracts";
 import { decodeText } from "../storage/encoding";
 import type { HocpkgManifest } from "./schema";
@@ -57,13 +56,31 @@ export class ContentPackageManager {
     const described = await Promise.all(ids.map((packageId) => this.describePackage(packageId, installedById.get(packageId), embeddedById.get(packageId))));
     const pluginIds = described.filter((entry) => (entry.manifest ?? entry.embeddedManifest)?.resources.some((resource) => resource.type === "plugin.module")).map((entry) => entry.packageId);
     const order = [...savedOrder.filter((id) => pluginIds.includes(id)), ...pluginIds.filter((id) => !savedOrder.includes(id))];
-    return described.map((entry) => ({ ...entry, error: entry.error ?? (entry.manifest ? pluginCompatibilityError(entry.manifest) : undefined), pluginPriority: order.includes(entry.packageId) ? order.indexOf(entry.packageId) : undefined }));
+    return described.map((entry) => ({ ...entry, pluginPriority: order.includes(entry.packageId) ? order.indexOf(entry.packageId) : undefined }));
   }
 
   async setPluginOrder(order: readonly string[]): Promise<void> {
-    const plugins = (await this.listPackages()).filter((entry) => entry.pluginPriority !== undefined && entry.currentRevision !== undefined).map((entry) => entry.packageId);
+    const plugins = await this.installedPluginOrder();
     if (order.length !== plugins.length || new Set(order).size !== order.length || order.some((id) => !plugins.includes(id))) throw new ContentPackageOperationError("插件排序与当前已安装插件不一致。");
     await this.repository.setPluginOrder(order);
+  }
+
+  private manifestFor(packageId: string, cache: Map<string, Promise<HocpkgManifest | undefined>>) {
+    let manifest = cache.get(packageId);
+    if (!manifest) {
+      manifest = this.repository.readManifest(packageId).catch(() => undefined);
+      cache.set(packageId, manifest);
+    }
+    return manifest;
+  }
+
+  async installedPluginOrder(cache = new Map<string, Promise<HocpkgManifest | undefined>>()): Promise<string[]> {
+    const [installed, saved] = await Promise.all([this.repository.listPackages(), this.repository.listPluginOrder()]);
+    const plugins = (await Promise.all(installed.map(async entry => {
+      const manifest = await this.manifestFor(entry.packageId, cache);
+      return manifest?.resources.some(resource => resource.type === "plugin.module") ? entry.packageId : undefined;
+    }))).filter((id): id is string => id !== undefined).sort();
+    return [...saved.filter(id => plugins.includes(id)), ...plugins.filter(id => !saved.includes(id))];
   }
 
   async disablePackage(packageId: string): Promise<void> {
@@ -97,12 +114,26 @@ export class ContentPackageManager {
     const installed = new Map((await this.repository.listPackages()).map((entry) => [entry.packageId, entry]));
     const selected = document.packages.filter((entry) => installed.has(entry.packageId));
     const mismatch: string[] = [];
+    const manifests = new Map<string, Promise<HocpkgManifest | undefined>>();
     for (const entry of selected) {
       if (!entry.version) continue;
-      const manifest = await this.repository.readManifest(entry.packageId).catch(() => undefined);
+      const manifest = await this.manifestFor(entry.packageId, manifests);
       if (!manifest || manifest.identity.version !== entry.version) mismatch.push(entry.packageId);
     }
-    await this.repository.setEnabledPackages(selected.map((entry) => entry.packageId));
+    const incremental = document.mode === "incremental";
+    const enabled = incremental ? [...installed.values()].filter(entry => entry.enabled).map(entry => entry.packageId) : [];
+    await this.repository.setEnabledPackages([...new Set([...enabled, ...selected.map(entry => entry.packageId)])]);
+    const ordered = await this.installedPluginOrder(manifests);
+    if (incremental) {
+      // Reorder only declared plugins within their existing slots.
+      const declared = new Set(document.packages.map(entry => entry.packageId));
+      const requested = document.pluginOrder.filter(id => declared.has(id) && ordered.includes(id));
+      const affected = new Set(requested);
+      let index = 0;
+      await this.repository.setPluginOrder(ordered.map(id => affected.has(id) ? requested[index++]! : id));
+    } else {
+      await this.repository.setPluginOrder([...document.pluginOrder.filter(id => ordered.includes(id)), ...ordered.filter(id => !document.pluginOrder.includes(id))]);
+    }
     return { missing: document.packages.filter((entry) => !installed.has(entry.packageId)).map((entry) => entry.packageId), versionMismatch: mismatch };
   }
 
@@ -147,12 +178,13 @@ export class ContentPackageManager {
       };
     }
     try {
-      const manifest = await this.repository.readManifest(packageId);
-      const presentation = await loadPackagePresentation({
-        manifest,
+      const access = this.repository.readPackage ? await this.repository.readPackage(packageId) : {
+        manifest: await this.repository.readManifest(packageId),
         readJson: async (path) => JSON.parse(decodeText(await this.repository.readFile(packageId, path))) as unknown,
         resolveAsset: (path) => this.repository.resolveAsset(packageId, path)
-      });
+      } satisfies import("./package-presentation").PackagePresentationAccess;
+      const manifest = access.manifest;
+      const presentation = await loadPackagePresentation(access);
       return {
         packageId,
         state: installed.enabled ? "enabled" : "disabled",

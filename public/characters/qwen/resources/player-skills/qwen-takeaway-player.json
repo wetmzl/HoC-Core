@@ -1,0 +1,66 @@
+{
+  "definition": {
+    "id": "qwen-takeaway-player",
+    "name": "外卖和奶茶",
+    "description": "你本轮点数优势 +2，随后随机使用一张当前持有且可用的其他主动技能。",
+    "usage": "玩家回合使用，每张一次。先获得本轮 +2 点比较优势，再随机代用一张其他持有主动技能并正常消耗牌或次数；没有其他可用主动技能时仍保留 +2。点数优势可叠加，不改变爆牌判断。",
+    "triggerNotice": "本轮点数优势 +2，随后随机使用另一张可用主动技能。",
+    "profileLore": "替你下单的agent固然美妙，但是你似乎对那家公司不太放心……。",
+    "sourceKind": "player-skill",
+    "primaryDomain": "gambler",
+    "skillTags": [
+      "gambler",
+      "cheater"
+    ],
+    "tags": [
+      "player-skill",
+      "active-skill-card",
+      "point-advantage",
+      "skill-invocation"
+    ],
+    "activation": {
+      "type": "action",
+      "windows": [
+        "owner-turn"
+      ],
+      "consume": "card",
+      "uses": 1
+    },
+    "rules": [
+      {
+        "id": "order-and-deliver",
+        "trigger": "on-ability-played",
+        "effects": [
+          {
+            "type": "set-status-stacks",
+            "target": "owner",
+            "statusDefinitionId": "qwen-takeaway-player-bonus",
+            "amount": {
+              "type": "add",
+              "left": {
+                "type": "status-stacks",
+                "target": "owner",
+                "statusDefinitionId": "qwen-takeaway-player-bonus"
+              },
+              "right": 2
+            }
+          },
+          {
+            "type": "invoke-random-active-skill",
+            "target": "owner"
+          }
+        ]
+      }
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "defeat-character",
+    "characterResourceId": "match",
+    "label": "首次击败Qwen"
+  }
+}

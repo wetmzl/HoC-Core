@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { createMatch } from "../core/match/reducer";
 import type { MatchState } from "../core/match/types";
 import { createMatchTransition } from "../runtime/match-transition";
-import { presentInteractionHaptic, presentMatchHapticsTransition } from "./haptics";
+import { createMatchFactBatch } from "../core/events";
+import { presentInteractionHaptic, presentMatchHapticsFacts, presentMatchHapticsTransition } from "./haptics";
 
 describe("match haptics", () => {
   it("uses a minimal pulse for successful button interactions", () => {
@@ -37,5 +38,17 @@ describe("match haptics", () => {
     const after: MatchState = { ...state, history: [...state.history, { type: "ROUND_RESULT_ACKNOWLEDGED" }] };
     presentMatchHapticsTransition(createMatchTransition(state, after), false, { play });
     expect(play).not.toHaveBeenCalled();
+  });
+
+  it("uses committed fact payloads and never vibrates for restored history", () => {
+    const before = createMatch("haptic-facts");
+    const trigger = { type: "TRIGGER_PULLED" as const, actor: "player" as const, probability: 1, baseProbability: 1, misfireChance: 0, result: "fired" as const, fired: true };
+    const after: MatchState = { ...before, history: [...before.history, trigger] };
+    const batch = createMatchFactBatch(before, after);
+    trigger.fired = false;
+    const play = vi.fn(async () => undefined);
+    presentMatchHapticsFacts(batch, true, { play });
+    presentMatchHapticsFacts(createMatchFactBatch(undefined, after, { restored: true }), true, { play });
+    expect(play.mock.calls).toEqual([[[70, 30, 120]]]);
   });
 });

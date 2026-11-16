@@ -3,6 +3,7 @@ import type { Card, CardSource, Hand, Rank, ShoeState, Suit } from "../blackjack
 import type { GunState } from "../roulette/types";
 import type { RngSnapshot } from "../rng/seeded";
 import type { SkillTag } from "../skills/types";
+import type { ABILITY_TRIGGER_TYPES } from "../events/trigger-catalog";
 
 export type AbilityActor = "player" | "opponent";
 export type DecisionAction = "hit" | "stand";
@@ -14,10 +15,7 @@ export type AbilityTtl =
   | { readonly type: "triggers"; readonly amount: number };
 export interface AbilityInstanceTtl { readonly type: AbilityTtl["type"]; readonly remaining: number; }
 export interface SkillDrawWeightModifier { readonly tag: SkillTag; readonly factor: number; }
-export type AbilityTrigger =
-  | "before-round-deal" | "on-round-start" | "before-bust-resolution" | "on-match-created" | "on-ability-gained" | "on-ability-played" | "before-turn" | "before-ai-decision" | "before-card-draw" | "after-card-draw" | "after-draw-pile-changed"
-  | "after-card-acquired" | "after-hit-resolved" | "after-hand-changed" | "after-stand" | "before-bust-check" | "before-round-resolution" | "before-bullet-load" | "after-bullet-load"
-  | "before-trigger-pull" | "after-trigger-result" | "before-defeat" | "after-defeat-prevented" | "on-round-end";
+export type AbilityTrigger = typeof ABILITY_TRIGGER_TYPES[number];
   /** Emitted after an active ability card has completed successfully. */
 export type AbilityBroadcastTrigger = AbilityTrigger | "after-ability-played";
 export type ActionWindow = "owner-turn" | "owner-roulette-reaction";
@@ -89,6 +87,11 @@ export type CardCandidate =
 export type DrawReplacementPolicy = { readonly type: "exact-resulting-total"; readonly total: ScalarValue; readonly fallback: "create-derived-card" };
 
 export type Condition =
+  | { readonly type: "acquired-card-is-held"; readonly target: ActorSelector }
+  | { readonly type: "actor-stood"; readonly target: ActorSelector; readonly expected: boolean }
+  | { readonly type: "comparison-would-win"; readonly target: ActorSelector }
+  | { readonly type: "hand-is-busted"; readonly target: ActorSelector }
+  | { readonly type: "hand-transfer-candidate-exists"; readonly from: ActorSelector; readonly target: ActorSelector; readonly candidate: "reaches-bust-limit" }
   | { readonly type: "value-compare"; readonly left: ValueExpression; readonly operator: "eq" | "neq"; readonly right: ValueExpression }
   | { readonly type: "hand-card-transformable"; readonly target: ActorSelector; readonly card: CardSelector; readonly output: CardTransform }
   | { readonly type: "pending-defeat-can-prevent"; readonly target: ActorSelector }
@@ -124,12 +127,14 @@ export type Condition =
   | { readonly type: "not"; readonly condition: Condition };
 
 export type Effect =
+  | { readonly type: "set-matching-hand-cards-counted"; readonly target: ActorSelector; readonly attribute: "rank" | "suit" | "source" | "id"; readonly equals: ValueExpression; readonly counted: boolean }
+  | { readonly type: "invoke-random-active-skill"; readonly target: ActorSelector; readonly filter?: SkillCardFilter }
   | { readonly type: "assign-status-values"; readonly target: ActorSelector; readonly statusDefinitionId: string; readonly values: Readonly<Record<string, ValueExpression>>; readonly mode?: "merge" | "replace"; readonly stacks?: ScalarValue }
   | { readonly type: "transform-hand-card"; readonly target: ActorSelector; readonly card: CardSelector; readonly output: CardTransform }
   | { readonly type: "acquire-card"; readonly target: ActorSelector; readonly choices: readonly CardAcquisitionChoice[]; readonly reveal?: boolean; readonly reportResult?: boolean }
   | { readonly type: "grant-skill-card"; readonly target: ActorSelector; readonly choices: readonly SkillDefinitionSelector[]; readonly initialize?: boolean }
   | { readonly type: "remove-skill-cards"; readonly target: ActorSelector; readonly filter?: SkillCardFilter; readonly resultKey?: string }
-  | { readonly type: "transfer-hand-card"; readonly from: ActorSelector; readonly target: ActorSelector; readonly card: CardSelector | "last-hit-card" }
+  | { readonly type: "transfer-hand-card"; readonly from: ActorSelector; readonly target: ActorSelector; readonly card: CardSelector | "last-hit-card" | "acquired-card" | { readonly type: "matching-transfer"; readonly candidate: "reaches-bust-limit"; readonly pick: "first" } }
   | { readonly type: "reveal-hand-cards-matching-public-suits"; readonly target: ActorSelector; readonly suitsFrom: ActorSelector }
   | { readonly type: "prevent-pending-defeat"; readonly target: ActorSelector }
   | { readonly type: "force-stand"; readonly target: ActorSelector }
@@ -148,6 +153,7 @@ export type Effect =
   | { readonly type: "replace-hand-card"; readonly target: ActorSelector; readonly card: CardSelector; readonly source: CardZoneSource; readonly candidate: CardCandidate; readonly pick: RandomPick }
   | { readonly type: "swap-last-hand-card-with-draw-pile-top"; readonly target: ActorSelector }
   | { readonly type: "discard-hand-card"; readonly target: ActorSelector; readonly card: CardSelector }
+  | { readonly type: "discard-matching-hand-cards"; readonly target: ActorSelector; readonly attribute: "rank" | "suit" | "source" | "id"; readonly equals: ValueExpression; readonly exclude?: readonly CardSelector[] }
   | { readonly type: "move-hand-card-to-draw-pile"; readonly target: ActorSelector; readonly card: CardSelector; readonly position: "top" | "bottom" }
   | { readonly type: "transfer-last-hit-card-instead-of-draw"; readonly from: ActorSelector; readonly target: ActorSelector }
   | { readonly type: "reveal-hand-card-suit"; readonly target: ActorSelector; readonly card: "first-private-card" | "all-current-cards"; readonly viewer: ActorSelector }

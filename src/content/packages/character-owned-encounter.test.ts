@@ -14,7 +14,10 @@ import { FileContentRepository } from "../storage/repository";
 import { MemoryContentHostProvider } from "../storage/memory-host";
 import { EmbeddedContentSeeder } from "./embedded-content-seeder";
 
-function standalone(payload: unknown = legacyFlow, bossApi = false): ContentPackageAccess {
+const matchingFlow = { ...legacyFlow, unlock: { ...legacyFlow.unlock, count: 7 } };
+const matchingChallenge = { ...legacyChallenge, unlock: { ...legacyChallenge.unlock, count: 7 } };
+
+function standalone(payload: unknown = matchingFlow, bossApi = false): ContentPackageAccess {
   const manifest = HocpkgManifestSchema.parse({ ...legacyManifest, resources: bossApi
     ? [{ ...legacyManifest.resources[0], type: "game.boss-challenge", apiVersion: 6 }] : legacyManifest.resources });
   return { packageId: "hoc-core/boss-challenge-dev", manifest,
@@ -39,7 +42,7 @@ describe("character-owned official encounter", () => {
     const prepared = await prepare();
     activateContentRuntime(prepared);
     const save = createDefaultSave();
-    save.defeats = ["chatgpt", "llama", "gemini", "deepseek"].map(opponentId => ({ opponentId, timestamp: new Date(0).toISOString() }));
+    save.defeats = ["llama", "deepseek", "chatgpt", "gemini", "glm", "grok", "qwen"].map(opponentId => ({ opponentId, timestamp: new Date(0).toISOString() }));
     const entries = pendingInvitationEntries(save);
     expect(entries.filter(entry => entry.character.id === "claude")).toHaveLength(1);
     expect(entries.find(entry => entry.character.id === "claude")?.progress.unlocked).toBe(true);
@@ -54,7 +57,7 @@ describe("character-owned official encounter", () => {
   });
 
   it.each([false, true])("coexists with the installed standalone package (legacy Boss API: %s) without duplicate entries", async bossApi => {
-    const prepared = await prepare([standalone(bossApi ? legacyChallenge : legacyFlow, bossApi)]);
+    const prepared = await prepare([standalone(bossApi ? matchingChallenge : matchingFlow, bossApi)]);
     expect(prepared.challenges).toEqual([]);
     expect(prepared.encounterFlows.filter(entry => entry.id === "intelligent-core-trial")).toHaveLength(1);
     expect(prepared.encounterFlows[0].program).toEqual(compileLegacyFlow(prepared.encounterFlows[0].definition));

@@ -1,4 +1,5 @@
 import type { HocpkgManifest } from "../packages/schema";
+import type { ContentPackageAccess } from "../packages/content-source";
 
 /** Shared bound for archive readers and cumulative nested imports. */
 export const MAX_CONTENT_ARCHIVE_ENTRIES = 4096;
@@ -14,7 +15,7 @@ export type ContentFileEntry = { readonly path: string } & (
 
 export interface ContentDigest { readonly bytes: number; readonly sha256: string; }
 export interface ContentOperationProgress {
-  readonly phase: "extracting" | "verifying" | "copying" | "committing";
+  readonly phase: "extracting" | "verifying" | "copying" | "committing" | "unlocking";
   readonly path: string;
   readonly completedBytes: number;
   readonly totalBytes: number;
@@ -22,11 +23,25 @@ export interface ContentOperationProgress {
 export interface ContentOperationOptions {
   readonly signal?: AbortSignal;
   readonly onProgress?: (progress: ContentOperationProgress) => void;
+  /** Ephemeral extraction credential; never included in receipts or sessions. */
+  readonly password?: string;
+}
+export interface ArchivePasswordRequest {
+  readonly source: string;
+  readonly entry: string;
+  readonly failed: boolean;
+}
+export interface ContentImportOptions extends ContentOperationOptions {
+  readonly passwords?: readonly string[];
+  /** null skips this archive; cancellation is signalled by signal or AbortError. */
+  readonly requestPassword?: (request: ArchivePasswordRequest) => Promise<{ password: string; remember: boolean } | null>;
+  readonly rememberPassword?: (password: string) => void;
 }
 export interface ContentArchiveEntry {
   readonly path: string;
   readonly bytes: number;
   readonly compressedBytes: number;
+  readonly encrypted?: boolean;
 }
 export interface ContentArchive {
   readonly entries: readonly ContentArchiveEntry[];
@@ -137,6 +152,8 @@ export interface ContentRepository {
   listPluginOrder(): Promise<readonly string[]>;
   setPluginOrder(order: readonly string[]): Promise<void>;
   readManifest(packageId: string): Promise<HocpkgManifest>;
+  /** Operation-local access pinned to a revision; never caches integrity results. */
+  readPackage?(packageId: string): Promise<ContentPackageAccess>;
   readFile(packageId: string, path: string): Promise<Uint8Array>;
   resolveAsset(packageId: string, path: string): Promise<ResolvedContentAsset>;
   verifyPackage(packageId: string, onProgress?: (progress: ContentInstallProgress) => void): Promise<void>;

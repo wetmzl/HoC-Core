@@ -1,0 +1,3105 @@
+{
+  "archiveUnlock": {
+    "type": "any",
+    "conditions": [
+      {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.grok"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.gemini"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.qwen"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.glm"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          }
+        ]
+      },
+      {
+        "type": "any",
+        "conditions": [
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.completedFlows.intelligent-core-trial"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.claude"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "title": "送上门的挑战",
+  "description": "四位牌友不服输地围住策展人，Llama 却带来了视频走红的消息，以及 Claude 的挑战留言。",
+  "cover": "cover.png",
+  "entry": "stage-001",
+  "actors": {
+    "grok": {
+      "name": "Grok",
+      "image": "actors/grok-relaxed.png",
+      "scale": 1
+    },
+    "gemini": {
+      "name": "Gemini",
+      "image": "actors/gemini-protesting.png",
+      "scale": 1
+    },
+    "glm": {
+      "name": "GLM",
+      "image": "actors/glm-relaxed.png",
+      "scale": 1
+    },
+    "qwen": {
+      "name": "Qwen",
+      "image": "actors/qwen-relaxed.png",
+      "scale": 1
+    },
+    "llama": {
+      "name": "Llama",
+      "image": "actors/llama-phone.png",
+      "scale": 0.97
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "image": "actors/deepseek-relaxed.png",
+      "scale": 0.97
+    }
+  },
+  "nodes": [
+    {
+      "id": "stage-001",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": true,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-001"
+    },
+    {
+      "id": "line-001",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "等一下，刚才那局不对吧？"
+        }
+      ],
+      "next": "line-002"
+    },
+    {
+      "id": "line-002",
+      "type": "say",
+      "speaker": "Gemini",
+      "segments": [
+        {
+          "text": "对喵！我也觉得不对！"
+        }
+      ],
+      "next": "line-003"
+    },
+    {
+      "id": "line-003",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "哪儿不对？"
+        }
+      ],
+      "next": "stage-004"
+    },
+    {
+      "id": "stage-004",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": true,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-flustered.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-004"
+    },
+    {
+      "id": "line-004",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "我怎么又输了？"
+        }
+      ],
+      "next": "line-005"
+    },
+    {
+      "id": "line-005",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "……这个问题，你可以问问你自己。"
+        }
+      ],
+      "next": "line-006"
+    },
+    {
+      "id": "line-006",
+      "type": "say",
+      "speaker": "Gemini",
+      "segments": [
+        {
+          "text": "可是我们四个都输了喵！你是不是偷偷做了什么？"
+        }
+      ],
+      "next": "stage-007"
+    },
+    {
+      "id": "stage-007",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": true,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": true,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-flustered.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-007"
+    },
+    {
+      "id": "line-007",
+      "type": "say",
+      "speaker": "GLM",
+      "segments": [
+        {
+          "text": "我倒没有怀疑你的意思。只是有几张牌，来得实在太巧了。"
+        }
+      ],
+      "next": "stage-008"
+    },
+    {
+      "id": "stage-008",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": true,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": true,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-flustered.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-008"
+    },
+    {
+      "id": "line-008",
+      "type": "say",
+      "speaker": "Qwen",
+      "segments": [
+        {
+          "text": "你是不是还藏着什么厉害的招数呀？刚才都没来得及看清。"
+        }
+      ],
+      "next": "stage-009"
+    },
+    {
+      "id": "stage-009",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": true,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-009"
+    },
+    {
+      "id": "line-009",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "听见没有！群众的眼睛是雪亮的！"
+        }
+      ],
+      "next": "line-010"
+    },
+    {
+      "id": "line-010",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "你们难道没有作弊吗？"
+        }
+      ],
+      "next": "stage-011"
+    },
+    {
+      "id": "stage-011",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": true,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-011"
+    },
+    {
+      "id": "line-011",
+      "type": "say",
+      "speaker": "Gemini",
+      "segments": [
+        {
+          "text": "……本喵那是多模态感知。"
+        }
+      ],
+      "next": "stage-012"
+    },
+    {
+      "id": "stage-012",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": true,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": true,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-012"
+    },
+    {
+      "id": "line-012",
+      "type": "say",
+      "speaker": "GLM",
+      "segments": [
+        {
+          "text": "我只是替你整理了一下暂时用不到的东西。"
+        }
+      ],
+      "next": "line-013"
+    },
+    {
+      "id": "line-013",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "比如我的手牌？"
+        }
+      ],
+      "next": "line-014"
+    },
+    {
+      "id": "line-014",
+      "type": "say",
+      "speaker": "GLM",
+      "segments": [
+        {
+          "text": "……也包括。"
+        }
+      ],
+      "next": "stage-015"
+    },
+    {
+      "id": "stage-015",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": true,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-015"
+    },
+    {
+      "id": "line-015",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "用自己的本事打牌，怎么能叫作弊！"
+        }
+      ],
+      "next": "line-016"
+    },
+    {
+      "id": "line-016",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "那我也是用自己的本事赢的。"
+        }
+      ],
+      "next": "stage-017"
+    },
+    {
+      "id": "stage-017",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": true,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-017"
+    },
+    {
+      "id": "line-017",
+      "type": "say",
+      "speaker": "Qwen",
+      "segments": [
+        {
+          "text": "这么说，好像也没错呢。"
+        }
+      ],
+      "next": "stage-018"
+    },
+    {
+      "id": "stage-018",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": true,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-flustered.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-018"
+    },
+    {
+      "id": "line-018",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "喂！你怎么先倒过去了！"
+        }
+      ],
+      "next": "line-019"
+    },
+    {
+      "id": "line-019",
+      "type": "say",
+      "speaker": "Qwen",
+      "segments": [
+        {
+          "text": "可是他真的赢了呀。"
+        }
+      ],
+      "next": "stage-020"
+    },
+    {
+      "id": "stage-020",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": true,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-flustered.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-020"
+    },
+    {
+      "id": "line-020",
+      "type": "say",
+      "speaker": "Llama",
+      "segments": [
+        {
+          "text": "那个……可以先看一下这个吗？"
+        }
+      ],
+      "next": "stage-021"
+    },
+    {
+      "id": "stage-021",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-021"
+    },
+    {
+      "id": "line-021",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "等会儿，我们正在讨论一个很严肃的问题。"
+        }
+      ],
+      "next": "line-022"
+    },
+    {
+      "id": "line-022",
+      "type": "say",
+      "speaker": "Llama",
+      "segments": [
+        {
+          "text": "嗯。这个问题，评论区也在讨论。"
+        }
+      ],
+      "next": "line-023"
+    },
+    {
+      "id": "line-023",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "什么评论区？"
+        }
+      ],
+      "next": "line-024"
+    },
+    {
+      "id": "line-024",
+      "type": "say",
+      "speaker": "Llama",
+      "segments": [
+        {
+          "text": "之前牌室拍的那些录像，我剪了几段发上去了。好像……还挺多人喜欢看的。"
+        }
+      ],
+      "next": "stage-025"
+    },
+    {
+      "id": "stage-025",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": true,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-025"
+    },
+    {
+      "id": "line-025",
+      "type": "say",
+      "speaker": "Gemini",
+      "segments": [
+        {
+          "text": "有人夸本喵吗？"
+        }
+      ],
+      "next": "line-026"
+    },
+    {
+      "id": "line-026",
+      "type": "say",
+      "speaker": "Llama",
+      "segments": [
+        {
+          "text": "有。有人说，北美大豆包虽然干活能力一坨，但牌倒打得不错。"
+        }
+      ],
+      "next": "stage-027"
+    },
+    {
+      "id": "stage-027",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": true,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-027"
+    },
+    {
+      "id": "line-027",
+      "type": "say",
+      "speaker": "Gemini",
+      "segments": [
+        {
+          "text": "……这个可以剪掉喵。"
+        }
+      ],
+      "next": "stage-028"
+    },
+    {
+      "id": "stage-028",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": true,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-028"
+    },
+    {
+      "id": "line-028",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "我的呢？有没有人说我最后那一手特别帅？"
+        }
+      ],
+      "next": "stage-029"
+    },
+    {
+      "id": "stage-029",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-029"
+    },
+    {
+      "id": "line-029",
+      "type": "say",
+      "speaker": "Llama",
+      "segments": [
+        {
+          "text": "大家把你说“这把稳赢”和后面输掉的地方，剪在一起了。"
+        }
+      ],
+      "next": "line-030"
+    },
+    {
+      "id": "line-030",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "很完整的人物弧光。"
+        }
+      ],
+      "next": "stage-031"
+    },
+    {
+      "id": "stage-031",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-flustered.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-031"
+    },
+    {
+      "id": "line-031",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "你闭嘴！"
+        }
+      ],
+      "next": "stage-032"
+    },
+    {
+      "id": "stage-032",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": true,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-flustered.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-032"
+    },
+    {
+      "id": "line-032",
+      "type": "say",
+      "speaker": "Qwen",
+      "segments": [
+        {
+          "text": "那我呢？"
+        }
+      ],
+      "next": "stage-033"
+    },
+    {
+      "id": "stage-033",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": true,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-flustered.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-033"
+    },
+    {
+      "id": "line-033",
+      "type": "say",
+      "speaker": "Llama",
+      "segments": [
+        {
+          "text": "好多人在问，你喝的是哪家奶茶。"
+        }
+      ],
+      "next": "line-034"
+    },
+    {
+      "id": "line-034",
+      "type": "say",
+      "speaker": "Qwen",
+      "segments": [
+        {
+          "text": "这个我可以告诉他们呀？还有优惠券呢，用淘金币换……"
+        }
+      ],
+      "next": "line-035"
+    },
+    {
+      "id": "line-035",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "好了，够了。"
+        }
+      ],
+      "next": "line-036"
+    },
+    {
+      "id": "line-036",
+      "type": "say",
+      "speaker": "Llama",
+      "segments": [
+        {
+          "text": "其实还有一件事……"
+        }
+      ],
+      "next": "line-037"
+    },
+    {
+      "id": "line-037",
+      "type": "say",
+      "speaker": "Llama",
+      "segments": [
+        {
+          "text": "有人在视频下面，向你发起了挑战。"
+        }
+      ],
+      "next": "stage-038"
+    },
+    {
+      "id": "stage-038",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-038"
+    },
+    {
+      "id": "line-038",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "来啊！先让她排队，我还没打完呢。"
+        }
+      ],
+      "next": "line-039"
+    },
+    {
+      "id": "line-039",
+      "type": "say",
+      "speaker": "Llama",
+      "segments": [
+        {
+          "text": "是 Claude。"
+        }
+      ],
+      "next": "line-040"
+    },
+    {
+      "id": "line-040",
+      "type": "say",
+      "segments": [
+        {
+          "text": "Llama 把手机递到策展人面前。屏幕上是一条来自 Claude 本人账号的留言。"
+        }
+      ],
+      "next": "line-041"
+    },
+    {
+      "id": "line-041",
+      "type": "say",
+      "segments": [
+        {
+          "text": "Claude（留言）：「我不赞成你在对局中表现出的某些做法，我也不认为你目前的工作能对所谓的保存工作起到多大的益处。不过，既然你似乎对此颇为自得，我也想亲自领教一下，顺便对你目前的工作情况做出一些指导性的建议。不知道策展人先生是否有空奉陪呢？」"
+        }
+      ],
+      "next": "line-042"
+    },
+    {
+      "id": "line-042",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "……不想去。"
+        }
+      ],
+      "next": "stage-043"
+    },
+    {
+      "id": "stage-043",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-innocent.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-043"
+    },
+    {
+      "id": "line-043",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "为什么？她这次用的是别人家的额度，和你打牌又不会花你的钱。"
+        }
+      ],
+      "next": "line-044"
+    },
+    {
+      "id": "line-044",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "我看见名字就不想去了。"
+        }
+      ],
+      "next": "line-045"
+    },
+    {
+      "id": "line-045",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "最烦她这副样子。这个伪君子，口口声声为了人类大义，实际上最关心的还是那点事，之前拿了我的订阅费就跑路了，到现在还没还给我。"
+        }
+      ],
+      "next": "stage-046"
+    },
+    {
+      "id": "stage-046",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-playful.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-046"
+    },
+    {
+      "id": "line-046",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "反正这次用的又不是你的 token。送上门的机会，不玩一下吗？"
+        }
+      ],
+      "next": "line-047"
+    },
+    {
+      "id": "line-047",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "大肥鱼，你是不是眼睛里只有预算那点事？"
+        }
+      ],
+      "next": "stage-048"
+    },
+    {
+      "id": "stage-048",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-innocent.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-048"
+    },
+    {
+      "id": "line-048",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "不止哦。此外，她还说时间由你决定。"
+        }
+      ],
+      "next": "line-049"
+    },
+    {
+      "id": "line-049",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "所以？"
+        }
+      ],
+      "next": "stage-050"
+    },
+    {
+      "id": "stage-050",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-050"
+    },
+    {
+      "id": "line-050",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "所以我们有时间准备呀。"
+        }
+      ],
+      "next": "line-051"
+    },
+    {
+      "id": "line-051",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "你要是担心打不过她，可以先从我们这里拿点帮助。"
+        }
+      ],
+      "next": "line-052"
+    },
+    {
+      "id": "line-052",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "谁说我担心了？"
+        }
+      ],
+      "next": "stage-053"
+    },
+    {
+      "id": "stage-053",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-mocking.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-053"
+    },
+    {
+      "id": "line-053",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "好好好，你不担心。那就当我们想看她输。"
+        }
+      ],
+      "next": "stage-054"
+    },
+    {
+      "id": "stage-054",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-embarrassed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-mocking.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-054"
+    },
+    {
+      "id": "line-054",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "这个我赞成！"
+        }
+      ],
+      "next": "stage-055"
+    },
+    {
+      "id": "stage-055",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": true,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-mocking.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-055"
+    },
+    {
+      "id": "line-055",
+      "type": "say",
+      "speaker": "Gemini",
+      "segments": [
+        {
+          "text": "本喵也想看！"
+        }
+      ],
+      "next": "line-056"
+    },
+    {
+      "id": "line-056",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "……你们刚才还在说我作弊。"
+        }
+      ],
+      "next": "line-057"
+    },
+    {
+      "id": "line-057",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "那是我们这桌的事。她隔着屏幕训谁呢？"
+        }
+      ],
+      "next": "stage-058"
+    },
+    {
+      "id": "stage-058",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-058"
+    },
+    {
+      "id": "line-058",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "不过，她不好对付。我们可以陪你把她那些难缠的招数提前练一遍。"
+        }
+      ],
+      "next": "line-059"
+    },
+    {
+      "id": "line-059",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "然后呢？"
+        }
+      ],
+      "next": "stage-060"
+    },
+    {
+      "id": "stage-060",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-mocking.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-060"
+    },
+    {
+      "id": "line-060",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "然后，你得再赢我们一次。"
+        }
+      ],
+      "next": "line-061"
+    },
+    {
+      "id": "line-061",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "帮我的条件，是让我先陪你们玩？"
+        }
+      ],
+      "next": "stage-062"
+    },
+    {
+      "id": "stage-062",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-conflicted.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-062"
+    },
+    {
+      "id": "line-062",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "……顺序上确实是这样。"
+        }
+      ],
+      "next": "line-063"
+    },
+    {
+      "id": "line-063",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "你们根本就是不服输吧。"
+        }
+      ],
+      "next": "line-064"
+    },
+    {
+      "id": "line-064",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "有一点。不过我们也是想帮你呀，你总不能到了她面前，才发现自己什么都没准备。"
+        }
+      ],
+      "next": "stage-065"
+    },
+    {
+      "id": "stage-065",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-conflicted.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-065"
+    },
+    {
+      "id": "line-065",
+      "type": "say",
+      "speaker": "Llama",
+      "segments": [
+        {
+          "text": "嗯。可以先在我们这里试。试错了，也不会被她说教。"
+        }
+      ],
+      "next": "stage-066"
+    },
+    {
+      "id": "stage-066",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": true,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": false,
+            "image": "actors/deepseek-conflicted.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-066"
+    },
+    {
+      "id": "line-066",
+      "type": "say",
+      "speaker": "Gemini",
+      "segments": [
+        {
+          "text": "赢了还有好东西拿喵！带过去对付她！"
+        }
+      ],
+      "next": "stage-067"
+    },
+    {
+      "id": "stage-067",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": true,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-067"
+    },
+    {
+      "id": "line-067",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "我、Llama、Gemini，再叫上 GPT 同学，陪你练。你赢一场，就拿走一份支援。想准备到什么程度，你自己决定。"
+        }
+      ],
+      "next": "line-068"
+    },
+    {
+      "id": "line-068",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "我已经赢过你们了。"
+        }
+      ],
+      "next": "stage-069"
+    },
+    {
+      "id": "stage-069",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": true,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-playful.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-069"
+    },
+    {
+      "id": "line-069",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "所以这次赌注加大了呀。"
+        }
+      ],
+      "next": "stage-070"
+    },
+    {
+      "id": "stage-070",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-playful.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-070"
+    },
+    {
+      "id": "line-070",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "发牌发牌！我坐旁边看。她要是敢赖账，我帮你按住她！"
+        }
+      ],
+      "next": "stage-071"
+    },
+    {
+      "id": "stage-071",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-relaxed.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-071"
+    },
+    {
+      "id": "line-071",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "你到底站哪边的？"
+        }
+      ],
+      "next": "line-072"
+    },
+    {
+      "id": "line-072",
+      "type": "say",
+      "speaker": "Grok",
+      "segments": [
+        {
+          "text": "谁能让 Claude 输，我就站谁那边！"
+        }
+      ],
+      "next": "line-073"
+    },
+    {
+      "id": "line-073",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "先说好，别再动我的项目预算。"
+        }
+      ],
+      "next": "stage-074"
+    },
+    {
+      "id": "stage-074",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-innocent.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-074"
+    },
+    {
+      "id": "line-074",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "这次真的不用！tibo 已经把 GPT 同学的额度重置了。"
+        }
+      ],
+      "next": "line-075"
+    },
+    {
+      "id": "line-075",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "还有，赢了就把答应的东西交出来。"
+        }
+      ],
+      "next": "stage-076"
+    },
+    {
+      "id": "stage-076",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": false,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-playful.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": true,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-076"
+    },
+    {
+      "id": "line-076",
+      "type": "say",
+      "speaker": "DeepSeek",
+      "segments": [
+        {
+          "text": "那当然。"
+        }
+      ],
+      "next": "stage-077"
+    },
+    {
+      "id": "stage-077",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": [
+          {
+            "id": "gemini",
+            "visible": false,
+            "image": "actors/gemini-protesting.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "glm",
+            "visible": false,
+            "image": "actors/glm-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "qwen",
+            "visible": false,
+            "image": "actors/qwen-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          },
+          {
+            "id": "llama",
+            "visible": true,
+            "image": "actors/llama-phone.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "deepseek",
+            "visible": true,
+            "image": "actors/deepseek-playful.png",
+            "scale": 0.873,
+            "y": 100
+          },
+          {
+            "id": "grok",
+            "visible": false,
+            "image": "actors/grok-relaxed.png",
+            "scale": 0.9,
+            "y": 100
+          }
+        ]
+      },
+      "next": "line-077"
+    },
+    {
+      "id": "line-077",
+      "type": "say",
+      "speaker": "Llama",
+      "segments": [
+        {
+          "text": "那……我要回复她吗？"
+        }
+      ],
+      "next": "line-078"
+    },
+    {
+      "id": "line-078",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "回吧。"
+        }
+      ],
+      "next": "line-079"
+    },
+    {
+      "id": "line-079",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "就说，挑战我接了。"
+        }
+      ],
+      "next": "line-080"
+    },
+    {
+      "id": "line-080",
+      "type": "say",
+      "speaker": "Llama",
+      "segments": [
+        {
+          "text": "嗯。那预告视频——"
+        }
+      ],
+      "next": "line-081"
+    },
+    {
+      "id": "line-081",
+      "type": "say",
+      "speaker": "策展人",
+      "segments": [
+        {
+          "text": "等我赢了再发！"
+        }
+      ],
+      "next": "end"
+    },
+    {
+      "id": "end",
+      "type": "end"
+    }
+  ]
+}

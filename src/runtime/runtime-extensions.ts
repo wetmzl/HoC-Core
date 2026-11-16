@@ -1,9 +1,12 @@
-import type { PluginGameRuntimeContext, PluginRuntimeContext, PluginRuntimeContribution } from "../content/packages/plugin-contracts";
+import { gameAudio } from "../audio/game-audio";
+import type { PluginGameEventsApi, PluginGameRuntimeContext, PluginRuntimeContext, PluginRuntimeContribution } from "../content/packages/plugin-contracts";
 import type { Action, MatchState } from "../core/match/types";
 import { alertGameDialog, confirmGameDialog } from "../game-dialog";
 import { CleanupErrors } from "./cleanup-errors";
 import { getPluginTutorialIdentity, type PluginTutorialApi } from "../content/packages/plugin-tutorials";
-import { PLUGIN_TUTORIAL_API_VERSION } from "../content/packages/plugin-version";
+import { PLUGIN_MUSIC_API_VERSION, PLUGIN_TUTORIAL_API_VERSION } from "../content/packages/plugin-version";
+import { snapshotPublicEventBatch, type PublicEventBatch, type PublicEventScopes } from "../core/events/public-events";
+import type { RuntimeEventHub, PublicEventSubscription } from "./public-event-hub";
 
 export class RuntimeExtensions {
   private readonly controller = new AbortController();
@@ -15,6 +18,9 @@ export class RuntimeExtensions {
     context: PluginRuntimeContext; contributions: readonly PluginRuntimeContribution[];
     getMatch(): MatchState | undefined; dispatch(action: Action): void; autoActionsChanged(): void;
     createTutorialApi?(packageId: string, signal: AbortSignal): PluginTutorialApi;
+    createStoryApi?(packageId: string, signal: AbortSignal): import("./story-host").PluginStoryApi | undefined;
+    events?: RuntimeEventHub;
+    eventScopes?: PublicEventScopes;
   }) {}
   get paused(): boolean { return this.pauses.size > 0; }
   pauseAutoActions = (): (() => void) => {
@@ -47,7 +53,12 @@ export class RuntimeExtensions {
         const identity = getPluginTutorialIdentity(contribution);
         const tutorials = identity && identity.apiVersion >= PLUGIN_TUTORIAL_API_VERSION
           ? this.options.createTutorialApi?.(identity.packageId, signal) : undefined;
-        const ownedContext: PluginGameRuntimeContext = { ...context, ...(tutorials ? { tutorials } : {}) };
+        const music = identity && identity.apiVersion >= PLUGIN_MUSIC_API_VERSION ? gameAudio.musicDirector.forPackage(identity.packageId, identity.signal ? AbortSignal.any([signal, identity.signal]) : signal) : undefined;
+        const ownerSignal = identity?.signal ? AbortSignal.any([signal, identity.signal]) : signal;
+        const events = this.gameEvents(ownerSignal);
+        const ownedContext: PluginGameRuntimeContext = { ...context, ...(music ? { music } : {}), ...(tutorials ? { tutorials } : {}),
+          ...(identity && this.options.createStoryApi ? { stories: this.options.createStoryApi(identity.packageId, ownerSignal) } : {}),
+          ...(events ? { game: { ...context.game, events } } : {}) };
         const release = await contribution.mountRuntime?.(ownedContext, signal);
         if (signal.aborted) { release?.(); break; }
         if (release) this.releases.push(release);
@@ -57,6 +68,26 @@ export class RuntimeExtensions {
       catch (cleanupError) { throw new AggregateError([error, cleanupError], "插件运行时挂载和清理失败。"); }
       throw error;
     }
+  }
+  private gameEvents(signal: AbortSignal): PluginGameEventsApi | undefined {
+    const events = this.options.events;
+    if (!events) return undefined;
+    const snapshots = new WeakMap<PublicEventBatch, PublicEventBatch>();
+    const snapshot = (batch: PublicEventBatch): PublicEventBatch => {
+      let copy = snapshots.get(batch);
+      if (!copy) { copy = snapshotPublicEventBatch(batch); snapshots.set(batch, copy); }
+      return copy;
+    };
+    const scoped = (options: PublicEventSubscription = {}): PublicEventSubscription => ({
+      ...options,
+      // A caller may narrow its match/program scope, but cannot leave its game.
+      scopes: { ...options.scopes, ...this.options.eventScopes },
+      signal: options.signal ? AbortSignal.any([signal, options.signal]) : signal
+    });
+    return Object.freeze({
+      subscribe: (stage, listener, options) => events.subscribe(stage, (batch, lifetime) => listener(snapshot(batch), lifetime), scoped(options)),
+      subscribeTrigger: (stage, trigger, listener, options) => events.subscribeTrigger(stage, trigger, (batch, lifetime) => listener(snapshot(batch), lifetime), scoped(options))
+    } satisfies PluginGameEventsApi);
   }
   dispose(): void {
     const cleanup = new CleanupErrors();

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LOBBY_BGM_URL, TABLE_BGM_URL } from "../resources/cache-policy";
 import { GameAudio, SOUND_SOURCES } from "./game-audio";
+import { createMatch } from "../core/match/reducer";
+import { createMatchFactBatch } from "../core/events";
 
 class RecordingAudioElement extends EventTarget {
   static readonly instances: RecordingAudioElement[] = [];
@@ -30,6 +32,72 @@ afterEach(() => {
 });
 
 describe("staged game audio loading", () => {
+  it("gates achievement sounds on unlock, master sound and visibility without replaying after resume", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("Audio", RecordingAudioElement);
+    vi.stubGlobal("window", {});
+    const visibility = { hidden: false };
+    vi.stubGlobal("document", visibility);
+    const audio = new GameAudio();
+    const notifications = () => RecordingAudioElement.instances.filter(voice => voice.src === SOUND_SOURCES.achievementUnlock);
+    audio.playAchievementUnlock();
+    expect(notifications()).toHaveLength(0);
+    audio.configure(false);
+    audio.unlock();
+    audio.playAchievementUnlock();
+    expect(notifications()).toHaveLength(0);
+    audio.configure(true, .4);
+    await vi.runAllTimersAsync();
+    audio.playAchievementUnlock();
+    expect(notifications()).toHaveLength(1);
+    expect(notifications()[0].play).toHaveBeenCalledOnce();
+    expect(notifications()[0].volume).toBe(.46);
+    const lobby = RecordingAudioElement.instances.find(voice => voice.src === LOBBY_BGM_URL)!;
+    expect(lobby.volume).toBe(.4);
+    const first = notifications()[0];
+    audio.pauseBgm();
+    expect(first.pause).toHaveBeenCalledOnce();
+    audio.restoreBgm();
+    expect(notifications()).toHaveLength(1);
+    expect(first.play).toHaveBeenCalledOnce();
+    visibility.hidden = true;
+    audio.playAchievementUnlock();
+    expect(notifications()).toHaveLength(1);
+    visibility.hidden = false;
+    audio.playAchievementUnlock();
+    const second = notifications()[1];
+    audio.configure(false);
+    expect(second.pause).toHaveBeenCalledOnce();
+    audio.configure(true);
+    expect(notifications()).toHaveLength(2);
+    audio.playAchievementUnlock();
+    const third = notifications()[2];
+    await audio.dispose();
+    expect(third.pause).toHaveBeenCalledOnce();
+    audio.playAchievementUnlock();
+    expect(notifications()).toHaveLength(3);
+  });
+
+  it("keeps plugin music contexts on the original event contract when consuming facts", async () => {
+    const audio = new GameAudio();
+    const before = createMatch("music-facts");
+    const event = { type: "ABILITY_PLAYED" as const, definitionId: "neutral", instanceId: "skill", owner: "player" as "player" | "opponent" };
+    const after = { ...before, history: [...before.history, event] };
+    const batch = createMatchFactBatch(before, after), originalEvent = { ...event };
+    event.owner = "opponent";
+    const api = audio.musicDirector.forPackage("example/music", new AbortController().signal);
+    const listener = vi.fn();
+    api.subscribeContext(listener);
+    audio.updateMusicFacts(batch);
+    const context = listener.mock.lastCall![0];
+    expect(context).toMatchObject({ characterId: after.opponentId, restored: false, events: [originalEvent] });
+    expect(context.events[0]).not.toHaveProperty("event");
+    expect(Object.isFrozen(context.events[0])).toBe(true);
+    audio.updateMusicFacts(createMatchFactBatch(undefined, after, { restored: true }));
+    expect(listener.mock.lastCall![0]).toMatchObject({ restored: true, events: [] });
+    await audio.dispose();
+  });
+
   it("keeps draw, acquisition and use cues independently routed", () => {
     expect(SOUND_SOURCES.skillDraw).toBe("/assets/audio/sfx/skill-draw.ogg");
     expect(SOUND_SOURCES.skillAcquire).toBe("/assets/audio/sfx/skill-acquire.ogg");

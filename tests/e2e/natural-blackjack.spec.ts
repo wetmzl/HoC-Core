@@ -1,3 +1,4 @@
+import { skipStory } from "./story-platform-fixture";
 import { expect, test, type Page } from "@playwright/test";
 
 async function mountTable(page: Page, reducedMotion = false, ordinary21 = false) {
@@ -25,7 +26,7 @@ async function mountTable(page: Page, reducedMotion = false, ordinary21 = false)
       playerSkills: { ...base.playerSkills, drawOffer: null, cards: [{ instanceId: instance.instanceId, definitionId: instance.definitionId, owner: "player", kind: "player-skill" }] },
       round: { ...base.round, player, opponent, phase: "turns", currentActor: "player", outcome: null },
       history: [{ type: "ROUND_STARTED", roundIndex: 0 }, ...used.map((card, i) => ({ type: "CARD_DEALT", actor: i < playerCards.length ? "player" : "opponent", card, private: true }))] };
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const repository = (await load("/src/persistence/factory.ts")).createPersistenceService();
     const save = createDefaultSave(); save.skipTutorial = true; save.settings.reducedMotion = reducedMotion; save.settings.soundEnabled = false;
     save.tutorialProgress.completedIds.push("adult-content-warning");
@@ -46,16 +47,7 @@ test("真实新牌局开局获得天然21点只播放一次提示音", async ({ 
   await expect(page.getByRole("button", { name: "开始游戏", exact: true })).toBeEnabled();
   await page.evaluate(async () => {
     const load = (path: string): Promise<any> => import(/* @vite-ignore */ path);
-    const { createMatch } = await load("/src/core/match/reducer.ts");
-    const { isBlackjack } = await load("/src/core/blackjack/hand.ts");
-    let seedWord = 1;
-    while (!isBlackjack(createMatch(seedWord.toString(16).padStart(8, "0") + "0".repeat(24), { opponentAiSkills: [] }).player.hand)) seedWord++;
-    const random = crypto.getRandomValues.bind(crypto);
-    crypto.getRandomValues = ((array: any) => {
-      if (array instanceof Uint32Array && array.length === 4) { array.set([seedWord, 0, 0, 0]); return array; }
-      return random(array);
-    }) as typeof crypto.getRandomValues;
-    const { createDefaultSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave } = await load("/tests/e2e/runtime-fixture.ts");
     const repository = (await load("/src/persistence/factory.ts")).createPersistenceService();
     const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false; save.settings.reducedMotion = false;
     save.tutorialProgress.completedIds.push("adult-content-warning");
@@ -67,6 +59,24 @@ test("真实新牌局开局获得天然21点只播放一次提示音", async ({ 
   await page.getByRole("button", { name: "开始游戏", exact: true }).click();
   await page.locator('[data-enter-duel]').click();
   await page.locator('[data-invite-character]').first().click();
+  const opponentId = await page.locator('[data-profile-start]').getAttribute('data-profile-start');
+  await page.evaluate(async opponentId => {
+    const load = (path: string): Promise<any> => import(/* @vite-ignore */ path);
+    const character = await (await load("/src/content/characters/loader.ts")).loadCharacter(opponentId);
+    const { createMatch } = await load("/src/core/match/reducer.ts");
+    const { isBlackjack } = await load("/src/core/blackjack/hand.ts");
+    const { createProgramRun } = await load("/src/core/flow/program-engine.ts");
+    const { singleMatchProgram } = await load("/src/core/flow/program-templates.ts");
+    const program = singleMatchProgram({ opponentId });
+    const visit = createProgramRun("seed-probe", "probe", program).visitIndex;
+    let seedWord = 1;
+    while (!isBlackjack(createMatch(`${seedWord.toString(16).padStart(8, "0") + "0".repeat(24)}:visit:${visit}`, { opponentId, opponentAiSkills: character.aiSkills }).player.hand)) seedWord++;
+    const random = crypto.getRandomValues.bind(crypto);
+    crypto.getRandomValues = ((array: any) => {
+      if (array instanceof Uint32Array && array.length === 4) { array.set([seedWord, 0, 0, 0]); return array; }
+      return random(array);
+    }) as typeof crypto.getRandomValues;
+  }, opponentId);
   await page.locator('[data-profile-start]').click();
   await expect(page.locator(".player-zone .hand-score-base")).toHaveClass(/is-blackjack/);
   expect((await cues(page)).filter((cue: string) => cue === "naturalBlackjack")).toHaveLength(1);
@@ -127,4 +137,8 @@ test("多张21点没有金色反馈，减少动态效果保留静态金色", asy
   await page.getByRole("button", { name: "Hit 要牌", exact: true }).click();
   await expect(score).not.toHaveClass(/is-blackjack/);
   expect(await cues(page)).toEqual(["skillUse", "naturalBlackjack", "cardFlip"]);
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.addLocatorHandler(page.locator("[data-story-player]"), async () => { await skipStory(page); });
 });

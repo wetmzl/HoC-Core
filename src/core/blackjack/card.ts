@@ -1,6 +1,9 @@
 import { RANKS, SUITS, type Card, type CardSource, type DerivedCard, type PhysicalCard, type Rank, type Suit } from "./types";
 import { SeededRng } from "../rng/seeded";
 
+/** A value-free card fact: this entity contributes no points to a hand total. */
+export const EXCLUDED_FROM_POINT_TOTAL_TAG = "excluded-from-point-total" as const;
+
 function assertCardId(id: string): string {
   if (id.trim().length === 0) throw new Error("Card ID must not be empty");
   return id;
@@ -72,4 +75,13 @@ export function cardValue(rank: Rank): number {
   if (rank === "A") return 11;
   if (rank === "J" || rank === "Q" || rank === "K") return 10;
   return Number(rank);
+}
+
+export function isCardCountedInPointTotal(card: Card): boolean {
+  return !cardHasTag(card, EXCLUDED_FROM_POINT_TOTAL_TAG);
+}
+
+/** Entity points are independent of the printed rank, suit and source. */
+export function cardPointValue(card: Card): number {
+  return isCardCountedInPointTotal(card) ? cardValue(cardRank(card)) : 0;
 }

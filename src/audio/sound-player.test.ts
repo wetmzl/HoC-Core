@@ -3,6 +3,80 @@ import { SoundPlayer } from "./sound-player";
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe("short sound lifecycle", () => {
+  it("cancels pending achievement decoding on stop or mute, then permits a new notification", async () => {
+    const pending: ((value: AudioBuffer) => void)[] = [];
+    const sources: Source[] = [];
+    class Source extends EventTarget {
+      buffer?: AudioBuffer;
+      readonly connect = vi.fn();
+      readonly disconnect = vi.fn();
+      readonly start = vi.fn();
+      readonly stop = vi.fn(() => this.dispatchEvent(new Event("ended")));
+    }
+    class Context {
+      state = "running";
+      destination = {};
+      currentTime = 0;
+      createGain() { return { connect: vi.fn(), disconnect: vi.fn(), gain: { value: 1 } }; }
+      createBufferSource() { const source = new Source(); sources.push(source); return source; }
+      decodeAudioData(bytes: ArrayBuffer) {
+        return new Uint8Array(bytes)[0] === 9
+          ? new Promise<AudioBuffer>(resolve => pending.push(resolve)) : Promise.resolve({} as AudioBuffer);
+      }
+      close = vi.fn(async () => { this.state = "closed"; });
+    }
+    vi.stubGlobal("window", { AudioContext: Context });
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(new Uint8Array([url.includes("achievement-unlock") ? 9 : 1]))));
+    const player = new SoundPlayer();
+    player.unlock();
+    player.play("achievementUnlock");
+    await vi.waitFor(() => expect(pending).toHaveLength(1));
+    player.stop("achievementUnlock");
+    pending.shift()!({} as AudioBuffer);
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(sources).toHaveLength(0);
+    player.play("achievementUnlock");
+    await vi.waitFor(() => expect(sources).toHaveLength(1));
+    expect(sources[0].start).toHaveBeenCalledOnce();
+    player.configure(false);
+    expect(sources[0].stop).toHaveBeenCalledOnce();
+    player.configure(true);
+    expect(sources).toHaveLength(1);
+    player.play("achievementUnlock");
+    await vi.waitFor(() => expect(sources).toHaveLength(2));
+    await player.dispose();
+    expect(sources[1].stop).toHaveBeenCalledOnce();
+  });
+
+  it("does not start a pending achievement buffer after muting and re-enabling", async () => {
+    let release!: (value: AudioBuffer) => void;
+    const start = vi.fn();
+    class Context {
+      state = "running";
+      destination = {};
+      currentTime = 0;
+      createGain() { return { connect: vi.fn(), disconnect: vi.fn(), gain: { value: 1 } }; }
+      createBufferSource() { return { start, connect: vi.fn(), disconnect: vi.fn(), addEventListener: vi.fn() }; }
+      decodeAudioData(bytes: ArrayBuffer) {
+        return new Uint8Array(bytes)[0] === 9
+          ? new Promise<AudioBuffer>(resolve => { release = resolve; }) : Promise.resolve({} as AudioBuffer);
+      }
+      close = vi.fn(async () => { this.state = "closed"; });
+    }
+    vi.stubGlobal("window", { AudioContext: Context });
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(new Uint8Array([url.includes("achievement-unlock") ? 9 : 1]))));
+    const player = new SoundPlayer();
+    player.unlock();
+    player.play("achievementUnlock");
+    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
+    player.configure(false);
+    player.configure(true);
+    release({} as AudioBuffer);
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(start).not.toHaveBeenCalled();
+    await player.dispose();
+  });
+
   it("ignores decoding from a disposed context after sound is unlocked again", async () => {
     const contexts: FakeContext[] = [];
     class FakeContext {

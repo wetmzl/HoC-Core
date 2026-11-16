@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { readCharacterResourceFixture } from "../../src/test/character-fixtures";
 import { mountBuiltinTap } from "./builtin-tap-fixture";
-for (const id of ["chatgpt", "claude", "gemini", "deepseek", "llama"]) test(`内嵌角色 ${id} 未标定立绘触发全立绘`, async ({ page }, testInfo) => {
-  const dialogue = JSON.parse(readFileSync(`public/characters/${id}/resources/dialogue.json`, "utf8"));
+for (const id of ["chatgpt", "claude", "gemini", "deepseek", "llama"]) test(`内嵌角色 ${id} 全立绘触摸并保留牌桌操作`, async ({ page }, testInfo) => {
+  const dialogue = readCharacterResourceFixture(id, "resources/dialogue.json");
   const rule = dialogue.rules.find((r: { id: string }) => r.id === "character-tap");
   await mountBuiltinTap(page, id);
   for (const width of [1280, 390, 320]) {
@@ -26,5 +26,7 @@ for (const id of ["chatgpt", "claude", "gemini", "deepseek", "llama"]) test(`内
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   await page.getByRole("button", { name: "Hit 要牌", exact: true }).click();
+  await page.clock.runFor(1000);
+  await expect(page.locator(".player-zone .card")).toHaveCount(3);
   await expect(page.locator(".character-portrait")).not.toHaveAttribute("alt", rule.portrait.alt);
 });

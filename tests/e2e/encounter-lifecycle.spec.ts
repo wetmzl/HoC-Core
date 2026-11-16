@@ -1,3 +1,4 @@
+import { skipStory } from "./story-platform-fixture";
 import { expect, test } from "@playwright/test";
 test.setTimeout(120_000);
 
@@ -91,4 +92,8 @@ test("ordinary invitation creates and restores its table through the program ini
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await page.screenshot({ path: info.outputPath(`ordinary-program-${width}.png`), fullPage: true });
   }
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.addLocatorHandler(page.locator("[data-story-player]"), async () => { await skipStory(page); });
 });

@@ -1,0 +1,152 @@
+{
+  "metadata": {
+    "id": "grok",
+    "name": "Grok",
+    "subtitle": "歪戴小王冠的恶魔女孩，最爱说“这把稳赢”。输了要争一争，赢了又等着你夸最后那一手漂亮。和她打牌，除了牌面，还得接住她那张不服输的嘴。",
+    "tier": "S",
+    "tags": [],
+    "previewImage": {
+      "presentationRef": "image:cover"
+    },
+    "portraitScales": {
+      "selection": 1,
+      "table": 1
+    },
+    "faction": "hoc-core/official-factions#intelligent-core",
+    "previewFocus": {
+      "presentationRef": "focus:cover"
+    },
+    "encounter": {
+      "requiresDefeat": false,
+      "rematchSkillChoices": false,
+      "invitationLabel": "邀请",
+      "playerGun": {
+        "capacity": 6,
+        "bullets": 0
+      }
+    },
+    "unlock": {
+      "type": "defeat-character",
+      "characterId": "chatgpt"
+    }
+  },
+  "definition": {
+    "assets": {
+      "cover": {
+        "presentationRef": "image:cover"
+      },
+      "relaxed": {
+        "presentationRef": "portrait:relaxed",
+        "path": "/image"
+      },
+      "conflicted": {
+        "presentationRef": "portrait:conflicted",
+        "path": "/image"
+      },
+      "mocking": {
+        "presentationRef": "portrait:mocking",
+        "path": "/image"
+      },
+      "threatened": {
+        "presentationRef": "portrait:threatened",
+        "path": "/image"
+      },
+      "unconscious": {
+        "presentationRef": "portrait:unconscious",
+        "path": "/image"
+      }
+    },
+    "profile": {
+      "description": "Grok 一坐下来，牌桌边就很难安静。金色双马尾、小王冠和不安分的恶魔尾巴还没摆好，她已经开始催人发牌，顺便提前宣布这一局大概会怎么赢。那份笃定很有感染力，至少在翻开最后一张牌以前如此。\n\n她当然在乎输赢。输了会追问哪里不对，听见别人也有疑问，便立刻把大家拉到自己这边；等你提醒她也没少用自己的本事，她又能理直气壮地把话接回去。想让她干脆承认自己刚才太得意，往往比赢下那局还费工夫。可你若真打出漂亮的一手，她又会盯着牌面看，琢磨下次该怎么压过去。\n\n她同样在乎自己赢得够不够漂亮。一手牌接得顺，便要抬起下巴，等你承认她的眼光；你若偏偏只顾着看牌，她还会主动问一句：“刚才那手，帅不帅？”可要是才夸下稳赢的海口就翻了车，她也没法假装自己没说过。小王冠戴得再稳，也挡不住被你一句话气得晃起来。\n\n她能和你吵上半天，却很不喜欢没坐在桌边的人替你们下结论。真碰上这种时候，刚才的争执便成了“我们这桌的事”。嘴上仍少不了几句挖苦，准备下一场较量时却会帮你把劲提起来。等牌重新发下，她的目光也就跟着落回桌面，刚才没赢回来的那口气，总得亲自再争一次。"
+    },
+    "matchSummary": {
+      "playerVictory": "“……行，这局算你赢了。”Grok 把小王冠扶正，盯着最后那几张牌，又忍不住问你到底是怎么想的。你才说了两句，她便摆手表示自己已经懂了。“下次这招就没用了！”见你还在笑，她的尾巴不满地一甩：“刚才明明就差一点。不许笑得那么开心，听见没有？”",
+      "playerDefeat": "Grok 将最后一张牌翻得格外利落，随后抬起眼睛，等你说点什么。你承认这局确实是她赢了，她的尾巴尖立刻翘起来。“光说赢了哪够，最后那一手呢？帅不帅？”她努力维持着早就料到结果的表情，嘴角却怎么也压不住，连催你回答都比平时多了几分底气。",
+      "escaped": "“这就走了？我还没把刚才那手弄明白呢。”Grok 不满地抱起双臂，看着你收拾东西，终于还是将椅子往旁边挪开。“行吧，下次接着打。可别以为这样就算完了！”你已经走到门边，她又提高声音补上一句：“喂，今天先到这儿。下次我可不会输！”"
+    },
+    "revolverPlacement": {
+      "presentationRef": "portrait:relaxed",
+      "path": "/revolverPlacement"
+    },
+    "ai": {
+      "P": 0,
+      "A": 1,
+      "B": 1,
+      "C": 1
+    },
+    "tablePortrait": {
+      "anchorY": 1,
+      "images": [
+        {
+          "image": {
+            "presentationRef": "portrait:relaxed",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:relaxed",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:conflicted",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:conflicted",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:mocking",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:mocking",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:threatened",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:threatened",
+            "path": "/anchorY"
+          }
+        },
+        {
+          "image": {
+            "presentationRef": "portrait:unconscious",
+            "path": "/image"
+          },
+          "anchorY": {
+            "presentationRef": "portrait:unconscious",
+            "path": "/anchorY"
+          }
+        }
+      ]
+    }
+  },
+  "aiSkills": [
+    {
+      "resourceId": "ai:grok-is-it-true",
+      "enabled": true,
+      "parameters": {},
+      "level": 1
+    },
+    {
+      "resourceId": "ai:grok-go-anywhere",
+      "enabled": true,
+      "parameters": {},
+      "level": 1
+    }
+  ],
+  "rewardSkillResourceIds": [
+    "reward:grok-player"
+  ],
+  "dialogueResourceId": "dialogue",
+  "presentationResourceId": "appearance"
+}

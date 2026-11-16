@@ -1,0 +1,28 @@
+{
+  "id": "qwen-takeaway-player-bonus",
+  "defaultDuration": "round",
+  "rules": [
+    {
+      "id": "apply-bonus",
+      "trigger": "before-round-resolution",
+      "notify": false,
+      "conditions": [
+        {
+          "type": "round-reason-is",
+          "value": "comparison"
+        }
+      ],
+      "effects": [
+        {
+          "type": "add-to-pending-comparison-score",
+          "target": "owner",
+          "amount": {
+            "type": "status-stacks",
+            "target": "owner",
+            "statusDefinitionId": "qwen-takeaway-player-bonus"
+          }
+        }
+      ]
+    }
+  ]
+}

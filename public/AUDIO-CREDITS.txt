@@ -114,6 +114,18 @@ CC0 1.0 完整条款：licenses/CC0-1.0.txt
 许可证：CC0-1.0
 许可证链接：https://creativecommons.org/publicdomain/zero/1.0/
 
+文件：assets/audio/sfx/achievement-unlock.mp3
+原作品：Notification Sound 1
+原作者：deadrobotmusic
+来源：https://freesound.org/people/deadrobotmusic/sounds/750607/
+许可证：CC0-1.0
+许可证链接：https://creativecommons.org/publicdomain/zero/1.0/
+实际源文件：Freesound 公开 HQ MP3 预览原字节（不是原 WAV）
+下载地址：https://cdn.freesound.org/previews/750/750607_11532701-hq.mp3
+源字节：11947；SHA-256：910311c1dbe3191834ce984cfbc7cfcc258f20038d41f94f08711b28063cd286
+加工说明：源字节未经剪辑、变调或重新编码，运行音量 0.46。
+构建按统一管线导出 64 kbps VBR Opus；选择依据为作品和字节摘要，不依赖历史文件名。
+
 CC BY 3.0 Unported 完整条款：licenses/CC-BY-3.0.txt
 官方条款：https://creativecommons.org/licenses/by/3.0/
 录音按 CC BY 3.0 使用；作品标题、作者、来源、许可和加工说明应随录音保留。

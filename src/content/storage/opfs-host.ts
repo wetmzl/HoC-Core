@@ -49,11 +49,21 @@ export class OpfsContentFileSystem implements ContentFileSystem {
   }
 
   async read(path: string): Promise<Uint8Array | null> {
+    try {
+      const blob = await this.readBlob(path);
+      return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
+    } catch (error) {
+      if (isMissing(error)) return null;
+      throw error;
+    }
+  }
+
+  async readBlob(path: string): Promise<Blob | null> {
     const parts = segments(path);
     try {
       const parent = await this.directory(parts.slice(0, -1), false);
       const handle = await parent.getFileHandle(parts.at(-1)!, { create: false });
-      return new Uint8Array(await (await handle.getFile()).arrayBuffer());
+      return await handle.getFile();
     } catch (error) {
       if (isMissing(error)) return null;
       throw error;
@@ -127,14 +137,20 @@ export class OpfsContentFileSystem implements ContentFileSystem {
 export class OpfsContentAssetResolver implements ContentAssetResolver {
   private readonly urls = new Set<string>();
 
-  constructor(private readonly fileSystem: ContentFileSystem) {}
+  constructor(private readonly fileSystem: ContentFileSystem & { readBlob?(path: string): Promise<Blob | null> }) {}
 
   async resolve(path: string, mediaType: string): Promise<ResolvedContentAsset> {
-    const bytes = await this.fileSystem.read(path);
-    if (!bytes) throw new Error(`内容资源不存在：${path}`);
-    const copy = new Uint8Array(bytes.byteLength);
-    copy.set(bytes);
-    const url = URL.createObjectURL(new Blob([copy.buffer], { type: mediaType }));
+    let blob: Blob | null;
+    if (this.fileSystem.readBlob) {
+      // Committed revisions are immutable while mounted. Keep their File backing
+      // so unused media does not need to be copied into JavaScript memory.
+      blob = await this.fileSystem.readBlob(path);
+    } else {
+      const bytes = await this.fileSystem.read(path);
+      blob = bytes ? new Blob([new Uint8Array(bytes)]) : null;
+    }
+    if (!blob) throw new Error(`内容资源不存在：${path}`);
+    const url = URL.createObjectURL(blob.type === mediaType ? blob : blob.slice(0, blob.size, mediaType));
     this.urls.add(url);
     return {
       url,

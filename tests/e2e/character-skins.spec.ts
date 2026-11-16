@@ -1,7 +1,7 @@
+import { skipStory } from "./story-platform-fixture";
 import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { installBossTrialPackage } from "./boss-trial-package-fixture";
 
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value, null, 2) + "\n");
 const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
@@ -93,7 +93,7 @@ async function openHall(page: Page, seedSave = true, defeatBoss = true, unlockSk
     const load = (path: string): Promise<any> => import(/* @vite-ignore */ path);
     const save = (await load("/src/persistence/boot.ts")).createDefaultSave();
     save.skipTutorial = true; save.settings.soundEnabled = false;
-    save.defeats = ["chatgpt", "claude", "gemini", "llama", "deepseek"].filter(id => defeatBoss || id !== "claude").map(opponentId => ({ opponentId, timestamp: "2026-10-29T00:00:00.000Z" }));
+    save.defeats = ["chatgpt", "claude", "gemini", "llama", "deepseek", "glm", "grok", "qwen"].filter(id => defeatBoss || id !== "claude").map(opponentId => ({ opponentId, timestamp: "2026-10-29T00:00:00.000Z" }));
     if (unlockSkins) for (const id of ["chatgpt", "claude", "gemini", "llama", "deepseek"]) {
       const manifest = await (await fetch(`/characters/${id}/hocpkg-info.json`)).json();
       const match = manifest.resources.find((entry: any) => entry.type === "game.character-match");
@@ -105,8 +105,12 @@ async function openHall(page: Page, seedSave = true, defeatBoss = true, unlockSk
   }, { defeatBoss, unlockSkins });
   await page.getByRole("button", { name: "开始游戏", exact: true }).click();
   await page.locator("[data-enter-duel]").click();
-  await page.locator("[data-load-more-defeated]").scrollIntoViewIfNeeded();
-  await expect(page.locator("#defeated-character-list > .character-card")).toHaveCount(defeatBoss ? 5 : 4);
+  while (await page.locator("[data-load-more-defeated]").count()) {
+    const before = await page.locator("#defeated-character-list > .character-card").count();
+    await page.locator("[data-load-more-defeated]").scrollIntoViewIfNeeded();
+    await expect.poll(() => page.locator("#defeated-character-list > .character-card").count()).toBeGreaterThan(before);
+  }
+  await expect(page.locator("#defeated-character-list > .character-card")).toHaveCount(defeatBoss ? 8 : 7);
 }
 
 for (const width of [320, 1280]) test(`Core 皮肤解锁 API、锁定 UI 与重载持久化 ${width}`, async ({ page }, info) => {
@@ -194,6 +198,7 @@ for (const width of [390, 320, 1280]) test(`大厅换装确认、回退和滚动
   const card = page.locator('.character-card[data-character-id="chatgpt"]');
   await expect(card.locator(".portrait img")).toHaveAttribute("src", /relaxed\.png/);
   await dialog.getByRole("button", { name: "取消", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
   expect(await page.evaluate(() => scrollY)).toBeCloseTo(before.y, 0);
   await button.click();
   await dialog.getByRole("radio", { name: /晚礼服/ }).click();
@@ -242,7 +247,6 @@ test("保存失败保留旧服装，重试后牌桌使用新皮肤", async ({ pa
 });
 
 for (const width of [320, 390, 1280]) test(`五位 AI 大厅与 Boss 挑战显示已通过的 cover ${width}`, async ({ page }, info) => {
-  await installBossTrialPackage(page);
   await page.setViewportSize({ width, height: width === 320 ? 720 : 844 });
   await page.addInitScript(() => { (globalThis as any).__BLACKJACK_E2E_EMBEDDED__ = true; });
   await page.addLocatorHandler(page.locator("#adult-content-warning"), async dialog => { await dialog.getByRole("button", { name: "我已成年并继续" }).click(); });
@@ -267,8 +271,7 @@ for (const width of [320, 390, 1280]) test(`五位 AI 大厅与 Boss 挑战显�
 });
 
 test("换装独立切换 cover 与焦点，重载和 Boss 挑战保留选择，缺项逐资源回退", async ({ page }, info) => {
-  const index = await installSkinFixture(page, { characterId: "claude", covers: true });
-  await installBossTrialPackage(page, index);
+  await installSkinFixture(page, { characterId: "claude", covers: true });
   await openHall(page, true, false);
   const boss = page.locator('.boss-character-card[data-character-id="claude"]');
   const image = boss.locator(".portrait img");
@@ -338,4 +341,8 @@ test("换装 cover 解码失败时显示兜底立绘，仍可选择服装", asyn
   await expect(choice).toBeEnabled();
   await choice.click();
   await expect(page.locator("[data-skin-confirm]")).toBeEnabled();
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.addLocatorHandler(page.locator("[data-story-player]"), async () => { await skipStory(page); });
 });

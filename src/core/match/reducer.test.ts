@@ -10,6 +10,8 @@ import { CORE_DIALOGUE_PRIMITIVES } from "../../dialogue/facts";
 import { extractDialogueEvent, restoreDialogueEvent } from "../../dialogue/events";
 import { resolveDialogueState } from "../../dialogue/state";
 import { readCharacterFixture } from "../../test/character-fixtures";
+import { buildObservation } from "../ai/observation";
+import { decideOptimalAction } from "../ai/policy";
 
 const registry = ABILITY_REGISTRY;
 afterEach(() => installAbilityRegistry(registry.definitions, registry.statuses, registry.catalogVersion));
@@ -35,6 +37,63 @@ function settle(state: MatchState): MatchState {
 function install(definitions: readonly unknown[], statuses: readonly unknown[] = []) {
   installAbilityRegistry([...registry.definitions, ...definitions], [...registry.statuses, ...statuses], registry.catalogVersion);
 }
+
+describe("AI decisions with an empty hand", () => {
+  it.each([
+    { P: 0, action: "hit" },
+    { P: -16, action: "hit" },
+    { P: -17, action: "stand" }
+  ])("compares zero points against the normal threshold with P=$P", ({ P, action }) => {
+    const base = turn(fixture(["2", "3"], []), "opponent");
+    const state = { ...base, aiProfile: { P, A: 0, B: 0, C: 0 } };
+    const after = gameReducer(state, { type: "AI_TURN" });
+    expect(after.lastAiDecision).toMatchObject({ handValue: 0, threshold: 16 + P, action });
+    expect(after.opponent.hand.cards).toHaveLength(action === "hit" ? 1 : 0);
+    expect(after.opponent.stood).toBe(action === "stand");
+    expect(decideOptimalAction(buildObservation(state, "opponent"))).toBe("hit");
+  });
+
+  it.each([false, true])("preserves stood=%s after every opponent card is transferred", stood => {
+    const transfer = { id: "example-empty-hand-transfer", name: "示例移牌", description: "转移对手两张实体牌", sourceKind: "ai-skill", primaryDomain: "cheater", tags: ["example"],
+      activation: { type: "action", windows: ["owner-turn"], consume: "none" },
+      rules: [{ id: "transfer", trigger: "on-ability-played", effects: [
+        { type: "transfer-hand-card", from: "rival", target: "owner", card: "last-card" },
+        { type: "transfer-hand-card", from: "rival", target: "owner", card: "last-card" }
+      ] }] };
+    install([transfer]);
+    const abilities = createMatch("empty-hand-transfer", { playerAiSkills: [{ definitionId: transfer.id, enabled: true, parameters: {} }], opponentAiSkills: [] }).abilities;
+    let state = { ...fixture(["2", "3"], ["2", "3"]), abilities };
+    if (stood) state = gameReducer(turn(state, "opponent"), { type: "OPPONENT_STAND" });
+    const instanceId = abilities.instances.find(instance => instance.definitionId === transfer.id)!.instanceId;
+    state = gameReducer(state, { type: "PLAY_ABILITY", instanceId });
+    expect(state.opponent.hand.cards).toHaveLength(0);
+    expect(state.player.hand.cards).toHaveLength(4);
+    expect(state.opponent.stood).toBe(stood);
+    state = gameReducer(state, { type: "PLAYER_HIT" });
+    if (stood) {
+      expect(state.round.currentActor).toBe("player");
+      expect(getLegalActions(state)).not.toContainEqual({ type: "AI_TURN" });
+      for (const type of ["AI_TURN", "AI_HIT", "OPPONENT_HIT"] as const) expect(gameReducer(state, { type })).toBe(state);
+      expect(state.opponent.stood).toBe(true);
+      expect(state.opponent.hand.cards).toHaveLength(0);
+    } else {
+      expect(state.round.currentActor).toBe("opponent");
+      const after = gameReducer(state, { type: "AI_TURN" });
+      expect(after.lastAiDecision).toMatchObject({ handValue: 0, action: "hit" });
+      expect(after.opponent.hand.cards).toHaveLength(1);
+      expect(after.opponent.stood).toBe(false);
+      expect(after.round.currentActor).toBe("player");
+    }
+  });
+
+  it("still stands when the hand and draw pile are both empty", () => {
+    const state = turn(fixture(["2", "3"], [], []), "opponent");
+    const after = gameReducer(state, { type: "AI_TURN" });
+    expect(after.lastAiDecision).toMatchObject({ handValue: 0, action: "stand" });
+    expect(after.opponent.stood).toBe(true);
+    expect(after.opponent.hand.cards).toHaveLength(0);
+  });
+});
 
 describe("settlement priority: natural Blackjack, bust, then point comparison", () => {
   for (const actor of ["player", "opponent"] as const) {
@@ -129,11 +188,43 @@ describe("busts remain playable until both participants Stand", () => {
     expect(gameReducer(recovered, { type: "PLAYER_HIT" }).player.hand.cards).toHaveLength(7);
   });
 
-  it("keeps opponent Hits available above three times the bust limit", () => {
-    const state = turn(normalizeAbilityHands(fixture(undefined, ["10", "10", "10", "10", "10", "10", "4"])), "opponent");
+  it.each<{ last: Rank; allowed: boolean }>([
+    { last: "2", allowed: true }, { last: "3", allowed: true }, { last: "4", allowed: false }
+  ])("limits all opponent Hit entry points at 60 + $last points", ({ last, allowed }) => {
+    const base = turn(normalizeAbilityHands(fixture(undefined, ["10", "10", "10", "10", "10", "10", last])), "opponent");
+    const state = { ...base, aiProfile: { P: 100, A: 0, B: 0, C: 0 } };
     for (const type of ["OPPONENT_HIT", "AI_HIT"] as const) {
-      expect(gameReducer(state, { type }).opponent.hand.cards).toHaveLength(8);
+      const after = gameReducer(state, { type });
+      if (allowed) expect(after.opponent.hand.cards).toHaveLength(8);
+      else expect(after).toBe(state);
     }
+    expect(getLegalActions(state)).toContainEqual({ type: "AI_TURN" });
+    const after = gameReducer(state, { type: "AI_TURN" });
+    expect(after.lastAiDecision?.action).toBe(allowed ? "hit" : "stand");
+    expect(after.opponent.stood).toBe(!allowed);
+    expect(after.shoe.cursor).toBe(state.shoe.cursor + (allowed ? 1 : 0));
+  });
+
+  it.each<{ last: Rank; allowed: boolean }>([
+    { last: "3", allowed: true }, { last: "4", allowed: false }
+  ])("applies the live opponent bust limit before a skill-forced Hit at 90 + $last", ({ last, allowed }) => {
+    const id = "example-forced-hit-limit";
+    install([{ id, name: "示例要牌", description: "提高上限并要求要牌", sourceKind: "ai-skill", primaryDomain: "cheater", tags: ["example"], activation: { type: "automatic" },
+      rules: [
+        { id: "limit", trigger: "before-bust-check", conditions: [{ type: "actor-is", actor: "owner" }], effects: [{ type: "add-to-pending-bust-limit", target: "owner", amount: 10 }] },
+        { id: "hit", trigger: "before-ai-decision", effects: [{ type: "set-pending-ai-action", target: "owner", action: "hit" }] }
+      ] }]);
+    const abilities = createMatch("opponent-live-hit-limit", { opponentAiSkills: [{ definitionId: id, enabled: true, parameters: {} }] }).abilities;
+    const state = turn({ ...fixture(undefined, [...Array<Rank>(9).fill("10"), last]), abilities, comparisonBonuses: { player: 0, opponent: 100 } }, "opponent");
+    for (const type of ["OPPONENT_HIT", "AI_HIT"] as const) {
+      const after = gameReducer(state, { type });
+      if (allowed) expect(after.opponent.hand.cards).toHaveLength(11);
+      else expect(after).toBe(state);
+    }
+    const after = gameReducer(state, { type: "AI_TURN" });
+    expect(after.lastAiDecision?.action).toBe(allowed ? "hit" : "stand");
+    expect(after.shoe.cursor).toBe(state.shoe.cursor + (allowed ? 1 : 0));
+    expect(after.opponent.stood).toBe(!allowed);
   });
 
   it("keeps both bust hands active and supports repeated Hits without extra bust events", () => {

@@ -1,26 +1,33 @@
 import { handValueAtLimit } from "../blackjack/hand";
+import { captureAbilityFactOrigin, captureEffectEvidence, effectEvidenceFor, isMatchFactEvidenceSuppressed } from "../events/production";
 import { resolveValue, selectedHandCard } from "./value-expressions";
 import { recordCardAcquisitions, recordRank } from "./rank-record";
 import { addAbilityInstance } from "./runtime";
-import type { SeededRng } from "../rng/seeded";
+import { SeededRng } from "../rng/seeded";
+import { abilityRuleWindows, withAbilityRuleWindows } from "../events/rule-windows";
 import { addGunBullets, removeGunBullets, addToPendingLoad, multiplyPendingLoad, setPendingLoad } from "./roulette-adapter";
 import { drawPhysicalCandidate, redealInitialHand, drawExactResultingTotal, handTotal, moveHandCardToDrawPile, replaceLastHandCard, transformHandCard, swapLastHandCardWithDrawPileTop } from "./card-zone-adapter";
-import { addCardTag, cardRank, cardSuit, createCard, createDerivedCard, createDerivedCardId, isDerivedCard, removeCardTag } from "../blackjack/card";
+import { addCardTag, cardRank, cardSource, cardSuit, createCard, createDerivedCard, createDerivedCardId, EXCLUDED_FROM_POINT_TOTAL_TAG, isDerivedCard, removeCardTag } from "../blackjack/card";
 import { RANKS, SUITS, type Card, type Rank, type Suit } from "../blackjack/types";
 import { getAbilityDefinition, getStatusDefinition, instantiateAbility, type AbilityRegistry } from "./registry";
 import { resolveActor, resolveScalar, safeLastHitTransfer, type ConditionContext } from "./conditions";
 import { PLAYER_SKILL_INVENTORY_CAPACITY } from "../skills/constants";
 import { recordPlayerSkillAcquisition } from "../skills/acquisition";
 import { selectSkillCards, skillCardAgreesWithInstance } from "./skill-card-selection";
+import { findHandTransferCandidates } from "./hand-transfer-selection";
+import { acquiredHandCard } from "./acquired-card-selection";
 import type { AbilityDomainEvent, AbilityEffectResult, AbilityRuntimeState, AbilityWorld, DerivedCardRankExpression, DerivedCardSuitExpression, Effect, PendingAiThreshold, PendingComparison, PendingDefeat, PendingDraw, PendingLoad, PendingTrigger, PendingTurn } from "./types";
 
 export interface EffectContext extends ConditionContext {
   readonly ruleId?: string;
   readonly rng: SeededRng;
   readonly runtime: AbilityRuntimeState;
-  readonly forecastHitBust?: (owner: "player" | "opponent", world: AbilityWorld) => boolean;
+  readonly forecastHitBust?: ConditionContext["forecastHitBust"];
   readonly registry?: AbilityRegistry;
+  readonly invokeRandomActiveSkill?: (effect: Extract<Effect, { type: "invoke-random-active-skill" }>, context: EffectContext, pending: EffectPending) => AbilityEffectResult;
 }
+
+export interface EffectPending { readonly turn?: PendingTurn; readonly aiThreshold?: PendingAiThreshold; readonly draw?: PendingDraw; readonly load?: PendingLoad; readonly bust?: import("./types").PendingBustCheck; readonly trigger?: PendingTrigger; readonly comparison?: PendingComparison; readonly defeat?: PendingDefeat; }
 
 function withHands(world: AbilityWorld, actor: "player" | "opponent", hand: AbilityWorld["hands"]["player"]): AbilityWorld { return { ...world, hands: { ...world.hands, [actor]: hand } }; }
 function statusFor(world: AbilityWorld, actor: "player" | "opponent", id: string) { return world.statuses.find((status) => status.owner === actor && status.statusDefinitionId === id); }
@@ -81,6 +88,21 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
   if (!actor) throw new Error(`Cannot resolve actor selector: ${(effect as { readonly target?: unknown }).target ?? "unknown"}`);
   const changed = (effectType: string): void => { events.push({ type: "PENDING_EVENT_MODIFIED", eventId: turn?.id ?? aiThreshold?.id ?? draw?.id ?? load?.id ?? bust?.id ?? trigger?.id ?? defeat?.id ?? context.event.sourceEventId, effectType, sourceInstanceId: context.ability.instanceId }); };
   switch (effect.type) {
+    case "set-matching-hand-cards-counted": {
+      const expected = resolveValue(effect.equals, context);
+      const hand = world.hands[actor];
+      const cards = hand.cards.map(card => {
+        const actual = effect.attribute === "rank" ? cardRank(card) : effect.attribute === "suit" ? cardSuit(card) : effect.attribute === "source" ? cardSource(card) : card.id;
+        if (actual !== expected) return card;
+        return effect.counted ? removeCardTag(card, EXCLUDED_FROM_POINT_TOTAL_TAG) : addCardTag(card, EXCLUDED_FROM_POINT_TOTAL_TAG);
+      });
+      if (cards.some((card, index) => card !== hand.cards[index])) world = withHands(world, actor, { cards });
+      break;
+    }
+    case "invoke-random-active-skill": {
+      if (!context.invokeRandomActiveSkill) throw new Error("No active skill invocation service configured");
+      return context.invokeRandomActiveSkill(effect, context, pending);
+    }
     case "assign-status-values": {
       const definition = getStatusDefinition(effect.statusDefinitionId, context.registry);
       if (!definition) throw new Error(`Unknown status definition: ${effect.statusDefinitionId}`);
@@ -160,7 +182,10 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
       const source = resolveActor(effect.from, context);
       if (!source || source === actor) throw new Error("Card transfer requires two distinct hands");
       const hand = world.hands[source];
-      const card = effect.card === "last-hit-card" ? hand.cards.find(entry => entry.id === context.event.lastHitCardIds?.[source])
+      if (typeof effect.card === "object" && !context.bustLimitFor) throw new Error("No bust limit service configured for card transfer");
+      const card = typeof effect.card === "object" ? findHandTransferCandidates(world, source, actor, (owner, projected) => context.bustLimitFor!(owner, projected, context.runtime))[0]?.card
+        : effect.card === "acquired-card" ? acquiredHandCard(world, source, context.event)
+        : effect.card === "last-hit-card" ? hand.cards.find(entry => entry.id === context.event.lastHitCardIds?.[source])
         : effect.card === "last-card" ? hand.cards.at(-1) : hand.cards[effect.card === "first-public-card" ? 0 : 1];
       if (!card || world.hands[actor].cards.some(entry => entry.id === card.id)) throw new Error("Transfer card is unavailable or duplicated");
       // Standalone callers may omit explicit knowledge for the implicit first
@@ -294,7 +319,7 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
     }
     case "publish-hit-bust-forecast":
       if (!context.forecastHitBust) throw new Error("No Hit bust forecaster configured");
-      events.push(resultEvent(context, { type: "hit-bust-forecast", actor, wouldBust: context.forecastHitBust(actor, world) }));
+      events.push(resultEvent(context, { type: "hit-bust-forecast", actor, wouldBust: context.forecastHitBust(actor, world, context.runtime) }));
       break;
     case "publish-hand-total-comparison": {
       const rival = actor === "player" ? "opponent" : "player";
@@ -320,6 +345,20 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
       // Physical cards remain consumed in the shoe ledger; derived cards dissipate.
       world = withHands(world, actor, { cards: hand.cards.filter((_, i) => i !== index) });
       events.push({ type: "HAND_CARD_DISCARDED", actor, cardId: card.id });
+      break;
+    }
+    case "discard-matching-hand-cards": {
+      const hand = world.hands[actor];
+      // Resolve the value and protected identities before changing any position.
+      const value = resolveValue(effect.equals, context);
+      const excluded = new Set((effect.exclude ?? []).map(selector => selectedHandCard(effect.target, selector, context)?.id));
+      const discarded = hand.cards.filter(card => !excluded.has(card.id) &&
+        (effect.attribute === "rank" ? cardRank(card) : effect.attribute === "suit" ? cardSuit(card) : effect.attribute === "source" ? cardSource(card) : card.id) === value);
+      if (discarded.length) {
+        const ids = new Set(discarded.map(card => card.id));
+        world = withHands(world, actor, { cards: hand.cards.filter(card => !ids.has(card.id)) });
+        events.push(...discarded.map(card => ({ type: "HAND_CARD_DISCARDED" as const, actor, cardId: card.id })));
+      }
       break;
     }
     case "move-hand-card-to-draw-pile": {
@@ -539,21 +578,44 @@ export function applyEffect(effect: Effect, context: EffectContext, pending: { t
   }
   const newlyPublicIds = events.flatMap(event => event.type === "CARD_REVEALED" ? [event.cardId] : event.type === "CARD_DEALT" && !event.private ? [event.card.id] : []);
   if (newlyPublicIds.length) world = { ...world, publicCardIds: [...new Set([...(world.publicCardIds ?? []), ...newlyPublicIds])] };
-  return { ...(gainedAbilities.length ? { gainedAbilities } : {}), world, pendingTurn: turn, pendingAiThreshold: aiThreshold, pendingDraw: draw, pendingLoad: load, pendingBust: bust, pendingTrigger: trigger, pendingComparison: comparison, pendingDefeat: defeat, runtime, events };
+  captureAbilityFactOrigin(events, context.ability, context.event, context.ruleId);
+  const result = { ...(gainedAbilities.length ? { gainedAbilities } : {}), world, pendingTurn: turn, pendingAiThreshold: aiThreshold, pendingDraw: draw, pendingLoad: load, pendingBust: bust, pendingTrigger: trigger, pendingComparison: comparison, pendingDefeat: defeat, runtime, events };
+  // Only the successful containing rule exposes these objects as accepted facts.
+  if (isMatchFactEvidenceSuppressed()) return result;
+  const observedLimit = (target: "player" | "opponent", observedWorld: AbilityWorld, after: boolean) => {
+    // A bust-check preview must never recursively ask for another bust preview.
+    if (context.event.trigger === "before-bust-check") {
+      const checked = after ? bust : pending.bust;
+      if (checked?.actor === target) return checked.limit;
+    }
+    return context.bustLimitFor?.(target, observedWorld, after ? runtime : context.runtime) ?? 21;
+  };
+  captureEffectEvidence(result, [{ type: effect.type, effect, events, actor, before: context.world, after: world,
+    bustLimitsBefore: { player: observedLimit("player", context.world, false), opponent: observedLimit("opponent", context.world, false) },
+    bustLimitsAfter: { player: observedLimit("player", world, true), opponent: observedLimit("opponent", world, true) },
+    comparisonBefore: pending.comparison, comparisonAfter: comparison, loadBefore: pending.load, loadAfter: load, roundHitCounts: context.event.roundHitCounts }]);
+  return result;
 }
 
 export function applyEffects(effects: readonly Effect[], context: EffectContext, pending: { turn?: PendingTurn; aiThreshold?: PendingAiThreshold; draw?: PendingDraw; load?: PendingLoad; bust?: import("./types").PendingBustCheck; trigger?: PendingTrigger; comparison?: PendingComparison; defeat?: PendingDefeat } = {}): AbilityEffectResult {
   const effectResults: Record<string, number> = Object.create(null);
+  let rng = context.rng;
+  const hasInvocations = effects.some(effect => effect.type === "invoke-random-active-skill");
   let result: AbilityEffectResult = { world: context.world, pendingTurn: pending.turn, pendingAiThreshold: pending.aiThreshold, pendingDraw: pending.draw, pendingLoad: pending.load, pendingBust: pending.bust, pendingTrigger: pending.trigger, pendingComparison: pending.comparison, pendingDefeat: pending.defeat, runtime: context.runtime, events: [] };
   for (const effect of effects) {
-    const next = applyEffect(effect, { ...context, effectResults, event: { ...context.event, pendingComparison: result.pendingComparison }, world: result.world, runtime: result.runtime }, { turn: result.pendingTurn, aiThreshold: result.pendingAiThreshold, draw: result.pendingDraw, load: result.pendingLoad, bust: result.pendingBust, trigger: result.pendingTrigger, comparison: result.pendingComparison, defeat: result.pendingDefeat });
+    const next = applyEffect(effect, { ...context, rng, effectResults, event: { ...context.event, pendingComparison: result.pendingComparison }, world: result.world, runtime: result.runtime }, { turn: result.pendingTurn, aiThreshold: result.pendingAiThreshold, draw: result.pendingDraw, load: result.pendingLoad, bust: result.pendingBust, trigger: result.pendingTrigger, comparison: result.pendingComparison, defeat: result.pendingDefeat });
+    if (effect.type === "invoke-random-active-skill") rng = SeededRng.fromSnapshot(next.runtime.rng);
     if (effect.type === "remove-skill-cards" && effect.resultKey) {
       if (Object.hasOwn(effectResults, effect.resultKey)) throw new Error(`Duplicate effect result: ${effect.resultKey}`);
       effectResults[effect.resultKey] = result.world.cards.length - next.world.cards.length;
     }
     const gainedAbilities = [...(result.gainedAbilities ?? []), ...(next.gainedAbilities ?? [])];
-    const acquiredCards = [...(result.acquiredCards ?? []), ...(["player", "opponent"] as const).flatMap((actor) => next.world.hands[actor].cards.filter((card) => !result.world.hands[actor].cards.some((old) => old.id === card.id)).map((card) => ({ actor, card })))];
-    result = { ...(gainedAbilities.length ? { gainedAbilities } : {}), acquiredCards, world: next.world, pendingTurn: next.pendingTurn, pendingAiThreshold: next.pendingAiThreshold, pendingDraw: next.pendingDraw, pendingLoad: next.pendingLoad, pendingBust: next.pendingBust, pendingTrigger: next.pendingTrigger, pendingComparison: next.pendingComparison, pendingDefeat: next.pendingDefeat, runtime: next.runtime, events: [...result.events, ...next.events] };
+    // Invoked actions already completed their own acquisition broadcasts.
+    const acquiredCards = [...(result.acquiredCards ?? []), ...(effect.type === "invoke-random-active-skill" ? [] : (["player", "opponent"] as const).flatMap((actor) => next.world.hands[actor].cards.filter((card) => !result.world.hands[actor].cards.some((old) => old.id === card.id)).map((card) => ({ actor, card }))))];
+    const evidence = [...effectEvidenceFor(result), ...effectEvidenceFor(next)];
+    const windows = [...abilityRuleWindows(result), ...abilityRuleWindows(next).map(window => ({ ...window, eventOffset: result.events.length + window.eventOffset }))];
+    result = withAbilityRuleWindows({ ...(gainedAbilities.length ? { gainedAbilities } : {}), acquiredCards, world: next.world, pendingTurn: next.pendingTurn, pendingAiThreshold: next.pendingAiThreshold, pendingDraw: next.pendingDraw, pendingLoad: next.pendingLoad, pendingBust: next.pendingBust, pendingTrigger: next.pendingTrigger, pendingComparison: next.pendingComparison, pendingDefeat: next.pendingDefeat, runtime: hasInvocations ? { ...next.runtime, rng: rng.snapshot() } : next.runtime, events: [...result.events, ...next.events] }, windows);
+    captureEffectEvidence(result, evidence);
   }
   const removedSources = new Set(context.runtime.instances.filter(instance => !result.runtime.instances.some(entry => entry.instanceId === instance.instanceId)).map(instance => instance.instanceId));
   if (result.world.statuses.some(status => removedSources.has(status.sourceInstanceId))) throw new Error("A removed ability cannot create new sourced statuses");

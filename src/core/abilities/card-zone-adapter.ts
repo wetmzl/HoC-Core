@@ -1,5 +1,5 @@
 import { addCard, createHand, handValue, handValueAtLimit } from "../blackjack/hand";
-import { cardRank, cardSuit, cardValue, createCard, createDerivedCard, createDerivedCardId, isDerivedCard, isPhysicalCard } from "../blackjack/card";
+import { cardPointValue, cardRank, cardSuit, cardValue, createCard, createDerivedCard, createDerivedCardId, isCardCountedInPointTotal, isDerivedCard, isPhysicalCard } from "../blackjack/card";
 import { RANKS, SUITS, type Card, type Hand, type PhysicalCard, type ShoeState } from "../blackjack/types";
 import type { SeededRng } from "../rng/seeded";
 
@@ -12,7 +12,7 @@ export function redealInitialHand(shoe: ShoeState): { readonly hand: Hand; reado
 export interface CardCandidateResult { readonly card: PhysicalCard; readonly index: number; }
 export function handCardCount(hand: Hand): number { return hand.cards.length; }
 export function handTotal(hand: Hand): number { return handValue(hand); }
-export function fixedCardValue(card: Card): number { return cardValue(cardRank(card)); }
+export function fixedCardValue(card: Card): number { return cardPointValue(card); }
 
 /** Returns a held physical card to the remaining pile without duplicating its
  * identity in the shoe's consumed-card ledger or drawing a replacement. */
@@ -133,7 +133,7 @@ export function drawPhysicalCandidate(shoe: ShoeState, hand: Hand, candidate: { 
   });
   if (!candidates.length) return undefined;
   if (pick === "uniform-ability-rng" && !rng) throw new Error("Random selection requires its ability RNG");
-  const minimum = (card: Card) => cardRank(card) === "A" ? 1 : fixedCardValue(card);
+  const minimum = (card: Card) => !isCardCountedInPointTotal(card) ? 0 : cardRank(card) === "A" ? 1 : fixedCardValue(card);
   const selected = pick === "uniform-ability-rng" ? candidates[rng!.nextInt(candidates.length)]!
     : pick === "lowest-value" ? candidates.reduce((a, b) => minimum(b.card) < minimum(a.card) ? b : a) : candidates[0]!;
   const cards = [...shoe.cards];

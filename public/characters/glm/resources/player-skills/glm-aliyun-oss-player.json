@@ -1,0 +1,88 @@
+{
+  "definition": {
+    "id": "glm-aliyun-oss-player",
+    "name": "阿里云OSS",
+    "description": "获得当轮及下一轮，若对手有一张手牌转入你手中便能让你恰好达到当前爆牌上限，自动偷走首张符合条件的牌。",
+    "usage": "被动技能，持续两轮，包含获得当轮。获得时及双方手牌变化后检查，每次只偷一张，按对手手牌顺序选择；每轮不限次数，点数和爆牌上限按完整转移后的双方手牌重算。",
+    "triggerNotice": "偷走一张手牌，恰好达到当前爆牌上限。",
+    "profileLore": "“已经替你存好了。至于访问权限……哎呀，怎么只有我的名字？”",
+    "sourceKind": "player-skill",
+    "primaryDomain": "cheater",
+    "skillTags": [
+      "cheater"
+    ],
+    "tags": [
+      "player-skill",
+      "passive-skill-card",
+      "blackjack",
+      "card-transfer"
+    ],
+    "activation": {
+      "type": "passive"
+    },
+    "ttl": {
+      "type": "rounds",
+      "amount": 2
+    },
+    "rules": [
+      {
+        "id": "check-on-gain",
+        "trigger": "on-ability-gained",
+        "conditions": [
+          {
+            "type": "hand-transfer-candidate-exists",
+            "from": "rival",
+            "target": "owner",
+            "candidate": "reaches-bust-limit"
+          }
+        ],
+        "effects": [
+          {
+            "type": "transfer-hand-card",
+            "from": "rival",
+            "target": "owner",
+            "card": {
+              "type": "matching-transfer",
+              "candidate": "reaches-bust-limit",
+              "pick": "first"
+            }
+          }
+        ]
+      },
+      {
+        "id": "check-on-hand-change",
+        "trigger": "after-hand-changed",
+        "conditions": [
+          {
+            "type": "hand-transfer-candidate-exists",
+            "from": "rival",
+            "target": "owner",
+            "candidate": "reaches-bust-limit"
+          }
+        ],
+        "effects": [
+          {
+            "type": "transfer-hand-card",
+            "from": "rival",
+            "target": "owner",
+            "card": {
+              "type": "matching-transfer",
+              "candidate": "reaches-bust-limit",
+              "pick": "first"
+            }
+          }
+        ]
+      }
+    ],
+    "drop": {
+      "enabled": true,
+      "baseWeight": 1
+    },
+    "stackable": false
+  },
+  "acquisition": {
+    "type": "defeat-character",
+    "characterResourceId": "match",
+    "label": "首次击败GLM"
+  }
+}

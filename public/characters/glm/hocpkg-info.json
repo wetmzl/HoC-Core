@@ -1,0 +1,168 @@
+{
+  "$schema": "../../../schemas/hocpkg.schema.json",
+  "format": "house-of-chances-hocpkg",
+  "formatVersion": 1,
+  "identity": {
+    "authorId": "hoc-core",
+    "packageName": "glm",
+    "version": "1.0.7"
+  },
+  "metadata": {
+    "title": "GLM 角色包",
+    "license": "CC-BY-NC-SA 4.0",
+    "description": "GLM 的档案、三种终局、26 类对白、六态立绘与点数洞察、手牌转移两项技能。 击败后解锁对应玩家技能。",
+    "tags": [
+      "built-in",
+      "character",
+      "tier:s"
+    ],
+    "creators": [
+      {
+        "displayName": "HoC-core",
+        "roles": [
+          "maintainer"
+        ]
+      }
+    ],
+    "coverImage": "cover.png"
+  },
+  "resources": [
+    {
+      "id": "match",
+      "type": "game.character-match",
+      "apiVersion": 13,
+      "entry": "resources/character-match.json",
+      "requires": [
+        "dialogue",
+        "appearance",
+        "ai:glm-not-secrets",
+        "ai:glm-aliyun-oss",
+        "player:glm-aliyun-oss-player"
+      ]
+    },
+    {
+      "id": "dialogue",
+      "type": "game.character-dialogue",
+      "apiVersion": 4,
+      "entry": "resources/dialogue.json",
+      "requires": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "appearance",
+      "type": "presentation.character",
+      "apiVersion": 2,
+      "entry": "resources/appearance.json",
+      "requires": []
+    },
+    {
+      "id": "ai:glm-not-secrets",
+      "type": "game.ai-skill",
+      "apiVersion": 5,
+      "entry": "resources/ai-skills/glm-not-secrets.json",
+      "requires": []
+    },
+    {
+      "id": "ai:glm-aliyun-oss",
+      "type": "game.ai-skill",
+      "apiVersion": 5,
+      "entry": "resources/ai-skills/glm-aliyun-oss.json",
+      "requires": []
+    },
+    {
+      "id": "player:glm-aliyun-oss-player",
+      "type": "game.player-skill",
+      "apiVersion": 5,
+      "entry": "resources/player-skills/glm-aliyun-oss-player.json",
+      "requires": []
+    }
+  ],
+  "files": [
+    {
+      "path": "ART-CREDITS.md",
+      "bytes": 1220,
+      "sha256": "cacaa2fb16d773cdb7fd83546a849a36073dcda8a4c74d814d22cd221ce9b12d",
+      "mediaType": "text/markdown"
+    },
+    {
+      "path": "conflicted.png",
+      "bytes": 1423922,
+      "sha256": "5306c28d0c6661f634de1049772066cad907d49a09cdd40d1480c1187af2eb42",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "cover.png",
+      "bytes": 3062376,
+      "sha256": "0f2128a7dabd1bff88afcdb9a7b1f6a42984f3358fd5b2414be38b08d577b6cd",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "mocking.png",
+      "bytes": 1397637,
+      "sha256": "f1c49de88b043060d7275946410c39f02115b69d3d519d9bfa76f0e048bb3934",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "relaxed.png",
+      "bytes": 1283966,
+      "sha256": "2dc9b4d179b8bc65afba19d966aa876b991a0d3ca202f56a6e7e582619e68130",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "resources/ai-skills/glm-aliyun-oss.json",
+      "bytes": 1280,
+      "sha256": "80147bea079e64329b4cd3f2aa14009bc040ea805715e7a1a6b7514217c9d24f",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/ai-skills/glm-not-secrets.json",
+      "bytes": 2493,
+      "sha256": "59e604e425cf3df89ba9e46f4b1e6c4a5df4673c36f6a0ef06e1a8e7300a8afc",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/appearance.json",
+      "bytes": 2530,
+      "sha256": "ac0eb1900dad677d712c1ed9d48f8cf0ecee27147d26d222a2b09f542b3db743",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/character-match.json",
+      "bytes": 5851,
+      "sha256": "9c1d1b4e333238ccbaf502371c9fb490b2407dc49baabbcfa042ec7bdc6155d2",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/dialogue.json",
+      "bytes": 34121,
+      "sha256": "19a463a535d3cdf113cccf55c90281ec7975554d5697456426efc8531b842459",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "resources/player-skills/glm-aliyun-oss-player.json",
+      "bytes": 2517,
+      "sha256": "16223ead5368b2a2a642a6ad3269ce990989672011c5cf0151f8d610f73a5ebe",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "tap.png",
+      "bytes": 2167150,
+      "sha256": "fea5ac8336d6e17a3866a79e7a156685d2a19b5fbd0dee71701cfae5a869be53",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "threatened.png",
+      "bytes": 1312280,
+      "sha256": "3533d679738b8f92713b833ae5ee7a8d1f38ca6117b23f7e630dab96b40675fb",
+      "mediaType": "image/png"
+    },
+    {
+      "path": "unconscious-reclined.png",
+      "bytes": 1475110,
+      "sha256": "919987e172bfd24d46cf97f6ac672b5953390ad7e9f71ea391531999172e9f7f",
+      "mediaType": "image/png"
+    }
+  ],
+  "extensions": {}
+}

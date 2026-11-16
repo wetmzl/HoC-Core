@@ -43,7 +43,7 @@ async function rewriteDeclarations(directory) {
 }
 await rewriteDeclarations(join(target, 'types'));
 for (const name of ['package.json', 'cli.mjs', 'package-tools.d.mts']) await cp(join(root, 'sdk', name), join(target, name));
-for (const name of ['image-build.mjs', 'audio-build.mjs', 'package-tools.mjs']) await cp(join(root, 'scripts', name), join(target, name));
+for (const name of ['image-build.mjs', 'audio-build.mjs', 'package-tools.mjs', 'default-playlist.mjs']) await cp(join(root, 'scripts', name), join(target, name));
 await mkdir(join(target, 'types/scripts'), { recursive: true });
 const imageTypes = (await readFile(join(root, 'scripts/image-build.d.mts'), 'utf8'))
   .replace("import type { Plugin } from 'vite';\n", '')

@@ -1,0 +1,43 @@
+{
+  "id": "glm-aliyun-oss",
+  "name": "阿里云 OSS",
+  "description": "完整发牌后及双方手牌变化后，若玩家有一张牌转入 GLM 手牌便能使其恰好达到当前爆牌上限，立即偷走手牌顺序中第一张符合条件的牌。每次检查只偷一张，每轮不限次数。",
+  "profileLore": "“已经替你存好了。至于访问权限……哎呀，怎么只有我的名字？”",
+  "triggerNotice": "偷走一张手牌，恰好达到当前爆牌上限。",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "cheater",
+  "activation": {
+    "type": "automatic"
+  },
+  "rules": [
+    {
+      "id": "store-first-limit-reaching-card",
+      "trigger": "after-hand-changed",
+      "conditions": [
+        {
+          "type": "hand-transfer-candidate-exists",
+          "from": "rival",
+          "target": "owner",
+          "candidate": "reaches-bust-limit"
+        }
+      ],
+      "effects": [
+        {
+          "type": "transfer-hand-card",
+          "from": "rival",
+          "target": "owner",
+          "card": {
+            "type": "matching-transfer",
+            "candidate": "reaches-bust-limit",
+            "pick": "first"
+          }
+        }
+      ]
+    }
+  ],
+  "tags": [
+    "ai-skill",
+    "blackjack",
+    "card-transfer"
+  ]
+}

@@ -20,6 +20,7 @@ import { buildContentRegistry } from "./content/packages/content-registry";
 import { createStandaloneAbilityRegistry, supportsAbilitySourceKind, validateAbilityBinding } from "./core/abilities/registry";
 import { instantiateProgramTemplate } from "./core/flow/program-templates";
 import { validateProgramInitialization, validateProgramSkillGrant } from "./content/encounter-flows/catalog";
+import { StandardAchievementCatalogSchema } from "./core/achievements/schema";
 
 export { HocpkgManifestSchema, HocpkgPortablePathSchema };
 export { ProgramDefinitionSchema, ProgramNodeSchema, ProgramConditionSchema, ProgramEffectSchema } from "./core/flow/program";
@@ -43,12 +44,41 @@ export { CharacterDataSchema, CharacterDialogueResourceSchema, validateDialogueR
 export { TablePortraitSchema } from "./content/characters/table-portrait";
 export { TablePortraitResourceSchema, FactionResourceSchema, CharacterMatchResourceSchema } from "./content/packages/resources";
 export { HocpkgResourceKeySchema } from "./content/packages/schema";
+export { ACHIEVEMENT_API_VERSION, ACHIEVEMENT_LEDGER_VERSION, ACHIEVEMENT_LIMITS,
+  AchievementCatalogSchema, AchievementDefinitionSchema, StandardAchievementDefinitionSchema, StandardAchievementCatalogSchema, AchievementKeySchema, AchievementTrackingSchema,
+  AchievementNumberSchema, AchievementValueSchema, AchievementConditionSchema,
+  AchievementObservationContractSchema, AchievementObservationSchema, AchievementLedgerSchema,
+  createAchievementLedger, advanceAchievements, validateAchievementInputs, assertAchievementObservationContract,
+  evaluateAchievementNumber, evaluateAchievementValue, evaluateAchievementCondition } from "./core/achievements";
+export type { AchievementCatalog, AchievementDefinition, StandardAchievementDefinition, StandardAchievementCatalog, AchievementDefinitionEntry, AchievementTracking,
+  AchievementScope, AchievementWindowScope, AchievementTopic, AchievementScalarValue, AchievementScalarType, AchievementNumber, AchievementValue,
+  AchievementCondition, AchievementAggregation, AchievementTrack, AchievementObservationContract,
+  AchievementBoundary, AchievementObservation, AchievementMetric, AchievementCompletion, AchievementRecord,
+  AchievementWindow, AchievementLedger, AchievementDiagnostic, AchievementEvaluation, AchievementReadContext } from "./core/achievements";
+export { projectAchievement, projectAchievementList } from "./core/achievements/presentation";
+export type { AchievementPresentationEntry, AchievementCover, HiddenAchievementPresentation, VisibleAchievementPresentation,
+  AchievementPresentation, AchievementListPresentation, AchievementProgressPresentation } from "./core/achievements/presentation";
+export type { SkillCardFilterSubject } from "./core/abilities/skill-card-selection";
+export { ACHIEVEMENT_CHECKPOINT_VERSION, ACHIEVEMENT_COMMIT_LIMITS, AchievementCheckpointSchema,
+  AchievementUnlockDeliverySchema, AchievementUnlockRequirementSchema, createAchievementCheckpoint,
+  restoreAchievementCheckpoint, createAchievementCommitPort, AchievementCommitPort,
+  createAchievementUnlockDeliveryId, isAchievementUnlocked, meetsAchievementUnlockRequirement } from "./core/achievements/commit";
+export type { AchievementCheckpoint, AchievementUnlockDelivery, AchievementCommitReceipt,
+  AchievementUnlockRequirement, AchievementCommitPortOptions } from "./core/achievements/commit";
 export type { FactionResource } from "./content/packages/resources";
 export type { TablePortrait, TablePortraitImage } from "./content/characters/table-portrait";
 export type { DialogueAuthoringIssue } from "./dialogue/authoring";
 export const dialogueEventDeclarations = CORE_DIALOGUE_EVENTS;
 export const dialoguePrimitiveDeclarations = CORE_DIALOGUE_PRIMITIVES.map(({ read: _read, ...declaration }) => declaration);
 export type { CharacterDialogue, DialogueCondition, DialogueRule, DialogueEvent, DialogueEventDeclaration } from "./dialogue/types";
+export { PUBLIC_EVENT_API_VERSION, PUBLIC_EVENT_SCOPE_NAMES, snapshotPublicEventBatch } from "./core/events/public-events";
+export { PUBLIC_EVENT_CATALOG, MATCH_EVENT_TYPES, getPublicEventDeclaration } from "./core/events/public-event-catalog";
+export type { PublicEventDeclaration } from "./core/events/public-event-catalog";
+export type { PublicEvent, PublicEventBatch, PublicEventContext, PublicEventOrigin, PublicEventScopes, PublicEventScopeName, PublicPresentationContext, PublicScalar, PublicMatchReadModel, PublicSkillLifetime } from "./core/events/public-events";
+export { PublicQuerySchema, readPublicQuery, createPublicQueryContext } from "./core/events/public-queries";
+export type { PublicQuery, PublicQueryContext } from "./core/events/public-queries";
+export { PublicValueSchema, PublicConditionSchema, PublicTriggerSpecSchema, evaluatePublicCondition, matchPublicTrigger, selectPublicTriggerEvents } from "./core/events/triggers";
+export type { PublicValue, PublicCondition, TriggerSpec, PublicTriggerSpec } from "./core/events/triggers";
 export type { AuthoringSchema, AuthoringContext, AuthoringIssue } from "./content/packages/authoring-schema";
 export type { HocpkgManifest } from "./content/packages/schema";
 export type { PluginCharacterExtensionDeclaration, PluginCreditsDeclaration } from "./content/packages/plugin-declarations";
@@ -67,6 +97,48 @@ export async function verifyAuthoringPackage(input: AuthoringPackage): Promise<H
   }
   return manifest;
 }
+
+/** Validate achievement catalogs and their requires closure, not unrelated mixed-package resources. Never executes plugin code. */
+export async function validateAchievementPackage(input: AuthoringPackage, options: { readonly standard?: boolean } = {}): Promise<void> {
+  const verifiedFiles = new Map<string, Uint8Array>();
+  const manifest = await verifyAuthoringPackage({
+    manifest: input.manifest,
+    async readFile(path) {
+      const bytes = new Uint8Array(await input.readFile(path));
+      verifiedFiles.set(path, bytes);
+      return bytes;
+    }
+  });
+  const catalogs = manifest.resources.filter(resource => resource.type === "achievement.catalog");
+  if (!catalogs.length) throw new Error("内容包必须包含至少一个 achievement.catalog");
+  const byId = new Map(manifest.resources.map(resource => [resource.id, resource]));
+  const required = new Set<string>();
+  const pending = catalogs.map(resource => resource.id);
+  while (pending.length) {
+    const id = pending.pop()!;
+    if (required.has(id)) continue;
+    required.add(id);
+    pending.push(...byId.get(id)!.requires);
+  }
+  const results = await loadHocpkgResources({ ...manifest, resources: manifest.resources.filter(resource => required.has(resource.id)) }, {
+    handlers: createHocpkgResourceHandlers(),
+    readJson: async (path, descriptor) => {
+      const payload: unknown = JSON.parse(new TextDecoder().decode(verifiedFiles.get(path)!));
+      return options.standard && descriptor.type === "achievement.catalog" ? StandardAchievementCatalogSchema.parse(payload) : payload;
+    },
+    resolvePath: path => {
+      HocpkgPortablePathSchema.parse(path);
+      if (!manifest.files.some(file => file.path === path && /^(image|audio)\//.test(file.mediaType))) throw new Error(`媒体未声明：${path}`);
+      return path;
+    }
+  });
+  for (const result of results) {
+    if (result.descriptor.type === "achievement.catalog" && result.state !== "active") {
+      throw new Error(`${result.descriptor.id}: ${result.reason} ${result.error ?? ""}`);
+    }
+  }
+}
+
 export async function readPluginAuthoring(input: AuthoringPackage): Promise<{ packageId: string; title: string; modules: ReturnType<typeof PluginModuleResourceSchema.parse>[]; contracts: LoadedCharacterContract[]; primitives: DialoguePrimitiveDeclaration[]; events: import("./dialogue/types").DialogueEventDeclaration[] }> {
   const manifest = await verifyAuthoringPackage(input);
   const modules: ReturnType<typeof PluginModuleResourceSchema.parse>[] = [], contracts: LoadedCharacterContract[] = [];
@@ -253,3 +325,10 @@ export function createSkinCharacterPackageDraft(id: string, name: string): Chara
   manifest.resources.push({ id: "appearance", type: "presentation.character", apiVersion: 1, entry: "resources/appearance.json", requires: [] });
   return { manifest, files: { ...draft.files, "resources/character.json": JSON.stringify(match, null, 2) + "\n", "resources/dialogue.json": JSON.stringify(dialogue, null, 2) + "\n", "resources/appearance.json": JSON.stringify(presentation, null, 2) + "\n" } };
 }
+
+export { MusicResourceSchema } from "./content/packages/music";
+export type { MusicResource } from "./content/packages/music";
+export { STORY_API_VERSION, STORY_LIMITS, StorySceneSchema, StoryBindingSchema, StoryActionSchema, StoryConditionSchema } from "./core/story";
+export { createStoryRun, advanceStory, chooseStory, skipStory, acknowledgeStoryCommand, refreshStory, applyStoryAction, interpolateStoryText, evaluateStoryCondition } from "./core/story";
+export type { StoryEngineContext, StoryRun } from "./core/story";
+export type { StoryScene, StoryBinding, StoryNode, StoryAction, StoryCondition, StoryValue, StoryChoiceOption, StoryActorDefinition, StoryTextSegment } from "./core/story";

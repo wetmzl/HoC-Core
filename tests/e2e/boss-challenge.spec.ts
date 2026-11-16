@@ -1,3 +1,4 @@
+import { skipStory } from "./story-platform-fixture";
 import { expectSkillSheet } from "./skill-sheet-assertions";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -17,7 +18,7 @@ async function mount(page: Page, mode: "lobby" | "locked" | "selection" | "guard
       const { createDefaultSave } = await load("/src/persistence/boot.ts");
       const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false; save.settings.reducedMotion = true;
       save.tutorialProgress.completedIds.push("adult-content-warning");
-      if (mode !== "locked") save.defeats = ["chatgpt", "llama", "gemini", "deepseek"].map(opponentId => ({ opponentId, timestamp: new Date().toISOString() }));
+      if (mode !== "locked") save.defeats = ["chatgpt", "llama", "gemini", "deepseek", "glm", "grok", "qwen"].map(opponentId => ({ opponentId, timestamp: new Date().toISOString() }));
       await repository.saveLongTerm(save); await repository.deleteRuntime();
       if (mode !== "lobby" && mode !== "locked") {
         const { challengeFlow } = await load("/src/core/challenge/flow.ts");
@@ -202,7 +203,7 @@ test("guard portraits open their own dossier without starting a match until conf
 
 test("guard gunshot returns to choice, retains all eight bullets and survives reload", async ({ page }) => {
   await mount(page, "guard-loss");
-  await expect(page.getByRole("heading", { name: "策展人落败" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "失败" })).toBeVisible();
   await page.getByRole("button", { name: "返回四人选择" }).click();
   await expect(page.locator(".challenge-grid")).toBeVisible();
   let data = await saved(page);
@@ -219,7 +220,8 @@ test("guard gunshot returns to choice, retains all eight bullets and survives re
 });
 test("guard win lowers exactly one boss skill without permanent guard rewards", async ({ page }, info) => {
   await mount(page, "guard-win");
-  await expect(page.getByRole("heading", { name: "策展人胜利", exact: true })).toBeVisible();
+  const recordedDefeats = (await saved(page)).save?.defeats;
+  await expect(page.getByRole("heading", { name: "胜利", exact: true })).toBeVisible();
   await expect(page.locator(".summary-character")).toBeVisible();
   await expect(page.locator(".unlock-panel, [data-reward-deck]")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "返回四人选择", exact: true })).toBeDisabled();
@@ -268,7 +270,7 @@ test("guard win lowers exactly one boss skill without permanent guard rewards", 
   await expect(page.locator(".challenge-skill-before")).toBeVisible();
   expect((await saved(page)).runtime?.activeProgram?.completed).toEqual(["guard:chatgpt"]);
   await page.getByRole("button", { name: "关闭削弱说明" }).click();
-  expect((await saved(page)).save?.defeats.map(record => record.opponentId)).toEqual(["chatgpt", "llama", "gemini", "deepseek"]);
+  expect((await saved(page)).save?.defeats).toEqual(recordedDefeats);
   await challengeGuard(page, "llama");
   await expect(page.locator(".table-top h1")).toHaveText("Llama · 守卫战");
   const guard = (await saved(page)).runtime!.activeMatch!;
@@ -382,7 +384,7 @@ test("failed selection checkpoint stays retryable without losing the completed g
   await expect(page.locator("[data-encounter-status]:visible")).toContainText("checkpoint-test-failure");
   expect((await saved(page)).runtime).toEqual(pending);
   await mount(page, "restore");
-  await expect(page.getByRole("heading", { name: "策展人胜利", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "胜利", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "返回四人选择" }).click();
   await expect(page.locator(".challenge-grid")).toBeVisible();
   expect((await saved(page)).runtime?.activeProgram?.completed).toEqual(["guard:chatgpt"]);
@@ -588,4 +590,8 @@ test("a failed post-attach opening and failed rollback recover the durable guard
   await page.locator('[data-exit-encounter]').click();
   await expect(page.locator(".challenge-grid")).toBeVisible();
   expect((await saved(page)).runtime!.activeProgram!.resources!.player!.inventory.cards).toEqual(recovered.activeMatch!.playerSkills.cards);
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.addLocatorHandler(page.locator("[data-story-player]"), async () => { await skipStory(page); });
 });

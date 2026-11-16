@@ -1,0 +1,41 @@
+{
+  "id": "qwen-takeaway-and-milk-tea",
+  "name": "你的外卖和奶茶",
+  "description": "玩家本轮第二次及以后的每次 Hit 后，随机使用一张玩家持有且当前可用的主动技能牌，按正常规则消耗该牌或一次使用次数；没有可用主动技能时不发动。",
+  "profileLore": "替你下单的agent固然美妙，但是你似乎对那家公司不太放心……。",
+  "triggerNotice": "替玩家随机使用一张持有的主动技能牌。",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "gambler",
+  "activation": {
+    "type": "automatic"
+  },
+  "rules": [
+    {
+      "id": "order-after-repeat-player-hit",
+      "trigger": "after-card-draw",
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "rival"
+        },
+        {
+          "type": "round-hit-count",
+          "target": "rival",
+          "operator": "gte",
+          "value": 2
+        }
+      ],
+      "effects": [
+        {
+          "type": "invoke-random-active-skill",
+          "target": "rival"
+        }
+      ]
+    }
+  ],
+  "tags": [
+    "ai-skill",
+    "blackjack",
+    "active-skill"
+  ]
+}

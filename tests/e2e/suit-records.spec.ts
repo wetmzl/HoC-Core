@@ -20,10 +20,10 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           const { createCard } = await load("/src/core/blackjack/card.ts");
           const { createMatch } = await load("/src/core/match/reducer.ts");
           const { loadCharacter } = await load("/src/content/characters/loader.ts");
-          const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+          const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
           const { createPersistenceService } = await load("/src/persistence/factory.ts");
           const { mountGameRuntime } = await load("/src/match-screen.ts");
-          const definition = { id: "example-suit-set", name: "花色集合", description: "通用花色集合展示", sourceKind: "talent", unlock: { type: "defeat-count", count: 1, label: "示例" }, primaryDomain: "gambler", tags: ["display"], activation: { type: "automatic" }, rules: [], displays: [
+          const definition = { id: "example-suit-set", name: "花色集合", description: "表达式花色集合。", sourceKind: "talent", unlock: { type: "defeat-count", count: 1, label: "示例" }, primaryDomain: "gambler", tags: ["display"], activation: { type: "automatic" }, rules: [], displays: [
             { id: "suits", target: "rival", description: "表达式花色集合。", content: [{ type: "text", text: "花色集合" }, { type: "suit-record", values: Object.fromEntries(SUITS.map((suit: string, index: number) => [suit, { type: "constant", value: index < count }])) }] },
             { id: "number", target: "owner", description: "旧数值节点", content: [{ type: "text", text: "示例数值：" }, { type: "number", value: 42 }] }
           ] };
@@ -40,7 +40,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           const repository = createPersistenceService();
           const save = createDefaultSave(); save.skipTutorial = true; save.settings.soundEnabled = false; save.settings.reducedMotion = true; save.tutorialProgress.completedIds.push("adult-content-warning");
           await repository.saveLongTerm(save); await repository.saveRuntime(createRuntimeSave(match));
-          void mountGameRuntime({ root: document.querySelector<HTMLElement>("#app")!, onExitRequest: async () => {} });
+          await mountGameRuntime({ root: document.querySelector<HTMLElement>("#app")!, onExitRequest: async () => {} });
         }, { count, mode });
         const board = page.locator(".status-chip-suit-record");
         await expect(board).toBeVisible();
@@ -59,7 +59,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           await board.screenshot({ path: resolve(output, `${name}-board.png`) });
         } else await expect(page.locator("[data-display-actor=player] .status-chip")).toContainText("示例数值：42");
         await board.locator(".display-info-button").click();
-        await expect(page.locator("#display-info-description")).toContainText(mode === "gemini" ? "包含暗牌和派生牌" : "表达式花色集合");
+        await expect(page.locator("#display-info-description")).toContainText(mode === "gemini" ? "场上每有一种花色，获得1点优势。" : "表达式花色集合");
         await page.keyboard.press("Escape");
         await expect(page.locator("#display-info-dialog")).not.toBeVisible();
       }

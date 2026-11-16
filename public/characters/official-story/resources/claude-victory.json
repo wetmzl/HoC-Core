@@ -1,0 +1,47 @@
+{
+  "sceneId": "after-claude",
+  "trigger": {
+    "on": [
+      "program.completed"
+    ],
+    "when": {
+      "type": "all",
+      "conditions": [
+        {
+          "type": "compare",
+          "left": {
+            "type": "query",
+            "query": {
+              "id": "event.data",
+              "key": "definitionId"
+            }
+          },
+          "operator": "eq",
+          "right": {
+            "type": "literal",
+            "value": "intelligent-core-trial"
+          }
+        },
+        {
+          "type": "compare",
+          "left": {
+            "type": "query",
+            "query": {
+              "id": "event.data",
+              "key": "result"
+            }
+          },
+          "operator": "eq",
+          "right": {
+            "type": "literal",
+            "value": "victory"
+          }
+        }
+      ]
+    }
+  },
+  "frequency": "save",
+  "priority": 80,
+  "queue": "append",
+  "scope": "global"
+}

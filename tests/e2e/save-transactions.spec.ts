@@ -6,7 +6,7 @@ test("IndexedDB rolls back a continued result when its runtime write fails", asy
   const result = await page.evaluate(async () => {
     const load = (path: string): Promise<any> => import(/* @vite-ignore */ path);
     await (await load("/src/content/packages/content-loader.ts")).bootstrapContent({ fetch: window.fetch.bind(window) });
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const { createMatch } = await load("/src/core/match/reducer.ts");
     const { IndexedDbSaveStorageDriver } = await load("/src/persistence/dexie-repository.ts");
     const { PersistenceService } = await load("/src/persistence/save-service.ts");

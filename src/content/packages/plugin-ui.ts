@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PLUGIN_UI_API_VERSION } from "./plugin-version";
+import { PLUGIN_MAIN_MENU_QUOTE_API_VERSION, PLUGIN_UI_API_VERSION } from "./plugin-version";
 import type { MountedScreen } from "../../runtime/contracts";
 
 export type PluginUiSlot = "main-menu.secondary" | "main-menu.tools";
@@ -45,4 +45,37 @@ export function validatePluginUiActions(actions: unknown, apiVersion: number): r
     ids.add(action.id);
   }
   return parsed;
+}
+
+/** Host-rendered lines; no HTML, DOM access or package-specific presentation. */
+export interface PluginMainMenuQuote {
+  /** Empty lines explicitly hide the quotation. */
+  readonly lines: readonly { readonly text: string; readonly emphasis?: boolean }[];
+}
+
+export function validatePluginMainMenuQuote(quote: unknown, apiVersion: number): PluginMainMenuQuote | undefined {
+  if (quote === undefined) return undefined;
+  if (apiVersion < PLUGIN_MAIN_MENU_QUOTE_API_VERSION) throw new Error("主菜单名言必须使用插件 API 13");
+  const mainMenuQuoteSchema = z.object({
+    lines: z.array(z.object({
+      text: z.string().trim().min(1).max(500),
+      emphasis: z.boolean().optional()
+    }).strict()).max(8)
+  }).strict();
+  return mainMenuQuoteSchema.parse(quote);
+}
+
+/** Later contributions override earlier ones; undefined leaves the current value alone. */
+export function collectMainMenuQuote(contributions: readonly { readonly mainMenuQuote?: PluginMainMenuQuote }[]): PluginMainMenuQuote | undefined {
+  return contributions.reduce<PluginMainMenuQuote | undefined>((quote, contribution) => contribution.mainMenuQuote ?? quote, undefined);
+}
+
+/** Matches resource-manager priority: saved order first, remaining package IDs ascending. */
+export function selectMainMenuQuote(
+  modules: readonly { readonly packageId: string; readonly contribution: { readonly mainMenuQuote?: PluginMainMenuQuote } }[],
+  order: readonly string[]
+): PluginMainMenuQuote | undefined {
+  const rank = (id: string) => { const index = order.indexOf(id); return index < 0 ? Number.MAX_SAFE_INTEGER : index; };
+  const ordered = [...modules].sort((a, b) => rank(a.packageId) - rank(b.packageId) || a.packageId.localeCompare(b.packageId));
+  return ordered.find(module => module.contribution.mainMenuQuote !== undefined)?.contribution.mainMenuQuote;
 }

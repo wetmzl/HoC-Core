@@ -1,13 +1,15 @@
 /* Shared anime-industrial panel language. */
 .lobby-menu-shell { position: relative; display: flex; min-height: 100svh; isolation: isolate; overflow: hidden; flex-direction: column; background: #16181b url('/assets/backgrounds/gambling-table-menu.png') center / cover no-repeat; color: #f4efe5; --lobby-display-font: var(--font-sans); }
 .lobby-menu-shell::before { content: ""; position: absolute; z-index: -1; inset: 0; background: linear-gradient(180deg, #06080bc7 0%, #090b0f42 31%, #090b0f1a 49%, #090a0dd6 78%, #07080af2 100%); pointer-events: none; }
+.lobby-menu-heading { position: relative; }
 .lobby-invitation { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #b59a6f52; padding-bottom: 6px; color: #c8b795; font-family: var(--lobby-display-font); font-size: .58rem; letter-spacing: .16em; }
 .lobby-header-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; max-width: 65%; flex: 0 1 auto; align-items: center; gap: 5px; }
+.lobby-side-tools { position: absolute; top: calc(100% + 12px); right: -9px; display: flex; align-items: center; gap: 8px; }
 .lobby-round-button { display: grid; width: 38px; min-width: 38px; min-height: 38px; place-items: center; border-color: #8f826d80; border-radius: 50%; background: #16181bcc; color: #c8b795; padding: 8px; font-size: 1rem; line-height: 1; }
 .lobby-round-button:hover, .lobby-round-button:focus-visible { border-color: #d2b37c; background: #40372c; color: #f4e2bb; }
 .lobby-round-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .lobby-info-letter { font-family: Georgia, serif; font-size: 1.08rem; font-style: italic; font-weight: 700; transform: translateY(-1px); }
-.lobby-title-block { width: min(86%, 340px); margin-top: clamp(46px, 8svh, 76px); text-shadow: 0 2px 12px #000; }
+.lobby-title-block { width: min(86%, 340px); margin-top: clamp(80px, 10svh, 92px); text-shadow: 0 2px 12px #000; }
 .lobby-title-block h1 { margin: 0; color: #f4efe5; font-family: var(--lobby-display-font); font-size: clamp(1.55rem, 7vw, 2.5rem); font-weight: 400; line-height: 1.1; letter-spacing: .02em; }
 .menu-subtitle { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 14px 0 0; }
 .menu-subtitle strong { color: #d2b37c; font-family: var(--lobby-display-font); font-size: .83rem; font-weight: 400; line-height: 1.5; letter-spacing: .04em; white-space: nowrap; }
@@ -29,12 +31,12 @@
 .lobby-secondary-action strong { font-size: .68rem; font-weight: 400; letter-spacing: .03em; line-height: 1.25; overflow-wrap: anywhere; }
 .lobby-secondary-action[data-open-history] strong { font-size: .62rem; letter-spacing: 0; }
 .lobby-secondary-action small { overflow-wrap: anywhere; max-width: 100%; color: #bbaa8d; font-size: .56rem; }
-.lobby-exit-button { display: block; min-height: 44px; margin: 12px auto 0; border: 0; background: transparent; color: #bbaa8d; padding: 8px 16px; font-size: .65rem; letter-spacing: .12em; }
+.lobby-menu-footer { display: flex; align-items: center; justify-content: center; width: min(92%, 370px); margin: 14px auto 0; }
+.lobby-exit-button { display: block; min-height: 44px; margin: 0; border: 0; background: transparent; color: #bbaa8d; padding: 8px 16px; font-size: .65rem; letter-spacing: .12em; }
 .lobby-exit-button:hover, .lobby-exit-button:focus-visible { color: #f4e2bb; text-decoration: underline; text-underline-offset: 4px; }
 .lobby-character-shell { --character-card-inset: 12px; --character-portrait-width: 118px; --character-card-gap: 14px; --character-card-radius: 18px; background: radial-gradient(circle at 50% 9%, #293f58 0, #101722 48%); }
 .topbar-balance { width: 44px; height: 44px; flex: 0 0 44px; }
 .selection-hero { padding-top: clamp(32px, 8vh, 64px); }
-.quiet-record { align-self: center; color: #728397; font-size: .66rem; letter-spacing: .07em; }
 .hero { padding: clamp(42px, 10vh, 82px) 4px 28px; }
 .kicker { color: var(--pink); margin-bottom: 12px; }
 .hero-copy, .summary-copy { color: var(--muted); line-height: 1.6; margin: 18px 0 0; font-size: .92rem; }
@@ -73,7 +75,6 @@
 .primary-button { border: 1px solid var(--pink); background: linear-gradient(135deg, var(--pink), #d94f75); color: #1a1822; box-shadow: 0 8px 18px #ff789233; }
 .secondary-button { border: 1px solid var(--line); background: #1d2f42cc; }
 .quiet-button { min-height: 44px; border: 0; background: transparent; color: var(--muted); font-size: .7rem; }
-.lobby-tools { display: flex; justify-content: flex-end; margin-top: 14px; }
 .quiet-button small { color: #728397; margin-left: 4px; }
 .footer { margin-top: 24px; border-top: 1px solid #3d5369; padding-top: 16px; font-size: .6rem; }
 

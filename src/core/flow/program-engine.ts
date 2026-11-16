@@ -9,6 +9,33 @@ import type { MatchInitSpec } from "./initialization";
 import { ProgramDefinitionSchema, type ProgramCondition, type ProgramDefinition, type ProgramEffect, type ProgramFacts, type ProgramNode, type ProgramResources, type ProgramResult, type ProgramReward, type ProgramRun, type ProgramScalar, type ProgramTransition } from "./program";
 
 export const MAX_PROGRAM_AUTOMATIC_STEPS = 128;
+export interface ProgramTransitionTrace {
+  readonly type: "node-entered" | "node-left" | "choice-selected" | "reward-claimed";
+  readonly nodeId: string;
+  readonly nodeType: ProgramNode["type"];
+  readonly visitIndex: number;
+  readonly choiceId?: string;
+  readonly rewardId?: string;
+}
+const transitionTraces = new WeakMap<ProgramRun, readonly ProgramTransitionTrace[]>();
+const startTraces = new WeakMap<ProgramRun, readonly ProgramTransitionTrace[]>();
+/** Ephemeral execution evidence, never a second state store or a persisted event log. */
+export function programTransitionTrace(run: ProgramRun): readonly ProgramTransitionTrace[] {
+  return transitionTraces.get(run) ?? [];
+}
+/** Includes preselected entry choices made before the run is durably started. */
+export function programStartTrace(run: ProgramRun): readonly ProgramTransitionTrace[] { return startTraces.get(run) ?? []; }
+export function clearProgramStartTrace(run: ProgramRun): void { startTraces.delete(run); }
+function traceResult(run: ProgramRun, trace: readonly ProgramTransitionTrace[], source?: ProgramRun, initial = false): ProgramRun {
+  const frozen = Object.freeze(trace.map(item => Object.freeze({ ...item })));
+  transitionTraces.set(run, frozen);
+  const start = source ? startTraces.get(source) : undefined;
+  if (initial || start) startTraces.set(run, initial ? frozen : Object.freeze([...start!, ...frozen]));
+  return run;
+}
+function traceNode(run: ProgramRun, type: ProgramTransitionTrace["type"], extra: { choiceId?: string; rewardId?: string } = {}): ProgramTransitionTrace {
+  return { type, nodeId: run.cursor, nodeType: currentProgramNode(run).type, visitIndex: run.visitIndex, ...extra };
+}
 export function currentProgramNode(run: ProgramRun): ProgramNode {
   const node = run.definition.nodes.find(node => node.id === run.cursor);
   if (!node) throw new Error("当前流程节点不存在");
@@ -54,10 +81,12 @@ export function evaluateProgramCondition(run: ProgramRun, condition: ProgramCond
 function nextId(run: ProgramRun, transition: ProgramTransition, facts: ProgramFacts): string {
   return typeof transition === "string" ? transition : transition.branches.find(branch => evaluateProgramCondition(run, branch.when, facts))?.to ?? transition.otherwise;
 }
-function move(run: ProgramRun, transition: ProgramTransition, facts: ProgramFacts): ProgramRun {
+function move(run: ProgramRun, transition: ProgramTransition, facts: ProgramFacts, trace: ProgramTransitionTrace[]): ProgramRun {
   const cursor = nextId(run, transition, facts), visitIndex = run.visitIndex + 1, visits = (run.visits[cursor] ?? 0) + 1;
   if (!Number.isSafeInteger(visitIndex) || !Number.isSafeInteger(visits)) throw new RangeError("流程访问次数溢出");
-  return { ...run, cursor, visitIndex, visits: { ...run.visits, [cursor]: visits }, status: "waiting" };
+  const next = { ...run, cursor, visitIndex, visits: { ...run.visits, [cursor]: visits }, status: "waiting" as const };
+  trace.push(traceNode(run, "node-left"), traceNode(next, "node-entered"));
+  return next;
 }
 function safeInteger(value: number): number { if (!Number.isSafeInteger(value)) throw new RangeError("流程资源数值溢出"); return value; }
 function withResource(run: ProgramRun, effect: Extract<ProgramEffect, { type: "resource" }>): ProgramRun {
@@ -92,7 +121,7 @@ function grantSkill(run: ProgramRun, effect: Extract<ProgramEffect, { type: "gra
     acquisitionCounts: recordPlayerSkillAcquisition(definition, player.inventory.acquisitionCounts, heldIds)
   } } } };
 }
-function applyEffects(run: ProgramRun, effects: readonly ProgramEffect[], group: string, facts: ProgramFacts): ProgramRun {
+export function applyProgramEffects(run: ProgramRun, effects: readonly ProgramEffect[], group: string, facts: ProgramFacts = {}): ProgramRun {
   let next = run;
   for (const effect of effects) {
     const receipt = JSON.stringify([run.id, run.visitIndex, group, effect.id]);
@@ -120,6 +149,7 @@ function applyEffects(run: ProgramRun, effects: readonly ProgramEffect[], group:
   }
   return next;
 }
+const applyEffects = applyProgramEffects;
 export function programChoiceOptions(run: ProgramRun, facts: ProgramFacts = {}) {
   const node = currentProgramNode(run);
   return node.type === "choice" ? node.options.filter(option => evaluateProgramCondition(run, option.when, facts)) : [];
@@ -130,14 +160,25 @@ export function availableProgramRewards(run: ProgramRun, facts: ProgramFacts = {
 }
 export function programRewardClaimed(run: ProgramRun, rewardId: string): boolean { return run.claimed.includes(JSON.stringify([run.id, run.visitIndex, "reward", rewardId])); }
 export function claimProgramReward(run: ProgramRun, rewardId: string, facts: ProgramFacts = {}): ProgramRun {
+  const trace: ProgramTransitionTrace[] = [];
+  const next = claimReward(run, rewardId, facts, trace);
+  return next === run ? run : traceResult(next, trace, run);
+}
+function claimReward(run: ProgramRun, rewardId: string, facts: ProgramFacts, trace: ProgramTransitionTrace[]): ProgramRun {
   if (programRewardClaimed(run, rewardId)) return run;
   const reward = availableProgramRewards(run, facts).find(reward => reward.id === rewardId);
   if (run.status !== "waiting" || !reward) throw new Error("当前奖励不可领取");
   const next = applyEffects(run, reward.effects, `reward:${reward.id}`, facts);
+  trace.push(traceNode(run, "reward-claimed", { rewardId }));
   return { ...next, claimed: [...next.claimed, JSON.stringify([run.id, run.visitIndex, "reward", rewardId])] };
 }
 /** Stops at a player decision or table; automatic cycles fail before any partial state is committed. */
 export function advanceProgram(run: ProgramRun, facts: ProgramFacts = {}, maxSteps = MAX_PROGRAM_AUTOMATIC_STEPS): ProgramRun {
+  const trace: ProgramTransitionTrace[] = [];
+  const next = advance(run, facts, maxSteps, trace);
+  return next === run && !trace.length ? run : traceResult(next, trace, run);
+}
+function advance(run: ProgramRun, facts: ProgramFacts, maxSteps: number, trace: ProgramTransitionTrace[]): ProgramRun {
   let next = run;
   for (let step = 0; step < maxSteps; step++) {
     if (next.status === "finished") return next;
@@ -151,24 +192,30 @@ export function advanceProgram(run: ProgramRun, facts: ProgramFacts = {}, maxSte
         comparisonBonus: node.resources?.comparisonBonus ?? next.resources.comparisonBonus }, variables: { ...next.variables, ...node.variables } };
     } else if (node.type === "effect" || node.type === "end") next = applyEffects(next, node.effects, "effects", facts);
     else if (node.type === "settlement") {
-      for (const reward of availableProgramRewards(next, facts)) next = claimProgramReward(next, reward.id, facts);
+      for (const reward of availableProgramRewards(next, facts)) next = claimReward(next, reward.id, facts, trace);
       next = applyEffects(next, node.effects, "effects", facts);
     }
-    if (node.type === "end") return { ...next, status: "finished", result: node.result };
-    next = move(next, node.next, facts);
+    if (node.type === "end") {
+      trace.push(traceNode(next, "node-left"));
+      return { ...next, status: "finished", result: node.result };
+    }
+    next = move(next, node.next, facts, trace);
   }
   throw new Error(`流程自动执行超过 ${maxSteps} 步，请检查无等待循环`);
 }
 export function createProgramRun(id: string, seed: string, definition: ProgramDefinition, facts: ProgramFacts = {}): ProgramRun {
   const parsed = ProgramDefinitionSchema.parse(definition);
-  return advanceProgram({ id, seed, definition: parsed, cursor: parsed.start, visitIndex: 1, visits: { [parsed.start]: 1 }, status: "waiting", completed: [], variables: {},
-    resources: { gun: { capacity: 6, bullets: 0 }, player: null, comparisonBonus: 0 }, results: [], claimed: [], pendingWrites: [], result: null }, facts);
+  const run: ProgramRun = { id, seed, definition: parsed, cursor: parsed.start, visitIndex: 1, visits: { [parsed.start]: 1 }, status: "waiting", completed: [], variables: {},
+    resources: { gun: { capacity: 6, bullets: 0 }, player: null, comparisonBonus: 0 }, results: [], claimed: [], pendingWrites: [], result: null };
+  const trace = [traceNode(run, "node-entered")];
+  return traceResult(advance(run, facts, MAX_PROGRAM_AUTOMATIC_STEPS, trace), trace, undefined, true);
 }
 export function chooseProgram(run: ProgramRun, optionId: string, facts: ProgramFacts = {}, expectedVisitIndex = run.visitIndex): ProgramRun {
   if (expectedVisitIndex !== run.visitIndex) return run;
   const option = programChoiceOptions(run, facts).find(option => option.id === optionId);
   if (run.status !== "waiting" || !option) throw new Error("流程选项不可用");
-  return advanceProgram(move(run, option.to, facts), facts);
+  const trace = [traceNode(run, "choice-selected", { choiceId: optionId })];
+  return traceResult(advance(move(run, option.to, facts, trace), facts, MAX_PROGRAM_AUTOMATIC_STEPS, trace), trace, run);
 }
 export function confirmProgramNode(run: ProgramRun, facts: ProgramFacts = {}, expectedVisitIndex = run.visitIndex): ProgramRun {
   if (expectedVisitIndex !== run.visitIndex) return run;
@@ -176,7 +223,8 @@ export function confirmProgramNode(run: ProgramRun, facts: ProgramFacts = {}, ex
   if (run.status !== "waiting" || (node.type !== "settlement" && node.type !== "presentation")) throw new Error("当前节点不能确认");
   if (node.type === "settlement" && availableProgramRewards(run, facts).some(reward => !programRewardClaimed(run, reward.id))) throw new Error("请先领取本场奖励");
   const next = node.type === "settlement" ? applyEffects(run, node.effects, "effects", facts) : run;
-  return advanceProgram(move(next, node.next, facts), facts);
+  const trace: ProgramTransitionTrace[] = [];
+  return traceResult(advance(move(next, node.next, facts, trace), facts, MAX_PROGRAM_AUTOMATIC_STEPS, trace), trace, run);
 }
 export function completeProgramMatch(run: ProgramRun, match: MatchState, facts: ProgramFacts = {}, carryoverOverride?: PlayerSkillCarryover): ProgramRun {
   const node = currentProgramNode(run);
@@ -188,7 +236,8 @@ export function completeProgramMatch(run: ProgramRun, match: MatchState, facts: 
   const next: ProgramRun = { ...run, status: "waiting", resources: { gun: { ...acknowledged.roulette.player }, player: carryoverOverride ?? capturePlayerSkills(acknowledged), comparisonBonus: acknowledged.comparisonBonuses?.player ?? 0 },
     completed: outcome === "victory" ? [...new Set([...run.completed, node.id])] : run.completed,
     results: [...run.results, { id: match.id, nodeId: node.id, visitIndex: run.visitIndex, outcome, match: acknowledged }] };
-  return advanceProgram(move(next, node.routes[outcome], facts), facts);
+  const trace: ProgramTransitionTrace[] = [];
+  return traceResult(advance(move(next, node.routes[outcome], facts, trace), facts, MAX_PROGRAM_AUTOMATIC_STEPS, trace), trace, run);
 }
 export function programMatchInit(run: ProgramRun): MatchInitSpec {
   const node = currentProgramNode(run);

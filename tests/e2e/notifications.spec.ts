@@ -11,7 +11,7 @@ async function mountNotifications(page: Page): Promise<void> {
     const { createDefaultSave } = await load("/src/persistence/boot.ts");
     const root = document.querySelector<HTMLDivElement>("#app")!;
     root.innerHTML = '<aside class="table-dashboard" style="position:absolute;top:80px;right:10px"><div class="roulette-status" style="height:48px"></div><div class="shoe-status" style="height:30px"></div><div class="display-panel" style="height:240px"></div></aside>';
-    (window as any).testNotifications = new NotificationController({ root, save: createDefaultSave(), currentCharacter: { name: "对手" }, offerTutorial: () => {} });
+    (window as any).testNotifications = new NotificationController({ root, save: createDefaultSave(), currentCharacter: { name: "对手" } });
   });
   await page.clock.install();
 }

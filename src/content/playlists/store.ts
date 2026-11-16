@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { migratePlaylistLibrary } from "./migrations";
+import { PlaylistCoverSchema } from "./cover";
+import { EMBEDDED_DEFAULT_PLAYLIST_ID, EMBEDDED_DEFAULT_PLAYLIST_NAME } from "./embedded-default";
 import { HocpkgSemverSchema } from "../packages/schema";
 import { CONTENT_ROOT } from "../storage/catalog";
 import type { ContentFileSystem } from "../storage/contracts";
@@ -18,10 +20,13 @@ export const PlaylistDocumentSchema = z.object({
   format: z.literal("house-of-chances-playlist"),
   formatVersion: z.literal(2),
   name,
+  coverImage: PlaylistCoverSchema.optional(),
+  mode: z.enum(["replace", "incremental"]).optional(),
   packages,
   pluginOrder: z.array(packageId).max(1000).refine((ids) => new Set(ids).size === ids.length, "插件顺序包含重复内容包。")
 }).strict();
 export type PlaylistDocument = z.infer<typeof PlaylistDocumentSchema>;
+export type PlaylistMode = NonNullable<PlaylistDocument["mode"]>;
 export type PlaylistEntry = PlaylistDocument["packages"][number];
 export interface SavedPlaylist { readonly id: string; readonly document: PlaylistDocument; }
 
@@ -37,8 +42,20 @@ const bodySchema = z.object({ format: z.literal("house-of-chances-playlist-libra
 const envelopeSchema = bodySchema.extend({ checksum: z.string().regex(/^[a-f0-9]{64}$/) });
 type Envelope = z.infer<typeof envelopeSchema>;
 
-export function playlistDocument(nameValue: string, entries: readonly PlaylistEntry[], pluginOrder: readonly string[] = []): PlaylistDocument {
-  return PlaylistDocumentSchema.parse({ format: "house-of-chances-playlist", formatVersion: 2, name: nameValue, packages: entries, pluginOrder });
+export function playlistDocument(nameValue: string, entries: readonly PlaylistEntry[], pluginOrder: readonly string[] = [], mode: PlaylistMode = "replace", coverImage?: string): PlaylistDocument {
+  return PlaylistDocumentSchema.parse({ format: "house-of-chances-playlist", formatVersion: 2, name: nameValue, packages: entries, pluginOrder, ...(mode === "incremental" ? { mode } : {}), ...(coverImage ? { coverImage } : {}) });
+}
+
+function editable(id: string): void {
+  if (id === EMBEDDED_DEFAULT_PLAYLIST_ID) throw new Error("官方播放集为只读，请先创建副本。");
+}
+
+function copyTitle(title: string, entries: readonly SavedPlaylist[]): string {
+  const used = new Set(entries.map(entry => entry.document.name));
+  for (let index = 1; ; index++) {
+    const ending = `（副本 ${index}）`, value = `${title.slice(0, 80 - ending.length)}${ending}`;
+    if (!used.has(value)) return value;
+  }
 }
 
 export class PlaylistStore {
@@ -120,8 +137,9 @@ export class PlaylistStore {
         while (used.has(`未命名播放集（${suffix}）`)) suffix += 1;
         title = `未命名播放集（${suffix}）`;
       }
-      const existing = entries.find((entry) => entry.document.name === title);
-      const saved = { id: existing?.id ?? crypto.randomUUID(), document: playlistDocument(title, parsed.packages, parsed.pluginOrder) };
+      let existing = entries.find((entry) => entry.document.name === title);
+      if (existing?.id === EMBEDDED_DEFAULT_PLAYLIST_ID) { title = copyTitle(title, entries); existing = undefined; }
+      const saved = { id: existing?.id ?? crypto.randomUUID(), document: playlistDocument(title, parsed.packages, parsed.pluginOrder, parsed.mode, parsed.coverImage ?? existing?.document.coverImage) };
       return { next: existing ? entries.map((entry) => entry.id === existing.id ? saved : entry) : [...entries, saved], result: saved };
     });
   }
@@ -146,38 +164,43 @@ export class PlaylistStore {
           do { title = copyName(suffix++); } while (used.has(title));
         }
         used.add(title);
-        return { id: crypto.randomUUID(), document: playlistDocument(title, document.packages, document.pluginOrder) };
+        return { id: crypto.randomUUID(), document: playlistDocument(title, document.packages, document.pluginOrder, document.mode, document.coverImage) };
       });
       return { next: [...entries, ...imported], result: imported };
     });
   }
 
   rename(id: string, value: string): Promise<SavedPlaylist> {
+    editable(id);
     const title = name.parse(value);
     if (!title) throw new Error("播放集名称不能为空。");
     return this.mutate((entries) => {
       const current = entries.find((entry) => entry.id === id);
       if (!current) throw new Error("播放集不存在。");
       if (entries.some((entry) => entry.id !== id && entry.document.name === title)) throw new Error("播放集名称已被占用。");
-      const saved = { ...current, document: playlistDocument(title, current.document.packages, current.document.pluginOrder) };
+      const saved = { ...current, document: playlistDocument(title, current.document.packages, current.document.pluginOrder, current.document.mode, current.document.coverImage) };
       return { next: entries.map((entry) => entry.id === id ? saved : entry), result: saved };
     });
   }
 
-  copy(id: string): Promise<SavedPlaylist> {
+  setMode(id: string, mode: PlaylistMode): Promise<SavedPlaylist> {
+    editable(id);
+    const parsed = PlaylistDocumentSchema.shape.mode.unwrap().parse(mode);
     return this.mutate((entries) => {
       const current = entries.find((entry) => entry.id === id);
       if (!current) throw new Error("播放集不存在。");
-      const used = new Set(entries.map((entry) => entry.document.name));
-      let suffix = 1;
-      const makeTitle = (index: number) => {
-        const ending = `（副本 ${index}）`;
-        return `${current.document.name.slice(0, 80 - ending.length)}${ending}`;
-      };
-      let title = makeTitle(suffix);
-      while (used.has(title)) title = makeTitle(++suffix);
-      const saved = { id: crypto.randomUUID(), document: playlistDocument(title, current.document.packages, current.document.pluginOrder) };
-      return { next: [...entries, saved], result: saved };
+      const saved = { ...current, document: playlistDocument(current.document.name, current.document.packages, current.document.pluginOrder, parsed, current.document.coverImage) };
+      return { next: entries.map((entry) => entry.id === id ? saved : entry), result: saved };
+    });
+  }
+
+  copy(id: string, select = false): Promise<SavedPlaylist> {
+    return this.mutate((entries) => {
+      const current = entries.find((entry) => entry.id === id);
+      if (!current) throw new Error("播放集不存在。");
+      const title = copyTitle(current.document.name, entries);
+      const saved = { id: crypto.randomUUID(), document: playlistDocument(title, current.document.packages, current.document.pluginOrder, current.document.mode, current.document.coverImage) };
+      return { next: [...entries, saved], ...(select ? { currentId: saved.id } : {}), result: saved };
     });
   }
 
@@ -198,6 +221,27 @@ export class PlaylistStore {
     });
   }
 
+  /** The official document always follows the distributor template, never local edits. */
+  synchronizeEmbeddedDefault(document: PlaylistDocument): Promise<SavedPlaylist> {
+    const parsed = PlaylistDocumentSchema.parse(document);
+    const operation = this.queue.catch(() => undefined).then(async () => {
+      const current = (await this.readSlots())[0]?.envelope;
+      const entries = current?.playlists ?? [];
+      const managed = entries.find(entry => entry.id === EMBEDDED_DEFAULT_PLAYLIST_ID);
+      let title = EMBEDDED_DEFAULT_PLAYLIST_NAME;
+      for (let suffix = 2; entries.some(entry => entry.id !== EMBEDDED_DEFAULT_PLAYLIST_ID && entry.document.name === title); suffix++)
+        title = `${EMBEDDED_DEFAULT_PLAYLIST_NAME}（${suffix}）`;
+      const saved: SavedPlaylist = { id: EMBEDDED_DEFAULT_PLAYLIST_ID,
+        document: playlistDocument(title, parsed.packages, parsed.pluginOrder, parsed.mode, parsed.coverImage) };
+      const next = managed ? entries.map(entry => entry.id === saved.id ? saved : entry) : [...entries, saved];
+      const currentId = current?.currentId ?? saved.id;
+      if (!current || stableJson(next) !== stableJson(entries) || currentId !== current.currentId) await this.commit(next, currentId);
+      return saved;
+    });
+    this.queue = operation;
+    return operation;
+  }
+
   select(id: string): Promise<SavedPlaylist> {
     return this.mutate((entries) => {
       const selected = entries.find((item) => item.id === id);
@@ -211,12 +255,14 @@ export class PlaylistStore {
     return this.mutate((entries, currentId) => {
       const current = entries.find((item) => item.id === currentId);
       if (!current) throw new Error("当前播放集不存在。");
-      const updated = { ...current, document: playlistDocument(current.document.name, parsed.packages, parsed.pluginOrder) };
+      editable(current.id);
+      const updated = { ...current, document: playlistDocument(current.document.name, parsed.packages, parsed.pluginOrder, current.document.mode, parsed.coverImage ?? current.document.coverImage) };
       return { next: entries.map((item) => item.id === current.id ? updated : item), result: updated };
     });
   }
 
   remove(id: string): Promise<void> {
+    editable(id);
     return this.mutate((entries, currentId) => {
       if (!entries.some((entry) => entry.id === id)) throw new Error("播放集不存在。");
       if (id === currentId) throw new Error("当前播放集不能删除，请先切换。");

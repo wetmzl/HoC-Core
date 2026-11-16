@@ -83,6 +83,7 @@ export function pluginTutorialProgressId(packageId: string, id: string): string 
 }
 
 export interface PluginTutorialIdentity {
+  readonly signal?: AbortSignal;
   readonly packageId: string;
   readonly apiVersion: number;
 }

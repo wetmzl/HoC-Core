@@ -9,8 +9,12 @@ android {
         applicationId "io.github.wetmzl.blackjack"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 4
+        // Increase androidVersionCode for every distributed APK, including prereleases.
+        versionCode Integer.parseInt(providers.gradleProperty('hocVersionCode').getOrElse(packageInfo.androidVersionCode.toString()))
         versionName packageInfo.version
+        if (providers.gradleProperty('hocVersionName').isPresent()) versionName providers.gradleProperty('hocVersionName').get()
+        buildConfigField 'String', 'UPDATE_APPLICATION_ID', '"io.github.wetmzl.blackjack"'
+        buildConfigField 'boolean', 'STABLE_UPDATES_ENABLED', providers.gradleProperty('hocUpdatesEnabled').getOrElse('true')
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -18,6 +22,7 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    buildFeatures { buildConfig true }
     buildTypes {
         bossdev {
             initWith debug
@@ -41,6 +46,7 @@ repositories {
 }
 
 dependencies {
+    implementation "net.lingala.zip4j:zip4j:2.11.5"
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"

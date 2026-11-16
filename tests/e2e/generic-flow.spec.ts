@@ -104,7 +104,7 @@ async function finishTable(page: Page, winner: "player" | "opponent" = "player")
       root: document.querySelector("#app"), onExitRequest: async () => {}
     });
   }, winner);
-  await expect(page.getByRole("heading", { name: winner === "player" ? "策展人胜利" : "策展人落败", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: winner === "player" ? "胜利" : "失败", exact: true })).toBeVisible();
 }
 
 test("three neutral nodes retain rewards across refresh and distinguish repeat opponents", async ({ page }, info) => {
@@ -194,7 +194,7 @@ test("a defeat ends a node whose victory would continue and records the result o
   await expect(page.locator('[data-summary-action="lobby"]')).toBeEnabled();
   expect((await saved(page)).save!.history).toHaveLength(0);
   await mount(page, "restore");
-  await expect(page.getByRole("heading", { name: "策展人落败", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "失败", exact: true })).toBeVisible();
   await page.locator('[data-summary-action="lobby"]').click();
   await expect(page.locator(".lobby-menu-shell")).toBeVisible();
   await mount(page, "restore");

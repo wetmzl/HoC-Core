@@ -3,9 +3,14 @@ import type { PluginGameRuntimeContext, PluginRuntimeContribution } from "../con
 import { createDefaultSave } from "../persistence/boot";
 import { RuntimeExtensions } from "./runtime-extensions";
 import { bindPluginTutorialIdentity, type PluginTutorialApi } from "../content/packages/plugin-tutorials";
+import { RuntimeEventHub } from "./public-event-hub";
+import { createPublicEvent, createPublicEventBatch, type PublicEventScopes } from "../core/events/public-events";
+import { createMatch } from "../core/match/reducer";
 
-function extensions(contributions: readonly PluginRuntimeContribution[], createTutorialApi?: (packageId: string, signal: AbortSignal) => PluginTutorialApi) {
+function extensions(contributions: readonly PluginRuntimeContribution[], createTutorialApi?: (packageId: string, signal: AbortSignal) => PluginTutorialApi,
+  eventOptions?: { events: RuntimeEventHub; eventScopes: PublicEventScopes }) {
   return new RuntimeExtensions({
+    ...eventOptions,
     context: {
       root: new EventTarget() as HTMLDivElement,
       audio: { setBgmScene() {} },
@@ -21,6 +26,71 @@ function extensions(contributions: readonly PluginRuntimeContribution[], createT
     autoActionsChanged: vi.fn()
   });
 }
+
+it("provides package-lived event and declarative trigger subscriptions scoped to the owning game", async () => {
+  const hub = new RuntimeEventHub();
+  const lifetime = new AbortController();
+  const supplied = new AbortController();
+  let context!: PluginGameRuntimeContext;
+  const contribution = bindPluginTutorialIdentity({ mountRuntime(current: PluginGameRuntimeContext) { context = current; } }, {
+    packageId: "test/events", apiVersion: 9, signal: lifetime.signal
+  });
+  const runtime = extensions([contribution], undefined, { events: hub, eventScopes: { game: "own" } });
+  await runtime.mount();
+  const listener = vi.fn(), triggered = vi.fn(), cancelled = vi.fn();
+  const api = context.game.events!;
+  expect(api).toBeDefined();
+  expect("publish" in api).toBe(false);
+  api.subscribe("resolved", listener, { scopes: { game: "other" } });
+  api.subscribe("resolved", cancelled, { signal: supplied.signal });
+  api.subscribeTrigger("resolved", {
+    on: ["core.screen-entered"],
+    when: { type: "compare", left: { type: "query", query: { id: "event.data", key: "screen" } }, operator: "eq", right: { type: "literal", value: "match" } }
+  }, triggered);
+  const publish = (id: string, game: string, screen = "match") => hub.publish("resolved", createPublicEventBatch({ id, facts: [
+    createPublicEvent({ id, type: "core.screen-entered", scopes: { game }, data: { screen } })
+  ] }));
+  publish("foreign", "other");
+  expect(listener).not.toHaveBeenCalled();
+  publish("own-first", "own");
+  expect(listener).toHaveBeenCalledOnce();
+  expect(triggered).toHaveBeenCalledOnce();
+  expect(cancelled).toHaveBeenCalledOnce();
+  supplied.abort();
+  publish("own-lobby", "own", "lobby");
+  expect(listener).toHaveBeenCalledTimes(2);
+  expect(triggered).toHaveBeenCalledOnce();
+  expect(cancelled).toHaveBeenCalledOnce();
+  expect(() => api.subscribeTrigger("resolved", { when: { type: "bad" } } as never, vi.fn())).toThrow();
+  lifetime.abort();
+  publish("after-package-unload", "own");
+  expect(listener).toHaveBeenCalledTimes(2);
+  api.subscribe("resolved", vi.fn());
+  runtime.dispose();
+  hub.dispose();
+});
+
+it("detaches and freezes gameplay context before exposing event batches to plugins", async () => {
+  const hub = new RuntimeEventHub();
+  let context!: PluginGameRuntimeContext;
+  const runtime = extensions([{ mountRuntime(current) { context = current; } }], undefined, { events: hub, eventScopes: { game: "own" } });
+  await runtime.mount();
+  const match = createMatch("public-plugin-snapshot");
+  const batch = createPublicEventBatch({ id: "visible", facts: [createPublicEvent({
+    id: "visible", type: "core.screen-entered", scopes: { game: "own" }, data: { screen: "match" }
+  })], context: { match } });
+  const listener = vi.fn(received => {
+    expect(received.context.match).not.toBe(match);
+    expect(Object.isFrozen(received.context.match.player.hand.cards)).toBe(true);
+    expect(Reflect.set(received.context.match.player, "busted", true)).toBe(false);
+  });
+  context.game.events!.subscribe("resolved", listener);
+  hub.publish("resolved", batch);
+  expect(listener).toHaveBeenCalledOnce();
+  expect(match.player.busted).toBe(false);
+  runtime.dispose();
+  hub.dispose();
+});
 
 describe("RuntimeExtensions cleanup", () => {
   it("attempts every release once in reverse order and clears subscriptions even when releases throw", async () => {
@@ -149,4 +219,19 @@ it("shares host modal and plugin auto-action pauses and releases each token once
   runtime.dispose();
   runtime.pauseAutoActions();
   expect(runtime.paused).toBe(false);
+});
+
+it("exposes music only to API 13 modules and cancels subscriptions on module or runtime disposal", async () => {
+  const contexts: PluginGameRuntimeContext[] = [];
+  const module = new AbortController();
+  const runtime = extensions([
+    bindPluginTutorialIdentity({ mountRuntime: context => { contexts.push(context); } }, { packageId: "example/music", apiVersion: 13, signal: module.signal }),
+    bindPluginTutorialIdentity({ mountRuntime: context => { contexts.push(context); } }, { packageId: "example/old", apiVersion: 12 }),
+    { mountRuntime: context => { contexts.push(context); } }
+  ]);
+  await runtime.mount();
+  expect(contexts[0].music).toBeDefined(); expect(contexts[1].music).toBeUndefined(); expect(contexts[2].music).toBeUndefined();
+  const listener = vi.fn(); contexts[0].music!.subscribeContext(listener); expect(listener).toHaveBeenCalledOnce();
+  module.abort(); contexts[0].music!.subscribeContext(listener); expect(listener).toHaveBeenCalledOnce();
+  runtime.dispose();
 });

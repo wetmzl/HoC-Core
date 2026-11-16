@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MemoryContentHostProvider } from "../storage/memory-host";
 import { FileContentRepository } from "../storage/repository";
 import type { ContentPackageSource } from "../storage/contracts";
@@ -79,6 +79,24 @@ async function characterFixture(packageName: string): Promise<{ source: ContentP
 }
 
 describe("ContentPackageManager inventory", () => {
+  it("uses operation-local metadata for inventory and playlist ordering without caching later reads", async () => {
+    const provider = new MemoryContentHostProvider(), repository = new FileContentRepository(provider.host);
+    const pkg = await characterFixture("character");
+    await repository.install(pkg.source);
+    const manager = new ContentPackageManager(repository, { packages: async () => [] });
+    const read = vi.spyOn(provider.fileSystem, "read");
+    await manager.listPackages();
+    expect(read.mock.calls.filter(([path]) => path.endsWith("hocpkg-info.json"))).toHaveLength(1);
+    read.mockClear();
+    const resolve = vi.spyOn(provider.host.assetResolver, "resolve");
+    await manager.applyPlaylist(playlistDocument("selected", [{ packageId: "test/character", version: "1.0.0" }]));
+    expect(read.mock.calls.filter(([path]) => path.endsWith("hocpkg-info.json"))).toHaveLength(1);
+    expect(resolve).not.toHaveBeenCalled();
+    const manifestPath = [...provider.fileSystem.entries.keys()].find(path => path.endsWith("hocpkg-info.json"))!;
+    await provider.fileSystem.write(manifestPath, encodeText("corrupt"));
+    expect((await manager.listPackages())[0]?.state).toBe("broken");
+  });
+
   it("loads available entries despite advisory version differences and missing packages", async () => {
     const character = await characterFixture("character");
     const plugin = await fixture("plugin");
@@ -90,6 +108,33 @@ describe("ContentPackageManager inventory", () => {
     });
     expect((await repository.listPackages()).map((entry) => [entry.packageId, entry.enabled])).toEqual([["test/character", false], ["test/plugin", true]]);
   });
+  for (const embedded of [false, true]) it(`applies incremental sets without changing unrelated packages or plugin slots (embedded=${embedded})`, async () => {
+    const provider = new MemoryContentHostProvider(), repository = new FileContentRepository(provider.host);
+    const packages = await Promise.all(["one", "two", "three", "disabled"].map(async name => {
+      const pkg = await fixture(name);
+      const manifest = { ...pkg.access.manifest, resources: [{ ...pkg.access.manifest.resources[0]!, type: "plugin.module" }] };
+      return { source: { ...pkg.source, manifest }, access: { ...pkg.access, manifest } };
+    }));
+    if (embedded) await repository.configureEmbedded(packages.map(pkg => pkg.access));
+    else await repository.installBatch(packages.map(pkg => pkg.source));
+    await repository.disablePackage("test/three");
+    await repository.disablePackage("test/disabled");
+    await repository.setPluginOrder(["test/one", "test/two", "test/three", "test/disabled"]);
+    const manager = new ContentPackageManager(repository, { packages: async () => embedded ? packages.map(pkg => pkg.access) : [] });
+    const document = playlistDocument("增量", [{ packageId: "test/one" }, { packageId: "test/three", version: "2.0.0" }, { packageId: "missing/plugin" }], ["test/three", "test/disabled", "test/one"], "incremental");
+    expect(await manager.applyPlaylist(document)).toEqual({ missing: ["missing/plugin"], versionMismatch: ["test/three"] });
+    const state = await repository.listPackages();
+    expect(state.filter(entry => entry.enabled).map(entry => entry.packageId).sort()).toEqual(["test/one", "test/three", "test/two"]);
+    expect(state.find(entry => entry.packageId === "test/disabled")?.enabled).toBe(false);
+    expect(await repository.listPluginOrder()).toEqual(["test/three", "test/two", "test/one", "test/disabled"]);
+    await manager.applyPlaylist(document);
+    await manager.applyPlaylist(playlistDocument("空增量", [], [], "incremental"));
+    expect(await repository.listPackages()).toEqual(state);
+    expect(await repository.listPluginOrder()).toEqual(["test/three", "test/two", "test/one", "test/disabled"]);
+    await manager.applyPlaylist(playlistDocument("普通播放集", [{ packageId: "test/one" }]));
+    expect((await repository.listPackages()).filter(entry => entry.enabled).map(entry => entry.packageId)).toEqual(["test/one"]);
+  });
+
   it("lists embedded entries without installing any resource bodies", async () => {
     const one = await fixture("one"), two = await fixture("two");
     const provider = new MemoryContentHostProvider(), repository = new FileContentRepository(provider.host);

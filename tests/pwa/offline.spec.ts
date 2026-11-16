@@ -1,15 +1,18 @@
 import { expect, test } from "@playwright/test";
 import builtinIndex from "../../public/characters/packages.json" with { type: "json" };
+import { skipStory } from "../e2e/story-platform-fixture";
 
 test("explicit complete download supports offline start and resume after HTTP cache eviction", async ({ page, context }) => {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.goto("/");
+  await page.locator('[data-open-launcher-settings]').click();
   await page.locator('[data-open-offline]').click();
   await expect(page.locator('[data-offline-dialog] [data-offline-download]')).toBeEnabled();
   await page.locator('[data-offline-dialog] [data-offline-download]').click();
   await expect(page.locator('[data-offline-dialog] [data-embedded-offline]')).toHaveAttribute('data-offline-state', 'complete');
   await page.locator('[data-close-offline]').click();
+  await page.locator('[data-close-launcher-settings]').click();
   await page.getByRole("button", { name: "开始游戏", exact: true }).click();
   await page.getByRole("button", { name: "我已成年并继续" }).click();
   await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
@@ -36,6 +39,9 @@ test("explicit complete download supports offline start and resume after HTTP ca
   await page.getByRole("button", { name: "开始游戏", exact: true }).click();
   await expect(page.locator("main.lobby-menu-shell")).toBeVisible();
   await page.locator("[data-enter-duel]").click();
+  await expect(page.locator("[data-story-player]")).toBeVisible();
+  await skipStory(page);
+  await expect(page.locator("[data-story-player]")).toHaveCount(0);
   await page.locator("[data-invite-character]").first().click();
   await page.locator("[data-profile-start]").click();
   await expect(page.locator("main.table-shell")).toBeVisible();

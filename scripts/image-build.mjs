@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:f
 import { dirname, join, resolve } from 'node:path';
 import sharp from 'sharp';
 import { AUDIO_ENCODING, buildAudio, isAudioPath } from './audio-build.mjs';
+import { createEmbeddedDefaultPlaylist } from './default-playlist.mjs';
 
 const jsonBytes = value => Buffer.from(JSON.stringify(value, null, 2) + '\n');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -131,12 +132,13 @@ export async function buildPackageTree(charactersRoot, options) {
   const packages = [];
   for (const entry of source.packages) packages.push(await buildPackage(charactersRoot, entry, options));
   const { releaseDigest: _previous, ...release } = { ...source, packages: packages.map(pkg => pkg.entry) };
-  return { packages, index: { ...release, releaseDigest: digestJson(release) } };
+  return { packages, index: { ...release, releaseDigest: digestJson(release) }, defaultPlaylist: createEmbeddedDefaultPlaylist(source, packages.map(pkg => pkg.manifest)) };
 }
 
 /** A directory distribution, independent of the import/export container format. */
 export function buildEmbeddedContent(tree) {
-  const files = {}, downloads = [];
+  const defaultPlaylist = tree.defaultPlaylist ?? createEmbeddedDefaultPlaylist(tree.index, tree.packages.map(pkg => pkg.manifest));
+  const files = { 'embedded/default-playlist.json': jsonBytes(defaultPlaylist) }, downloads = [];
   const packages = tree.packages.map(pkg => {
     const { format: _format, formatVersion: _version, $schema: _schema, ...descriptor } = pkg.manifest;
     const contentDigest = digestJson(descriptor);

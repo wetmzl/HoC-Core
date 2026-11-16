@@ -9,6 +9,30 @@ class Media extends EventTarget {
   constructor(readonly src: string) { super(); Media.all.push(this); }
 }
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); Media.all = []; });
+it("waits for voice completion, freezes playback without losing its position and cancels loops", async () => {
+  vi.useFakeTimers(); vi.stubGlobal("window", {}); vi.stubGlobal("document", { hidden: false }); vi.stubGlobal("Audio", Media);
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("audio")));
+  const audio = new GameAudio(); audio.unlock();
+  const effect = audio.createEffect("blob:story-voice", () => {});
+  let completed = false;
+  const finished = effect.playAndWait!().then(() => { completed = true; });
+  const voice = Media.all.find(item => item.src === "blob:story-voice")!;
+  voice.currentTime = 2;
+  effect.setPaused!(true);
+  await Promise.resolve();
+  expect(completed).toBe(false); expect(voice.paused).toBe(true);
+  effect.setPaused!(false);
+  expect(voice.currentTime).toBe(2); expect(voice.play).toHaveBeenCalledTimes(2);
+  voice.dispatchEvent(new Event("ended"));
+  await finished; expect(completed).toBe(true);
+  const cancel = new AbortController();
+  const looping = effect.playAndWait!({ loop: true, signal: cancel.signal });
+  expect(Media.all.at(-1)!.loop).toBe(true);
+  cancel.abort(); await looping;
+  audio.configure(false);
+  await effect.playAndWait!();
+  await audio.dispose();
+});
 it("owns plugin voices and URLs across mute, abort, unload and runtime teardown", async () => {
   vi.useFakeTimers(); vi.stubGlobal("window", {}); vi.stubGlobal("document", { hidden: false }); vi.stubGlobal("Audio", Media);
   vi.stubGlobal("fetch", vi.fn(async () => new Response("audio")));

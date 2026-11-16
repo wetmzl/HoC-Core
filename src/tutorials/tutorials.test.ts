@@ -1,27 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { completeTutorial, completeTutorialsByTag, firstTutorialForCue, TUTORIAL_DEFINITIONS } from "./tutorials";
+import { createDefaultSave } from "../persistence/boot";
+import { LongTermSaveSchema } from "../persistence/schema";
+import { completeTutorial, ADULT_CONTENT_WARNING_ID, THIRD_PARTY_CONTENT_WARNING_ID } from "./tutorials";
 
-describe("tutorial catalog and progress", () => {
-  it("offers a tutorial only after its real mechanism cue and only until completion", () => {
-    const empty = { completedIds: [] };
-    const tutorial = firstTutorialForCue("skill-draw-available", empty);
-    expect(tutorial).toMatchObject({ id: "skill-draw-system", title: "技能抽卡系统", tags: ["skills"] });
-    expect(tutorial?.pages[0]?.body).toContain("右下角的金色按钮");
-    expect(firstTutorialForCue("skill-draw-available", completeTutorial(empty, tutorial!.id))).toBeNull();
-    expect(firstTutorialForCue("skill-draw-available", empty, true)).toBeNull();
+describe("tutorial progress compatibility", () => {
+  it("preserves retired, plugin and unknown IDs when confirming startup and round-tripping a save", () => {
+    const save = createDefaultSave();
+    save.tutorialProgress.completedIds = ["skill-draw-system", "content-import-selection", "plugin:test/guide:intro", "future-tutorial"];
+    const progress = completeTutorial(completeTutorial(save.tutorialProgress, ADULT_CONTENT_WARNING_ID), THIRD_PARTY_CONTENT_WARNING_ID);
+    const restored = LongTermSaveSchema.parse(JSON.parse(JSON.stringify({ ...save, tutorialProgress: progress })));
+    expect(restored.tutorialProgress.completedIds).toEqual([
+      ...save.tutorialProgress.completedIds, ADULT_CONTENT_WARNING_ID, THIRD_PARTY_CONTENT_WARNING_ID
+    ]);
+    expect(completeTutorial(restored.tutorialProgress, ADULT_CONTENT_WARNING_ID)).toBe(restored.tutorialProgress);
+    expect(restored.skipTutorial).toBe(false);
   });
 
-  it("supports any positive page count and optional page resources", () => {
-    for (const tutorial of TUTORIAL_DEFINITIONS) {
-      expect(tutorial.pages.length).toBeGreaterThan(0);
-      for (const page of tutorial.pages) expect(page.resources ?? []).toEqual(expect.any(Array));
-    }
-  });
-
-  it("marks all tutorials sharing a tag without duplicating existing progress", () => {
-    const completed = completeTutorialsByTag({ completedIds: [] }, "skills");
-    expect(completed.completedIds).toEqual(["skill-draw-system"]);
-    expect(completeTutorialsByTag(completed, "skills")).toBe(completed);
-    expect(completeTutorialsByTag(completed, "missing-tag")).toBe(completed);
+  it("still reads old saves without tutorial progress and preserves the skip preference", () => {
+    const { tutorialProgress: _, ...legacy } = createDefaultSave();
+    const restored = LongTermSaveSchema.parse({ ...legacy, skipTutorial: true });
+    expect(restored.tutorialProgress.completedIds).toEqual([]);
+    expect(restored.skipTutorial).toBe(true);
   });
 });

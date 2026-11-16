@@ -1,0 +1,12 @@
+{
+  "sceneId": "opening",
+  "trigger": {
+    "on": [
+      "core.duel-requested"
+    ]
+  },
+  "frequency": "save",
+  "priority": 100,
+  "queue": "append",
+  "scope": "global"
+}

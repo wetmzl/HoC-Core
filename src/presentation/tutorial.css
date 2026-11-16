@@ -23,6 +23,8 @@
 @media (max-width: 760px) {
   .tutorial-popover[data-presentation="sidebar"] { top: auto; right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); width: calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)); max-height: min(50dvh, 420px); }
 }
+/* Leave the native dialog's right-hand close control directly operable on phones. */
+.tutorial-popover[data-container="dialog"]:not([data-presentation="modal"]) { left: max(10px, calc((100vw - 470px) / 2 + 10px)); right: auto; width: min(280px, calc(100vw - 100px)); }
 .reduced-motion .tutorial-popover { animation: none; }
 .reduced-motion .tutorial-auto-progress { animation: none; opacity: .55; transform: scaleX(1); }
 @media (prefers-reduced-motion: reduce) {

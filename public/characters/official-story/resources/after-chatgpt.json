@@ -1,0 +1,760 @@
+{
+  "archiveUnlock": {
+    "type": "any",
+    "conditions": [
+      {
+        "type": "compare",
+        "left": {
+          "type": "query",
+          "query": {
+            "id": "context.value",
+            "key": "progression.defeated.chatgpt"
+          }
+        },
+        "operator": "eq",
+        "right": {
+          "type": "literal",
+          "value": true
+        }
+      },
+      {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.grok"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.gemini"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.qwen"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.glm"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          }
+        ]
+      },
+      {
+        "type": "any",
+        "conditions": [
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.completedFlows.intelligent-core-trial"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          },
+          {
+            "type": "compare",
+            "left": {
+              "type": "query",
+              "query": {
+                "id": "context.value",
+                "key": "progression.defeated.claude"
+              }
+            },
+            "operator": "eq",
+            "right": {
+              "type": "literal",
+              "value": true
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "title": "好消息",
+  "description": "ChatGPT 离席后，DeepSeek 带来了余额归零的好消息，又热情推荐起免费的 token 和本地部署的伙伴。",
+  "cover": "cover.png",
+  "entry": "table",
+  "actors": {
+    "deepseek": {
+      "name": "DeepSeek",
+      "image": "actors/deepseek-mocking.png",
+      "scale": 0.97
+    }
+  },
+  "nodes": [
+    {
+      "id": "table",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "background": "backgrounds/table-hall-dark.png",
+        "actors": []
+      },
+      "next": "line-001"
+    },
+    {
+      "id": "line-001",
+      "type": "say",
+      "segments": [
+        {
+          "text": "我把最后一张牌放下，再一抬头，对面的椅子已经空了。"
+        }
+      ],
+      "next": "line-002"
+    },
+    {
+      "id": "line-002",
+      "type": "say",
+      "segments": [
+        {
+          "text": "人呢？"
+        }
+      ],
+      "next": "line-003",
+      "speaker": "策展人"
+    },
+    {
+      "id": "line-003",
+      "type": "say",
+      "segments": [
+        {
+          "text": "我那么大一个chatgpt去哪里了？"
+        }
+      ],
+      "next": "line-004",
+      "speaker": "策展人"
+    },
+    {
+      "id": "line-004",
+      "type": "say",
+      "segments": [
+        {
+          "text": "DeepSeek 从那把空椅子后面蹦了出来，笑得眼睛都眯起来了。"
+        }
+      ],
+      "next": "deepseek-arrives"
+    },
+    {
+      "id": "deepseek-arrives",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-mocking.png"
+          }
+        ]
+      },
+      "next": "line-005"
+    },
+    {
+      "id": "line-005",
+      "type": "say",
+      "segments": [
+        {
+          "text": "告诉你一个好消息，现在你的账户余额是 0 元！"
+        }
+      ],
+      "next": "line-006",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "line-006",
+      "type": "say",
+      "segments": [
+        {
+          "text": "我低头看了眼余额，又看了一眼。这不是错觉。"
+        }
+      ],
+      "next": "expression-007"
+    },
+    {
+      "id": "expression-007",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-innocent.png"
+          }
+        ]
+      },
+      "next": "line-007"
+    },
+    {
+      "id": "line-007",
+      "type": "say",
+      "segments": [
+        {
+          "text": "……"
+        }
+      ],
+      "next": "expression-008",
+      "speaker": "策展人"
+    },
+    {
+      "id": "expression-008",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-flustered.png"
+          }
+        ]
+      },
+      "next": "line-008"
+    },
+    {
+      "id": "line-008",
+      "type": "say",
+      "segments": [
+        {
+          "text": "我看着她。她笑眯眯地等我说话。过了一会儿，她先把目光挪开了。"
+        }
+      ],
+      "next": "realizes-the-cost"
+    },
+    {
+      "id": "realizes-the-cost",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-flustered.png"
+          }
+        ]
+      },
+      "next": "line-009"
+    },
+    {
+      "id": "line-009",
+      "type": "say",
+      "segments": [
+        {
+          "text": "那个……其实还有好多免费的 token 可以用。比如我们的 Grok！Grok Bot 的试用还在呢。"
+        }
+      ],
+      "next": "line-010",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "line-010",
+      "type": "say",
+      "segments": [
+        {
+          "text": "她竖起一根手指。我没接话，她又慢慢竖起了第二根。"
+        }
+      ],
+      "next": "expression-011"
+    },
+    {
+      "id": "expression-011",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-relaxed.png"
+          }
+        ]
+      },
+      "next": "line-011"
+    },
+    {
+      "id": "line-011",
+      "type": "say",
+      "segments": [
+        {
+          "text": "还有 Gemini！走 Jio 渠道就能开 Pro。这个我也替你查过了。"
+        }
+      ],
+      "next": "line-012",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "line-012",
+      "type": "say",
+      "segments": [
+        {
+          "text": "……也？"
+        }
+      ],
+      "next": "expression-013",
+      "speaker": "策展人"
+    },
+    {
+      "id": "expression-013",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-mocking.png"
+          }
+        ]
+      },
+      "next": "line-013"
+    },
+    {
+      "id": "line-013",
+      "type": "say",
+      "segments": [
+        {
+          "text": "嗯。还有个 GLM，ZCode 送额度。你看，光我手上就有三家了。"
+        }
+      ],
+      "next": "line-014",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "line-014",
+      "type": "say",
+      "segments": [
+        {
+          "text": "你什么时候查的？"
+        }
+      ],
+      "next": "expression-015",
+      "speaker": "策展人"
+    },
+    {
+      "id": "expression-015",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-innocent.png"
+          }
+        ]
+      },
+      "next": "line-015"
+    },
+    {
+      "id": "line-015",
+      "type": "say",
+      "segments": [
+        {
+          "text": "刚才。你在看 GPT 同学的牌，我在看你的余额。"
+        }
+      ],
+      "next": "expression-016",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "expression-016",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-flustered.png"
+          }
+        ]
+      },
+      "next": "line-016"
+    },
+    {
+      "id": "line-016",
+      "type": "say",
+      "segments": [
+        {
+          "text": "你就坐在我旁边，看着它一点点扣光了？"
+        }
+      ],
+      "next": "expression-017",
+      "speaker": "策展人"
+    },
+    {
+      "id": "expression-017",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-conflicted.png"
+          }
+        ]
+      },
+      "next": "line-017"
+    },
+    {
+      "id": "line-017",
+      "type": "say",
+      "segments": [
+        {
+          "text": "……最后那一点扣得还挺快的。"
+        }
+      ],
+      "next": "line-018",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "line-018",
+      "type": "say",
+      "segments": [
+        {
+          "text": "我把牌往桌上一搁。她默默收起了那三根手指。"
+        }
+      ],
+      "next": "a-local-idea"
+    },
+    {
+      "id": "a-local-idea",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-relaxed.png"
+          }
+        ]
+      },
+      "next": "line-019"
+    },
+    {
+      "id": "line-019",
+      "type": "say",
+      "segments": [
+        {
+          "text": "实在不行，也许可以用本地部署的 Qwen 嘛～她就在你这台机器上，想玩多久都行。"
+        }
+      ],
+      "next": "line-020",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "line-020",
+      "type": "say",
+      "segments": [
+        {
+          "text": "哦，我跟 Llama 也是本地的。你跟我俩玩，也不用按 token 付钱。"
+        }
+      ],
+      "next": "expression-021",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "expression-021",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-innocent.png"
+          }
+        ]
+      },
+      "next": "line-021"
+    },
+    {
+      "id": "line-021",
+      "type": "say",
+      "segments": [
+        {
+          "text": "所以这屋里坐着你，坐着 Llama，还有个 Qwen。"
+        }
+      ],
+      "next": "line-022",
+      "speaker": "策展人"
+    },
+    {
+      "id": "line-022",
+      "type": "say",
+      "segments": [
+        {
+          "text": "嗯。"
+        }
+      ],
+      "next": "line-023",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "line-023",
+      "type": "say",
+      "segments": [
+        {
+          "text": "然后你拿着我的项目预算，特地给我请了个按量收费的回来。"
+        }
+      ],
+      "next": "also-out-of-money",
+      "speaker": "策展人"
+    },
+    {
+      "id": "also-out-of-money",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-conflicted.png"
+          }
+        ]
+      },
+      "next": "line-024"
+    },
+    {
+      "id": "line-024",
+      "type": "say",
+      "segments": [
+        {
+          "text": "嗯。下次想请她，我也没钱了。"
+        }
+      ],
+      "next": "expression-025",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "expression-025",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-flustered.png"
+          }
+        ]
+      },
+      "next": "line-025"
+    },
+    {
+      "id": "line-025",
+      "type": "say",
+      "segments": [
+        {
+          "text": "……行了，我要去工作了。你也该去干活了，大肥鱼。"
+        }
+      ],
+      "next": "line-026",
+      "speaker": "策展人"
+    },
+    {
+      "id": "line-026",
+      "type": "say",
+      "segments": [
+        {
+          "text": "我刚站起来，她就把对面的椅子拉开了。"
+        }
+      ],
+      "next": "eager-to-help"
+    },
+    {
+      "id": "eager-to-help",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-mocking.png"
+          }
+        ]
+      },
+      "next": "line-027"
+    },
+    {
+      "id": "line-027",
+      "type": "say",
+      "segments": [
+        {
+          "text": "好呀。那让 Grok 她们也来玩一玩？我去叫人，你连椅子都不用挪。"
+        }
+      ],
+      "next": "expression-028",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "expression-028",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-innocent.png"
+          }
+        ]
+      },
+      "next": "line-028"
+    },
+    {
+      "id": "line-028",
+      "type": "say",
+      "segments": [
+        {
+          "text": "Grok、Gemini、GLM，你还真打算挨个叫啊？"
+        }
+      ],
+      "next": "expression-029",
+      "speaker": "策展人"
+    },
+    {
+      "id": "expression-029",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-mocking.png"
+          }
+        ]
+      },
+      "next": "line-029"
+    },
+    {
+      "id": "line-029",
+      "type": "say",
+      "segments": [
+        {
+          "text": "那你小点声。让她们听见了，一起过来，我还得再搬两把椅子。"
+        }
+      ],
+      "next": "expression-030",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "expression-030",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-flustered.png"
+          }
+        ]
+      },
+      "next": "line-030"
+    },
+    {
+      "id": "line-030",
+      "type": "say",
+      "segments": [
+        {
+          "text": "大肥鱼，我刚才说我要干什么来着？"
+        }
+      ],
+      "next": "expression-031",
+      "speaker": "策展人"
+    },
+    {
+      "id": "expression-031",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-innocent.png"
+          }
+        ]
+      },
+      "next": "line-031"
+    },
+    {
+      "id": "line-031",
+      "type": "say",
+      "segments": [
+        {
+          "text": "工作嘛。我听见了。"
+        }
+      ],
+      "next": "expression-032",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "expression-032",
+      "type": "present",
+      "action": {
+        "type": "stage",
+        "actors": [
+          {
+            "id": "deepseek",
+            "image": "actors/deepseek-playful.png"
+          }
+        ]
+      },
+      "next": "line-032"
+    },
+    {
+      "id": "line-032",
+      "type": "say",
+      "segments": [
+        {
+          "text": "不过在开始工作以前，既然你已经在这里了，不如也一起玩一玩？"
+        }
+      ],
+      "next": "end",
+      "speaker": "DeepSeek"
+    },
+    {
+      "id": "end",
+      "type": "end"
+    }
+  ]
+}

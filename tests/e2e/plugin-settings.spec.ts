@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { zipSync } from "fflate";
+import { respondToOfficialPlaylistCopy } from "./playlist-fixture";
 function plugin() {
   const fields = [
     { id: "enabled", label: "启用提示", description: "立即更新", apply: "immediate", default: true, schema: { type: "boolean" } },
@@ -45,6 +46,7 @@ test("插件设置校验、持久化、启动快照、保存失败与启停恢�
   await page.locator("[data-import-file]").setInputFiles({ name: "settings.hocpkg", mimeType: "application/zip", buffer: plugin() });
   await page.getByRole("button", { name: "安装所选包" }).click();
   await page.locator('[data-package-id="test/settings"]').getByRole("button", { name: "启用", exact: true }).click();
+  await respondToOfficialPlaylistCopy(page, "confirm");
   await page.getByRole("button", { name: "关闭资源管理" }).click(); await start(page);
   const form = page.locator('[data-plugin-settings="test/settings"]');
   await expect(form.getByLabel("启用提示")).toBeChecked();

@@ -1,3 +1,5 @@
+import { openUiDialog, closeUiDialog } from "../presentation/dialog-motion";
+import { registerBackHandler } from "../platform/back-navigation";
 import { skillSheetMarkup } from "../presentation/skill-sheet";
 import { skillMetadata } from "../presentation/skill-copy";
 import { TableLayers } from "../presentation/table-layers";
@@ -22,6 +24,7 @@ interface DevRevolverOffset {
     readonly left: number;
 }
 export interface TableScreenDependencies {
+    refreshTutorials?: () => void;
     exitEncounter?: () => void;
     readonly encounterPresentation?: import("../presentation/encounter-table").EncounterTablePresentation;
     dispatch: (action: import("../core/match/types").Action) => void;
@@ -47,6 +50,7 @@ export interface TableScreenDependencies {
 }
 export class TableScreen {
     private generation = 0;
+    private backLifetime?: AbortController;
     private skillDrawer?: ReturnType<typeof mountSkillDrawer>;
     private readonly layers = new TableLayers();
     private tableSurface?: ReturnType<typeof mountTableSurface>;
@@ -70,7 +74,9 @@ export class TableScreen {
         }
     };
     dispose = (): void => {
+        this.backLifetime?.abort();
         this.generation++;
+        this.deps.refreshTutorials?.();
         this.skillDrawer?.dispose();
         this.layers.reset();
         this.tableSurface?.dispose();
@@ -302,7 +308,22 @@ export class TableScreen {
             encounter: this.deps.encounterPresentation,
             debugMarkup: this.devHud(state)
         });
+        this.backLifetime?.abort();
+        const backLifetime = this.backLifetime = new AbortController();
         this.deps.root.innerHTML = html;
+        registerBackHandler({
+            signal: backLifetime.signal, priority: 40,
+            enabled: () => Boolean(this.deps.root.querySelector(".character-intel[open]")),
+            handle: () => {
+                const sheet = this.deps.root.querySelector<HTMLDetailsElement>(".character-intel");
+                if (sheet) { sheet.open = false; sheet.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true }); }
+            }
+        });
+        registerBackHandler({
+            signal: backLifetime.signal, priority: 30,
+            enabled: () => this.skillDrawerOpen,
+            handle: () => { this.skillDrawer?.set(0); this.deps.root.querySelector<HTMLElement>(".skill-drawer-toggle")?.focus({ preventScroll: true }); }
+        });
         mountCharacterIntel(this.deps.root, state.seed, intelState);
         const portraitOverride = this.deps.dialogueSession!.peek().portrait;
         const tablePortrait = portraitOverride?.anchorY !== undefined ? {
@@ -362,7 +383,9 @@ export class TableScreen {
         this.deps.syncAbilityNoticePosition();
         this.deps.root.querySelector<HTMLButtonElement>("[data-exit-encounter]")?.addEventListener("click", () => this.deps.exitEncounter?.());
         this.deps.root.querySelector<HTMLButtonElement>("[data-fullscreen]")?.addEventListener("click", this.deps.toggleFullscreen);
-        this.skillDrawer = mountSkillDrawer(this.deps.root, skillPosition, totalSkills, open => { this.skillDrawerOpen = open; });
+        this.skillDrawer = mountSkillDrawer(this.deps.root, skillPosition, totalSkills, open => {
+            this.skillDrawerOpen = open;
+        });
         this.deps.root.querySelectorAll<HTMLButtonElement>("[data-skill-info]").forEach((button) => button.addEventListener("click", () => {
             const skill = getPlayerSkillDefinition(button.dataset.skillInfo ?? "", state.abilities.instances.find(instance => instance.instanceId === button.dataset.skillInfoInstance)?.level);
             const dialog = this.deps.root.querySelector<HTMLDialogElement>("#skill-info-dialog");
@@ -388,11 +411,15 @@ export class TableScreen {
                     ? skill.uses > 1 ? `主动技能牌：剩余 ${remainingUses} 次发动；归零后消耗此实例` : "主动技能牌：使用后消耗此实例"
                     : `被动技能牌：占用牌库位置并持续生效${ttlText}`;
             }
-            dialog.showModal();
+            openUiDialog(dialog);
+            this.deps.refreshTutorials?.();
         }));
-        this.deps.root.querySelector<HTMLButtonElement>("[data-skill-close]")?.addEventListener("click", () => this.deps.root.querySelector<HTMLDialogElement>("#skill-info-dialog")?.close());
-        this.deps.root.querySelector<HTMLButtonElement>("[data-shoe-info]")?.addEventListener("click", () => this.deps.root.querySelector<HTMLDialogElement>("#shoe-info-dialog")?.showModal());
-        this.deps.root.querySelector<HTMLButtonElement>("[data-shoe-info-close]")?.addEventListener("click", () => this.deps.root.querySelector<HTMLDialogElement>("#shoe-info-dialog")?.close());
+        this.deps.root.querySelector<HTMLButtonElement>("[data-skill-close]")?.addEventListener("click", () => void closeUiDialog(this.deps.root.querySelector<HTMLDialogElement>("#skill-info-dialog")));
+        this.deps.root.querySelector<HTMLButtonElement>("[data-shoe-info]")?.addEventListener("click", () => {
+            openUiDialog(this.deps.root.querySelector<HTMLDialogElement>("#shoe-info-dialog"));
+            this.deps.refreshTutorials?.();
+        });
+        this.deps.root.querySelector<HTMLButtonElement>("[data-shoe-info-close]")?.addEventListener("click", () => void closeUiDialog(this.deps.root.querySelector<HTMLDialogElement>("#shoe-info-dialog")));
         const nextDisplayPanel = this.deps.root.querySelector<HTMLElement>(".display-panel");
         if (nextDisplayPanel) {
             nextDisplayPanel.dataset.matchSeed = state.seed;
@@ -410,10 +437,15 @@ export class TableScreen {
             current.innerHTML = displayContentMarkup(display);
             current.setAttribute("aria-label", displayText(display));
             dialog.querySelector("#display-info-description")!.textContent = display.description;
-            dialog.showModal();
+            openUiDialog(dialog);
+            this.deps.refreshTutorials?.();
         }));
-        this.deps.root.querySelector<HTMLButtonElement>("[data-display-close]")?.addEventListener("click", () => this.deps.root.querySelector<HTMLDialogElement>("#display-info-dialog")?.close());
+        this.deps.root.querySelector<HTMLButtonElement>("[data-display-close]")?.addEventListener("click", () => void closeUiDialog(this.deps.root.querySelector<HTMLDialogElement>("#display-info-dialog")));
+        this.deps.root.querySelectorAll<HTMLDialogElement>("dialog").forEach(dialog => dialog.addEventListener("close", () => {
+            this.deps.refreshTutorials?.();
+        }));
         this.deps.restoreDialogue(dialogue, key, snapshot);
+        this.deps.refreshTutorials?.();
     };
     devHud = (state: MatchState): string => {
         if (!import.meta.env.DEV || !new URLSearchParams(window.location.search).has("debug"))

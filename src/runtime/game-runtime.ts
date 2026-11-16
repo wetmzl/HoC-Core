@@ -15,16 +15,31 @@ import { presentationStore } from "../persistence/presentation";
 import { SaveValidationError, type LongTermSave } from "../persistence/schema";
 import { requestPersistentStorage } from "../persistence/storage";
 import { RuntimeExtensions } from "./runtime-extensions";
-import { bindHapticLifecycle, haptics } from "../presentation/haptic-service";
-import { presentInteractionHaptic } from "../presentation/haptics";
+import { haptics } from "../presentation/haptic-service";
+import { loadingScreenMarkup } from "../presentation/loading-indicator";
 import { RESET_RUNTIME_CONFIRM_MESSAGE } from "../presentation/view-helpers";
 import { resourceLoader } from "../resources/resource-loader";
 import { type SkillArchetypeArt } from "../resources/skill-archetype-art";
 import type { RuntimeScreenLoader } from "./contracts";
 import { RuntimeScreenRouter } from "./screen-router";
+import { registerBackHandler } from "../platform/back-navigation";
 import { CleanupErrors } from "./cleanup-errors";
 import { changeCharacterSkinUnlocks, grantDeclaredSkinUnlocks, isCharacterSkinUnlocked } from "../persistence/skin-unlocks";
+import { createPublicEvent, createPublicEventBatch } from "../core/events/public-events";
+import type { RuntimeEventHub } from "./public-event-hub";
+import { InteractionGate } from "./interaction-gate";
+import { StoryHost } from "./story-host";
+import { AchievementGameplayRuntime } from "./achievement-gameplay";
+import { gameAchievements } from "./achievement-ui";
+import { isRuntimeDebugEnabled } from "../telemetry/debug-state";
+import { capturePublicMatchReadModel } from "../core/events/public-match-read-model";
+import type { RuntimeSave } from "../persistence/schema";
 export interface RuntimeControllerDependencies {
+    readonly storySnapshot?: () => RuntimeSave | null;
+    closingPublicEvents?: () => readonly import("../core/events/public-events").PublicEventBatch[];
+    adoptStoryCheckpoint?: (snapshot: RuntimeSave | null) => Promise<void>;
+    refreshTutorials?: () => void;
+    readonly events?: RuntimeEventHub;
     pauseMatch: (paused: boolean) => void;
     clearActiveMatch: () => void;
     stopPluginMatch: () => void;
@@ -63,27 +78,56 @@ export interface RuntimeControllerDependencies {
 }
 export class RuntimeController {
     constructor(private readonly deps: RuntimeControllerDependencies) { }
+    readonly gameScopeId = crypto.randomUUID();
+    readonly interactionGate = new InteractionGate();
+    stories?: StoryHost;
+    achievements?: AchievementGameplayRuntime;
+    private reconcilingStory = false;
+    get storyBlocking(): boolean { return this.stories?.blocking ?? false; }
+    private started = false;
+    private retired = false;
+    private visibilityHidden = false;
+    private publishLifecycle(type: string, data: Readonly<Record<string, unknown>> = {}): void {
+        const events = this.deps.events;
+        if (!events) return;
+        const id = events.nextId(type);
+        const fact = createPublicEvent({ id, type, scopes: { game: this.gameScopeId }, data });
+        events.publish("resolved", createPublicEventBatch({ id, facts: [fact] }));
+    }
+    /** An explicit lobby action, independent of startup, restored screens and refreshes. */
+    notifyDuelRequested = (): void => {
+        if (!this.mounted || !this.started || this.closing || this.storyBlocking) return;
+        this.publishLifecycle("core.duel-requested");
+    };
+    private visibilityChanged = (): void => {
+        if (!this.mounted) return;
+        const hidden = document.hidden === true;
+        if (hidden === this.visibilityHidden) return;
+        if (hidden) gameAudio.pauseBgm();
+        else gameAudio.restoreBgm();
+        this.visibilityHidden = hidden;
+        if (this.started) this.publishLifecycle(hidden ? "core.game-suspended" : "core.game-resumed", { reason: "visibility" });
+    };
     root!: HTMLDivElement;
     repository!: ReturnType<typeof createPersistenceService>;
     mounted: boolean = false;
     extensions: RuntimeExtensions | undefined;
     private releaseSettingsWriter?: () => void;
-    hapticLifecycleDisposer: (() => Promise<void>) | undefined;
     nativeLifecycleDisposer: (() => Promise<void>) | undefined;
     runtimeEventController: AbortController | undefined;
     requestExitToLauncher: (() => Promise<void>) | undefined;
     save!: LongTermSave;
     saveLoaded: boolean = false;
-    interactionHapticsAttached: boolean = false;
     private router: RuntimeScreenRouter | undefined;
-    navigateScreen = (loader: RuntimeScreenLoader): Promise<void> => this.router?.navigateModule(async () => {
+    navigateScreen = (loader: RuntimeScreenLoader, onBack: () => void | Promise<void> = () => this.deps.renderLobby("menu"), screen = "custom"): Promise<void> => this.router?.navigateModule(async () => {
         const module = await loader();
         return { mount: (context, signal, params) => {
             // The router has disposed the previous page; new mounts may now offer tutorials.
             this.deps.discardActiveTutorial();
+            registerBackHandler({ signal, handle: async () => { if (!this.closing) await onBack(); } });
             return module.mount(context, signal, params);
         } };
-    }) ?? Promise.resolve();
+    }, undefined, screen) ?? Promise.resolve();
     pluginSettingsSession: PluginSettingsSession | undefined;
     runtimeContributions: readonly PluginRuntimeContribution[] = [];
     private preparePresentation?: MountGameRuntimeOptions["preparePresentation"];
@@ -97,6 +141,7 @@ export class RuntimeController {
         return !!appearance && isCharacterSkinUnlocked(this.save, appearance, skinId);
     };
     private writeSkinUnlocks = (characterId: string, changes: Readonly<Record<string, boolean>> | null): Promise<void> => {
+        if (this.storyBlocking) return Promise.reject(new Error("请先完成当前剧情。"));
         // Detach caller-owned data before any asynchronous work.
         const snapshot = changes === null ? null : { ...changes };
         if (this.closing || !this.mounted) return Promise.reject(new Error("游戏运行时已退出。"));
@@ -144,7 +189,9 @@ export class RuntimeController {
         this.extensions?.dispose();
         this.extensions = new RuntimeExtensions({
             context: this.pluginContext(), contributions: this.runtimeContributions,
+            events: this.deps.events, eventScopes: { game: this.gameScopeId },
             createTutorialApi: this.deps.createTutorialApi,
+            createStoryApi: (id, signal) => this.stories?.forPackage(id, signal),
             getMatch: () => this.deps.autosave?.getState(), dispatch: this.deps.dispatch,
             autoActionsChanged: () => {
                 this.deps.clearAiSchedule();
@@ -193,6 +240,7 @@ export class RuntimeController {
         } finally { prepared?.dispose(); this.changingSkin = false; }
     };
     selectCharacterSkin = async (characterId: string, skinId: string, signal: AbortSignal, retainPreviousUntil?: AbortSignal): Promise<void> => {
+        if (this.storyBlocking) throw new Error("请先完成当前剧情。");
         const cancel = new AbortController();
         const settled = this.commitCharacterSkin(characterId, skinId, AbortSignal.any([signal, cancel.signal]), retainPreviousUntil);
         const selection = { cancel, settled };
@@ -248,26 +296,6 @@ export class RuntimeController {
     };
     pluginCredits: readonly import("../content/packages/plugin-credits").PluginCreditsSection[] = [];
     skillArchetypeArt: SkillArchetypeArt = {};
-    interactionHapticsHandler = (event: Event): void => {
-        const button = event.composedPath().find((entry): entry is HTMLButtonElement => entry instanceof HTMLButtonElement);
-        if (button?.hasAttribute("data-own-haptic"))
-            return;
-        if (!button || button.disabled || button.getAttribute("aria-disabled") === "true")
-            return;
-        presentInteractionHaptic(!document.body.classList.contains("reduced-motion"));
-    };
-    attachInteractionHaptics = (): void => {
-        if (this.interactionHapticsAttached)
-            return;
-        document.addEventListener("click", this.interactionHapticsHandler, { capture: true });
-        this.interactionHapticsAttached = true;
-    };
-    detachInteractionHaptics = (): void => {
-        if (!this.interactionHapticsAttached)
-            return;
-        document.removeEventListener("click", this.interactionHapticsHandler, { capture: true });
-        this.interactionHapticsAttached = false;
-    };
     pluginContext = (): PluginRuntimeContext => {
         return {
             ...(this.deps.writeCharacterSkinUnlocks ? { characterSkinUnlocks: {
@@ -294,7 +322,22 @@ export class RuntimeController {
             navigateToExtension: this.showExtensionScreen
         };
     };
+    showNotebookScreen = async (): Promise<void> => {
+        if (this.storyBlocking || this.closing) return;
+        const snapshot = await this.repository.readSnapshot();
+        const { recordedCharacterIds, unlockedCharacterEndings } = await import("../persistence/character-records");
+        await this.navigateScreen(async () => {
+            const { createNotebookScreen } = await import("../notebook-screen");
+            return createNotebookScreen({
+                getStories: () => (this.stories?.archiveScenes(snapshot) ?? []).map(scene => ({ id: scene.id, ...scene.archive, available: true })),
+                getRecordedCharacterIds: () => recordedCharacterIds(this.save, snapshot.notebook),
+                getUnlockedEndings: id => unlockedCharacterEndings(this.save, snapshot.notebook, id),
+                replayStory: async (id, signal) => { await this.stories?.replay(id, signal); }
+            });
+        }, undefined, "notebook");
+    };
     showHistoryScreen = async (): Promise<void> => {
+        if (this.storyBlocking && !this.reconcilingStory) return;
         await this.navigateScreen(async () => {
             const module = await import("../history-screen");
             return { mount: async (_context, signal) => {
@@ -308,9 +351,10 @@ export class RuntimeController {
                         navigateToLobby: () => this.deps.renderLobby("menu"), contributions: this.runtimeContributions
                     }, signal);
                 } };
-        });
+        }, undefined, "history");
     };
     showUiPage = async (action: import("../content/packages/plugin-ui").PluginUiAction): Promise<void> => {
+        if (this.storyBlocking && !this.reconcilingStory) return;
         await this.navigateScreen(async () => ({ mount: async (_context, signal) => {
             const lifetime = new AbortController();
             signal.addEventListener("abort", () => lifetime.abort(), { once: true, signal: lifetime.signal });
@@ -329,7 +373,7 @@ export class RuntimeController {
             try {
                 const mounted = await action.mount({
                     container,
-                    navigateToMenu: async () => { if (!lifetime.signal.aborted) await this.deps.renderLobby("menu"); },
+                    navigateToMenu: async () => { if (!lifetime.signal.aborted && !this.storyBlocking) await this.deps.renderLobby("menu"); },
                     alert: (title, message) => lifetime.signal.aborted ? Promise.resolve() : alertGameDialog(title, message),
                     confirm: (title, message, label) => lifetime.signal.aborted ? Promise.resolve(false) : confirmGameDialog(title, message, label)
                 }, lifetime.signal);
@@ -346,9 +390,10 @@ export class RuntimeController {
                 }
                 return { dispose() {} };
             }
-        } }));
+        } }), undefined, `ui:${action.id}`);
     };
     showExtensionScreen = async (route: string): Promise<void> => {
+        if (this.storyBlocking && !this.reconcilingStory) return;
         const mount = this.runtimeContributions.map(contribution => contribution.routes?.[route]).find(Boolean);
         if (!mount)
             return;
@@ -356,12 +401,16 @@ export class RuntimeController {
                 this.deps.stopPluginMatch();
                 this.deps.resetPresentation();
                 return mount(this.pluginContext(), signal);
-            } }));
+            } }), undefined, `extension:${route}`);
     };
     boot = async (): Promise<void> => {
         this.deps.clearAiSchedule();
-        this.root.innerHTML = `<main class="loading-shell"><span class="mark">✦</span><p>正在洗牌……</p></main>`;
+        this.root.innerHTML = loadingScreenMarkup("正在洗牌");
+        let extensionMount: Promise<void> | undefined;
         try {
+            await this.achievements?.initialize().catch(() => {
+                gameAchievements().reportError("无法读取成就记录，原记录已保留。");
+            });
             const save = await bootLoad(this.repository);
             if (!this.mounted)
                 return;
@@ -389,6 +438,7 @@ export class RuntimeController {
             document.body.classList.toggle("reduced-motion", this.save.settings.reducedMotion);
             gameAudio.configure(this.save.settings.soundEnabled, this.save.settings.musicVolume ?? DEFAULT_MUSIC_VOLUME);
             haptics.configure(!this.save.settings.reducedMotion);
+            gameAudio.musicDirector.setOrder(this.save.settings.musicPackageOrder ?? []);
             gameAudio.preloadLobby();
             const unlockAudio = () => {
                 gameAudio.unlock();
@@ -399,30 +449,47 @@ export class RuntimeController {
             const signal = this.runtimeEventController?.signal;
             document.addEventListener("pointerdown", unlockAudio, { capture: true, once: true, signal });
             document.addEventListener("keydown", unlockAudio, { capture: true, once: true, signal });
-            document.addEventListener("visibilitychange", () => {
-                if (document.hidden)
-                    gameAudio.pauseBgm();
-                else
-                    gameAudio.restoreBgm();
-            }, { signal });
+            document.addEventListener("visibilitychange", this.visibilityChanged, { signal });
+            this.visibilityChanged();
             void requestPersistentStorage();
             await this.deps.requireAdultContentAcknowledgement();
             if (!this.mounted)
                 return;
+            await this.stories?.initialize();
             this.extensions?.dispose();
             this.releaseSettingsWriter?.();
             this.releaseSettingsWriter = this.pluginSettingsSession?.bindWriter(this.deps.writePluginSettings);
-            await this.mountExtensions();
+            // Plugins may await a story during mounting. Keep their subscriptions
+            // early while allowing the first screen to release deferred playback.
+            extensionMount = this.mountExtensions();
+            void extensionMount.catch(() => undefined);
             if (!this.mounted) return;
+            let restored = false;
             if (import.meta.env.DEV && this.deps.devCalibrationCharacterId())
                 await this.deps.renderDevRevolverCalibration();
-            else if (activeRuntime && (activeRuntime.activeProgram || activeRuntime.activeFlow || activeRuntime.activeChallenge || activeMatch) && this.deps.restoreEncounter)
+            else if (activeRuntime && (activeRuntime.activeProgram || activeRuntime.activeFlow || activeRuntime.activeChallenge || activeMatch) && this.deps.restoreEncounter) {
                 await this.deps.restoreEncounter(activeRuntime);
-            else
+                restored = true;
+            } else
                 await this.deps.renderLobby();
-            if (this.mounted) this.deps.setTutorialsReady();
+            if (this.mounted) {
+                this.stories?.setReady();
+                await extensionMount;
+                if (!this.mounted) return;
+                this.deps.setTutorialsReady();
+                // A failed or superseded first screen must not announce a running game.
+                if (!this.started && this.router?.screenId) {
+                    this.started = true;
+                    this.publishLifecycle("core.game-started", { restored });
+                    if (this.visibilityHidden) this.publishLifecycle("core.game-suspended", { reason: "visibility" });
+                }
+            }
         }
         catch (error) {
+            if (extensionMount) {
+                try { this.extensions?.dispose(); }
+                catch (cleanupError) { error = new AggregateError([error, cleanupError], "启动和插件运行时清理失败。"); }
+            }
             if (this.mounted)
                 this.deps.renderError(error);
         }
@@ -453,7 +520,14 @@ export class RuntimeController {
             await this.deps.flushTutorials?.();
             await this.deps.autosave?.flush();
             await gameTelemetry()?.flush().catch(() => undefined);
-            if (this.saveLoaded) await this.repository.closeGameRuntime(this.deps.autosave?.getSave() ?? this.save);
+            await this.stories?.flush();
+            await this.achievements?.flush();
+            if (this.saveLoaded) {
+                const save = this.deps.autosave?.getSave() ?? this.save;
+                const publicEvents = this.deps.closingPublicEvents?.();
+                if (publicEvents?.length) await this.repository.closeGameRuntime(save, { publicEvents });
+                else await this.repository.closeGameRuntime(save);
+            }
             else await this.repository.deleteRuntime();
             await this.repository.flush();
         } catch (error) {
@@ -467,6 +541,7 @@ export class RuntimeController {
         }
         const abandonedMatchId = this.deps.autosave?.getState().id;
         this.mounted = false;
+        this.retired = true;
         const cleanup = new CleanupErrors();
         cleanup.run(() => this.runtimeEventController?.abort());
         // Start navigation cleanup now and capture its rejection before awaiting other owners.
@@ -476,27 +551,37 @@ export class RuntimeController {
         cleanup.run(() => this.deps.disposeSkills());
         await cleanup.runAsync(() => this.deps.disposeSession());
         if (abandonedMatchId) cleanup.run(() => presentationStore().clearMatch(abandonedMatchId));
+        await closingNavigation;
+        if (this.started) {
+            this.started = false;
+            cleanup.run(() => this.publishLifecycle("core.game-stopped"));
+        }
+        await cleanup.runAsync(() => this.stories?.flush());
+        cleanup.run(() => this.stories?.dispose());
+        this.stories = undefined;
+        await cleanup.runAsync(() => this.achievements?.flush());
+        cleanup.run(() => this.achievements?.dispose());
+        this.achievements = undefined;
+        cleanup.run(() => this.interactionGate.dispose());
         cleanup.run(() => this.extensions?.dispose());
         this.extensions = undefined;
         cleanup.run(() => this.releaseSettingsWriter?.());
         this.releaseSettingsWriter = undefined;
-        cleanup.run(this.detachInteractionHaptics);
-        await closingNavigation;
         for (const release of [...this.presentationRetirements]) cleanup.run(release);
         this.router = undefined;
         this.runtimeEventController = undefined;
-        await cleanup.runAsync(() => this.hapticLifecycleDisposer?.());
-        this.hapticLifecycleDisposer = undefined;
+        await cleanup.runAsync(() => haptics.stop());
         await cleanup.runAsync(() => this.nativeLifecycleDisposer?.());
         this.nativeLifecycleDisposer = undefined;
         await cleanup.runAsync(() => presentationStore().flush());
         cleanup.run(() => resourceLoader.dispose());
         await cleanup.runAsync(() => gameAudio.dispose());
         cleanup.run(() => document.querySelector(".adult-content-warning-backdrop")?.remove());
-        cleanup.run(() => document.body.classList.remove("reduced-motion", "shake"));
+        cleanup.run(() => document.body.classList.remove("shake"));
         cleanup.run(() => { this.root.inert = false; });
         cleanup.run(() => this.root.replaceChildren());
         cleanup.run(() => this.deps.clearActiveMatch());
+        cleanup.run(() => this.deps.events?.dispose());
         this.runtimeContributions = [];
         this.preparePresentation = undefined;
         this.loadSkinPreviews = undefined;
@@ -511,10 +596,14 @@ export class RuntimeController {
         if (error) console.error(error.message, error);
     };
     mountGameRuntime = async (options: MountGameRuntimeOptions): Promise<GameRuntimeHandle> => {
+        if (this.retired)
+            throw new Error("游戏运行时已退出，请创建新的运行时。");
         if (this.mounted)
             throw new Error("游戏运行时已经存在。");
         this.root = options.root;
         this.closing = false;
+        this.started = false;
+        this.visibilityHidden = false;
         setTelemetryPackages(options.telemetryPackages ?? {});
         this.runtimeContributions = options.contributions ?? [];
         this.preparePresentation = options.preparePresentation;
@@ -524,20 +613,59 @@ export class RuntimeController {
         this.pluginSettingsSession = options.pluginSettings;
         this.skillArchetypeArt = this.runtimeContributions.reduce<SkillArchetypeArt>((art, contribution) => ({ ...art, ...contribution.skillArchetypeArt }), {});
         this.repository = createPersistenceService();
+        this.achievements = new AchievementGameplayRuntime({ repository: this.repository, ui: gameAchievements(),
+            debugEnabled: save => isRuntimeDebugEnabled(save.settings, this.pluginSettingsSession), telemetry: () => gameTelemetry() });
+        if (this.deps.events && options.storyResources) {
+            const empty = Object.freeze({});
+            this.stories = new StoryHost({
+                repository: this.repository, events: this.deps.events, gate: this.interactionGate,
+                resources: () => options.storyResources?.() ?? empty,
+                contributions: () => this.runtimeContributions,
+                scopes: () => {
+                    const runtime = this.deps.storySnapshot?.(), match = this.deps.autosave?.getState();
+                    return { game: this.gameScopeId, ...(runtime?.activeProgram ? { program: runtime.activeProgram.id } : {}),
+                        ...(match ? { match: match.id, round: `${match.id}:${match.roundIndex}` } : {}) };
+                },
+                publicContext: () => {
+                    const runtime = this.deps.storySnapshot?.(), run = runtime?.activeProgram, match = this.deps.autosave?.getState();
+                    return { batch: createPublicEventBatch({ id: "story-live", facts: [], context: {
+                        ...(match ? { match, matchQueries: capturePublicMatchReadModel(match) } : {}),
+                        ...(run ? { program: { id: run.id, definitionId: run.definition.id, nodeId: run.cursor, visitIndex: run.visitIndex, status: run.status } } : {})
+                    } }) };
+                },
+                reducedMotion: () => this.save?.settings.reducedMotion ?? false,
+                committed: async snapshot => {
+                    this.save = snapshot.longTerm as LongTermSave;
+                    this.reconcilingStory = true;
+                    try { await this.deps.adoptStoryCheckpoint?.(snapshot.runtime as RuntimeSave | null); }
+                    finally { this.reconcilingStory = false; }
+                    this.root.dispatchEvent(new Event("character-skin-unlocks-changed"));
+                },
+                changed: () => {
+                    this.deps.clearAiSchedule();
+                    const match = this.deps.autosave?.getState();
+                    if (match && this.mounted) this.deps.scheduleAiTurn(match);
+                    this.deps.refreshTutorials?.();
+                }
+            });
+        }
         this.requestExitToLauncher = options.onExitRequest;
         this.runtimeEventController = new AbortController();
+        registerBackHandler({ signal: this.runtimeEventController.signal, priority: -10, handle: this.requestGameRuntimeExit });
         this.router = new RuntimeScreenRouter({
             root: this.root, getSave: () => this.save,
             navigate: destination => destination.id === "history" ? this.showHistoryScreen() : this.deps.renderLobby(destination.params?.layer === "characters" ? "characters" : "menu"),
             reportNavigationError: this.deps.enqueueNotification
-        }, {});
+        }, {}, change => {
+            if (change.from) this.publishLifecycle("core.screen-left", { screen: change.from });
+            if (change.to) this.publishLifecycle("core.screen-entered", { screen: change.to });
+        });
         this.mounted = true;
         try {
-            this.hapticLifecycleDisposer = await bindHapticLifecycle();
-            this.attachInteractionHaptics();
             this.nativeLifecycleDisposer = await bindNativePersistenceLifecycle(async () => {
                 await this.deps.autosave?.flush();
                 await this.repository.flush();
+                await this.achievements?.flush();
                 await presentationStore().flush();
             });
             await this.boot();

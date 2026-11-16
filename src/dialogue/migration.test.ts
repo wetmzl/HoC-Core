@@ -1,5 +1,6 @@
 import previewRevisions from "../test/fixtures/character-preview-revisions.json";
 import copyRevisions from "../test/fixtures/skill-copy-revisions.json";
+import characterCopyRevisions from "../test/fixtures/character-copy-revisions.json";
 import { expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -10,8 +11,13 @@ const sha = (bytes: string | Uint8Array) => createHash("sha256").update(bytes).d
 it("migrates all five built-in roles without changing pools, source anchors, media or skills", () => {
   for (const entry of audit.characters) {
     const root = `public/characters/${entry.character}`;
-    const manifest = JSON.parse(readFileSync(`${root}/hocpkg-info.json`, "utf8")), dialogue = readCharacterResourceFixture(entry.character, "resources/dialogue.json");
-    expect(manifest.resources.find((r: { type: string }) => r.type === "game.character-dialogue").apiVersion).toBe(4);
+    const dialogue = readCharacterResourceFixture(entry.character, "resources/dialogue.json");
+    const characterCopyRevision = characterCopyRevisions.characters[entry.character as keyof typeof characterCopyRevisions.characters];
+    // Validate this authored revision exactly before restoring the historical migration projection.
+    for (const revision of characterCopyRevision.dialoguePools) {
+      expect(dialogue.pools[revision.poolId]?.[revision.lineIndex], `${entry.character}/${revision.poolId}[${revision.lineIndex}]`).toBe(revision.after);
+      dialogue.pools[revision.poolId][revision.lineIndex] = revision.before;
+    }
     // Preserve the historical migration audit while allowing later, explicitly authored additions.
     const { CHARACTER_TAP: _tap, CHARACTER_TAP_DEFEATED: _defeatedTap, CHARACTER_TAP_ROULETTE: _rouletteTap, PLAYER_DEFEAT_PREVENTED: _playerPrevention, OPPONENT_DEFEAT_PREVENTED: _opponentPrevention, ...originalPools } = dialogue.pools;
     const originalRules = dialogue.rules.filter((rule: DialogueRule) => !["character-tap", "character-tap-defeated", "character-tap-roulette", "PLAYER_DEFEAT_PREVENTED", "OPPONENT_DEFEAT_PREVENTED"].includes(rule.id)).map((rule: DialogueRule) => {
@@ -44,13 +50,25 @@ it("migrates all five built-in roles without changing pools, source anchors, med
       let original: string | Uint8Array = baselineBytes;
       if (path === "resources/character-match.json") {
         const body = readCharacterResourceFixture(entry.character, path);
+        expect({
+          subtitle: body.metadata.subtitle,
+          description: body.definition.profile.description,
+          matchSummary: body.definition.matchSummary
+        }, `${entry.character}/${path} authored copy`).toEqual(characterCopyRevision.match.after);
+        body.metadata.subtitle = characterCopyRevision.match.before.subtitle;
+        body.definition.profile.description = characterCopyRevision.match.before.description;
+        body.definition.matchSummary = { ...characterCopyRevision.match.before.matchSummary };
         delete body.presentationResourceId;
         for (const binding of body.aiSkills) {
           expect(binding.level).toBe(entry.character === "claude" ? 2 : 1);
           delete binding.level;
         }
         expect(body.metadata).toMatchObject(previewRevision.after);
-        const { badge: _badge, faction: _faction, encounter: _encounter, previewFocus: _previewFocus, ...metadata } = body.metadata;
+        // Later progression prerequisites are checked independently before restoring the migration projection.
+        const predecessor = ({ chatgpt: "deepseek", deepseek: "llama", gemini: "chatgpt" } as Record<string, string>)[entry.character];
+        if (predecessor) expect(body.metadata.unlock).toEqual({ type: "defeat-character", characterId: predecessor });
+        else expect(body.metadata.unlock).toBeUndefined();
+        const { badge: _badge, faction: _faction, encounter: _encounter, previewFocus: _previewFocus, unlock: _unlock, ...metadata } = body.metadata;
         // Preview calibration was explicitly authored later; validate it before restoring the historical projection.
         metadata.previewImage = previewRevision.before.previewImage;
         expect(body.definition.tablePortrait.anchorY).toBe(1);

@@ -24,7 +24,7 @@ async function mount(page: Page) {
     };
     registry.installAbilityRegistry([...registry.ABILITY_DEFINITIONS, definition], [...registry.STATUS_DEFINITIONS, status], registry.ABILITY_CATALOG_VERSION);
     const { createMatch } = await load("/src/core/match/reducer.ts");
-    const { createDefaultSave, createRuntimeSave } = await load("/src/persistence/boot.ts");
+    const { createDefaultSave, createRuntimeSave } = await load("/tests/e2e/runtime-fixture.ts");
     const repo = (await load("/src/persistence/factory.ts")).createPersistenceService();
     const base = createMatch("neutral-meter-browser", { opponentId: "claude", skillDeckIds: [],
       opponentAiSkills: [{ definitionId: definition.id, enabled: true, parameters: {} }], aiProfile: { P: 0, A: 0, B: 0, C: 0 } });

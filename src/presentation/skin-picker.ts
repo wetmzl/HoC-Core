@@ -1,3 +1,4 @@
+import { openUiDialog, closeUiDialog } from "./dialog-motion";
 import type { CharacterMetadata } from "../content/characters";
 import type { SkinPreviews } from "../content/packages/skin-previews";
 import { escapeHtml, uiError } from "./view-helpers";
@@ -9,6 +10,7 @@ export function openSkinPicker(options: {
   load(key: string, signal: AbortSignal): Promise<SkinPreviews>;
   select(characterId: string, skinId: string, signal: AbortSignal): Promise<void>;
   isUnlocked(skinId: string): boolean;
+  refreshTutorials?: () => void;
 }): void {
   const appearance = options.character.appearance;
   if (!appearance || appearance.skins.length < 2 || options.signal.aborted) return;
@@ -37,11 +39,13 @@ export function openSkinPicker(options: {
     });
     confirm.disabled = saving || !options.isUnlocked(selected) || !previews?.items.some(item => item.id === selected && item.image)
       || !!dialog.querySelector(`[data-skin-id="${CSS.escape(selected)}"][data-skin-unavailable]`);
+    options.refreshTutorials?.();
   };
   options.root.addEventListener("character-skin-unlocks-changed", refreshUnlocks, { signal });
-  const close = () => { if (!saving) dialog.close(); };
+  const close = () => { if (!saving) void closeUiDialog(dialog); };
   const cleanup = () => {
     lifetime.abort(); previews?.release(); dialog.remove();
+    options.refreshTutorials?.();
     if (options.signal.aborted) return;
     const button = [...options.root.querySelectorAll<HTMLButtonElement>("[data-change-skin]")].find(button => button.dataset.changeSkin === options.character.id);
     button?.focus({ preventScroll: true });
@@ -77,10 +81,11 @@ export function openSkinPicker(options: {
   confirm.addEventListener("click", () => {
     if (saving || confirm.disabled) return;
     saving = true;
+    options.refreshTutorials?.();
     dialog.querySelectorAll<HTMLButtonElement>("button").forEach(button => { button.disabled = true; });
     status.textContent = "正在换装……";
     void options.select(options.character.id, selected, signal).then(() => {
-      if (!signal.aborted) { saving = false; dialog.close(); }
+      if (!signal.aborted) { saving = false; void closeUiDialog(dialog); }
     }).catch(error => {
       if (signal.aborted) return;
       saving = false;
@@ -89,7 +94,7 @@ export function openSkinPicker(options: {
       status.textContent = uiError(error, "换装失败，请重试。");
     });
   });
-  dialog.showModal();
+  openUiDialog(dialog);
   void options.load(appearance.key, signal).then(value => {
     if (signal.aborted) { value.release(); return; }
     previews = value;
@@ -109,6 +114,7 @@ export function openSkinPicker(options: {
       button.disabled = true; button.dataset.skinUnavailable = "";
       if (button.dataset.skinId === selected) confirm.disabled = true;
       image.replaceWith(document.createTextNode("立绘暂时不可用"));
+      options.refreshTutorials?.();
     }, { signal }));
   }).catch(error => { if (!signal.aborted) status.textContent = uiError(error, "服装加载失败，请关闭后重试。"); });
 }

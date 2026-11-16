@@ -58,8 +58,8 @@ export const nativeIo = {
     if (source.kind !== "stored") throw new Error("当前文件来源无法用于原生导入，请重新选择文件。");
     const archive = await operation<{ token: string; entries: ContentArchiveEntry[] }>("openArchive", { source }, options);
     return { entries: archive.entries,
-      extract: (path, destination, options) => operation<ContentDigest>("extract", { token: archive.token, path, destination }, options),
-      extractMany: async (files, options) => (await operation<{ results: ContentDigest[] }>("extractMany", { token: archive.token, files }, options)).results,
+      extract: (path, destination, options) => operation<ContentDigest>("extract", { token: archive.token, path, destination, password: options?.password }, options),
+      extractMany: async (files, options) => (await operation<{ results: ContentDigest[] }>("extractMany", { token: archive.token, files, password: options?.password }, options)).results,
       close: () => plugin.closeArchive({ token: archive.token }) };
   },
   async pickFile(options?: ContentOperationOptions) { return (await operation<{ file: ContentImportFile | null }>("pickFile", {}, options)).file; }

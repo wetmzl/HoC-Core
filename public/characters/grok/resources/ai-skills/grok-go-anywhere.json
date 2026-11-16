@@ -1,0 +1,45 @@
+{
+  "id": "grok-go-anywhere",
+  "name": "想去哪里就去哪里",
+  "description": "Grok 每次获得衍生牌时，立即将该张原牌转交给玩家，不计为任何一方的 Hit。",
+  "profileLore": "想去哪里就去哪里。她连牌也不肯替你保管。",
+  "triggerNotice": "把刚获得的衍生牌塞给了玩家。",
+  "sourceKind": "ai-skill",
+  "primaryDomain": "cheater",
+  "activation": {
+    "type": "automatic"
+  },
+  "rules": [
+    {
+      "id": "redirect-acquired-derived-card",
+      "trigger": "after-card-acquired",
+      "conditions": [
+        {
+          "type": "actor-is",
+          "actor": "owner"
+        },
+        {
+          "type": "acquired-card-source-is",
+          "source": "derived"
+        },
+        {
+          "type": "acquired-card-is-held",
+          "target": "owner"
+        }
+      ],
+      "effects": [
+        {
+          "type": "transfer-hand-card",
+          "from": "owner",
+          "target": "rival",
+          "card": "acquired-card"
+        }
+      ]
+    }
+  ],
+  "tags": [
+    "ai-skill",
+    "blackjack",
+    "card-transfer"
+  ]
+}

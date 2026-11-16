@@ -5,7 +5,7 @@
   "identity": {
     "authorId": "hoc-core",
     "packageName": "llama",
-    "version": "1.0.14"
+    "version": "1.0.15"
   },
   "metadata": {
     "title": "Llama 角色包",
@@ -93,14 +93,14 @@
     },
     {
       "path": "resources/character-match.json",
-      "bytes": 4891,
-      "sha256": "52b1fc3875d2fb21b232ae3dd1e42e3bac305a22d961e91c28793cff1d423a7d",
+      "bytes": 5408,
+      "sha256": "f2f659f196d0690b4b48d374c9a70ddb53c63e8381d2862e35ca251a60e7af83",
       "mediaType": "application/json"
     },
     {
       "path": "resources/dialogue.json",
-      "bytes": 29515,
-      "sha256": "d7002a53e17e4f2e435323143ee8424e476ab9a02d67a530149ad5688d7f1055",
+      "bytes": 29530,
+      "sha256": "01761ff54931df3269985558d83acaf58484b079127f722ae5b48442db21e9b5",
       "mediaType": "application/json"
     },
     {

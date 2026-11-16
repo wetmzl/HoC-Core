@@ -1,3 +1,5 @@
+import { createMusicResourceHandler } from "./music";
+import { createAchievementCatalogResourceHandler } from "./achievements";
 import { EncounterFlowResourceSchema, EncounterProgramResourceSchema } from "../encounter-flows/catalog";
 import { CharacterRuntimeSchema } from "../characters/runtime";
 import { CharacterEncounterPolicySchema, legacyCharacterEncounterPolicy } from "../characters/encounter-policy";
@@ -8,6 +10,7 @@ import { activeDialogueRegistry, type DialoguePrimitiveRegistry } from "../../di
 import type { DialogueCondition } from "../../dialogue/types";
 import type { CharacterDialogue } from "../../dialogue/types";
 import { AbilityDefinitionSchema, StatusDefinitionSchema, validateBinding } from "../../core/abilities/schema";
+import { EXCLUDED_FROM_POINT_TOTAL_TAG } from "../../core/blackjack/card";
 import type { AiSkillAbilityDefinition, StatusDefinition, TalentAbilityDefinition } from "../../core/abilities/types";
 import type { HocpkgManifest, HocpkgResourceDescriptor } from "./schema";
 import { HocpkgPortablePathSchema, HocpkgResourceKeySchema } from "./schema";
@@ -15,6 +18,7 @@ import { tablePortraitSchema } from "../characters/table-portrait";
 import { CharacterPreviewFocusSchema } from "../characters/schema";
 import { boundedContentJson } from "./json-budget";
 import { createCharacterPresentationHandler } from "./character-presentation";
+import { createStorySceneResourceHandler, createStoryBindingResourceHandler } from "./stories";
 
 const identifier = z.string().regex(/^[a-z0-9][a-z0-9-]*$/);
 const resourceReference = z.string().regex(/^[a-z0-9][a-z0-9:_-]*$/);
@@ -158,12 +162,34 @@ export interface ExtensionResource<T = unknown> {
   resolvePath(path: string): string;
 }
 
+const EXTENDED_ABILITY_PRIMITIVES = new Set([
+  "invoke-random-active-skill", "actor-stood", "comparison-would-win", "hand-is-busted", "hand-transfer-candidate-exists", "matching-transfer",
+  "set-matching-hand-cards-counted", "acquired-card-is-held"
+]);
+
+/** Resource APIs preserve the old rule language while sharing current validators. */
+function assertAbilityPrimitiveApi(value: unknown, apiVersion: number, requiredVersion: number): void {
+  if (apiVersion >= requiredVersion) return;
+  const visit = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    const record = node as Record<string, unknown>;
+    if ((typeof record.type === "string" && EXTENDED_ABILITY_PRIMITIVES.has(record.type))
+      || (record.type === "transfer-hand-card" && record.card === "acquired-card")
+      || ((record.type === "add-hand-card-tag" || record.type === "remove-hand-card-tag") && record.tag === EXCLUDED_FROM_POINT_TOTAL_TAG)) {
+      throw new Error(`能力原语 ${record.type} 需要资源 API ${requiredVersion}`);
+    }
+    for (const [key, child] of Object.entries(record)) if (key !== "parameters") visit(child);
+  };
+  visit(value);
+}
+
 export function createPlayerSkillResourceHandler(): HocpkgResourceHandler<PlayerSkillResource> {
   return {
     type: "game.player-skill",
-    apiVersions: [4],
+    apiVersions: [4, 5],
     parse(payload, context) {
       const parsed = PlayerSkillResourceSchema.parse(payload);
+      assertAbilityPrimitiveApi(parsed, context.descriptor.apiVersion, 5);
       if (parsed.acquisition.type !== "defeat-character") return parsed;
       const characterResourceId = parsed.acquisition.characterResourceId;
       const characterResource = context.manifest.resources.find((resource) => resource.id === characterResourceId);
@@ -178,9 +204,10 @@ export function createPlayerSkillResourceHandler(): HocpkgResourceHandler<Player
 export function createAiSkillResourceHandler(): HocpkgResourceHandler<AiSkillAbilityDefinition> {
   return {
     type: "game.ai-skill",
-    apiVersions: [4],
-    parse(payload) {
+    apiVersions: [4, 5],
+    parse(payload, context) {
       const definition = AbilityDefinitionSchema.parse(payload);
+      assertAbilityPrimitiveApi(definition, context.descriptor.apiVersion, 5);
       if (definition.sourceKind !== "ai-skill") throw new Error("game.ai-skill 必须包含 AI Skill 定义");
       return definition as AiSkillAbilityDefinition;
     }
@@ -190,17 +217,22 @@ export function createAiSkillResourceHandler(): HocpkgResourceHandler<AiSkillAbi
 export function createStatusResourceHandler(): HocpkgResourceHandler<StatusDefinition> {
   return {
     type: "game.status",
-    apiVersions: [1],
-    parse(payload) { return StatusDefinitionSchema.parse(payload) as StatusDefinition; }
+    apiVersions: [1, 2],
+    parse(payload, context) {
+      const definition = StatusDefinitionSchema.parse(payload) as StatusDefinition;
+      assertAbilityPrimitiveApi(definition, context.descriptor.apiVersion, 2);
+      return definition;
+    }
   };
 }
 
 export function createTalentResourceHandler(): HocpkgResourceHandler<TalentAbilityDefinition> {
   return {
     type: "game.talent",
-    apiVersions: [4],
-    parse(payload) {
+    apiVersions: [4, 5],
+    parse(payload, context) {
       const definition = AbilityDefinitionSchema.parse(payload);
+      assertAbilityPrimitiveApi(definition, context.descriptor.apiVersion, 5);
       if (definition.sourceKind !== "talent") throw new Error("game.talent 必须包含 Talent 定义");
       return definition as TalentAbilityDefinition;
     }
@@ -319,7 +351,11 @@ export function createHocpkgResourceHandlers(registry?: DialoguePrimitiveRegistr
     createStatusResourceHandler(),
     createTalentResourceHandler(),
     createFactionResourceHandler(),
+    createMusicResourceHandler(),
+    createAchievementCatalogResourceHandler(),
     createCharacterPresentationHandler(),
+    createStorySceneResourceHandler(),
+    createStoryBindingResourceHandler(),
     { type: "game.encounter-flow", apiVersions: [1, 2], parse(payload, context) {
       return context.descriptor.apiVersion === 2 ? EncounterProgramResourceSchema.parse(payload) : EncounterFlowResourceSchema.parse(payload);
     } },

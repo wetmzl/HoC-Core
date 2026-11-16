@@ -1,3 +1,4 @@
+import { openUiDialog, closeUiDialog } from "./presentation/dialog-motion";
 export interface GameDialogChoice<T extends string> {
   readonly value: T;
   readonly label: string;
@@ -10,7 +11,8 @@ let nextDialogId = 0;
 export function chooseGameDialog<T extends string>(
   title: string,
   message: string,
-  choices: readonly GameDialogChoice<T>[]
+  choices: readonly GameDialogChoice<T>[],
+  options?: { readonly checkbox?: { readonly label: string; readonly checked: boolean; readonly onChange: (checked: boolean) => void } }
 ): Promise<T | null> {
   const dialog = document.createElement("dialog");
   const headingId = `game-dialog-title-${++nextDialogId}`;
@@ -21,6 +23,17 @@ export function chooseGameDialog<T extends string>(
   dialog.querySelector<HTMLElement>("h2")!.textContent = title;
   dialog.querySelector<HTMLElement>("[data-game-dialog-message]")!.textContent = message;
   const actions = dialog.querySelector<HTMLElement>(".game-dialog-actions")!;
+  if (options?.checkbox) {
+    const option = options.checkbox;
+    const label = document.createElement("label");
+    label.className = "game-dialog-option";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = option.checked;
+    input.addEventListener("change", () => option.onChange(input.checked));
+    label.append(input, document.createTextNode(option.label));
+    actions.before(label);
+  }
   for (const choice of choices) {
     const button = document.createElement("button");
     button.type = "button";
@@ -36,12 +49,12 @@ export function chooseGameDialog<T extends string>(
       dialog.remove();
       resolve(selection?.value ?? null);
     }, { once: true });
-    dialog.querySelector<HTMLButtonElement>("[data-game-dialog-close]")!.addEventListener("click", () => dialog.close());
+    dialog.querySelector<HTMLButtonElement>("[data-game-dialog-close]")!.addEventListener("click", () => void closeUiDialog(dialog));
     actions.addEventListener("click", (event) => {
       const button = (event.target as Element).closest<HTMLButtonElement>("[data-game-dialog-choice]");
-      if (button) dialog.close(button.dataset.gameDialogChoice);
+      if (button) void closeUiDialog(dialog, button.dataset.gameDialogChoice);
     });
-    dialog.showModal();
+    openUiDialog(dialog);
   });
 }
 

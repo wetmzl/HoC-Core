@@ -1,7 +1,7 @@
 import Dexie, { type Table } from "dexie";
 import type { RawSaveSnapshot, SaveStorageDriver } from "./storage-driver";
 
-type SaveRecordId = "long-term" | "runtime" | "current";
+type SaveRecordId = "long-term" | "runtime" | "current" | "story" | "achievements" | "notebook";
 interface SaveRecord { readonly id: SaveRecordId; readonly data: unknown; }
 
 export class IndexedDbSaveStorageDriver implements SaveStorageDriver {
@@ -11,13 +11,14 @@ export class IndexedDbSaveStorageDriver implements SaveStorageDriver {
 
   async readSnapshot(): Promise<RawSaveSnapshot | null> {
     return this.db.transaction("r", this.db.saves, async () => {
-      const [longTerm, legacy, runtime] = await Promise.all([
+      const [longTerm, legacy, runtime, story, achievements, notebook] = await Promise.all([
         this.db.saves.get("long-term"),
         this.db.saves.get("current"),
-        this.db.saves.get("runtime")
+        this.db.saves.get("runtime"), this.db.saves.get("story"), this.db.saves.get("achievements"), this.db.saves.get("notebook")
       ]);
-      if (!longTerm && !legacy && !runtime) return null;
-      return { longTerm: (longTerm ?? legacy)?.data ?? null, runtime: runtime?.data ?? null };
+      if (!longTerm && !legacy && !runtime && !story && !achievements && !notebook) return null;
+      return { longTerm: (longTerm ?? legacy)?.data ?? null, runtime: runtime?.data ?? null,
+        ...(story ? { story: story.data } : {}), ...(achievements ? { achievements: achievements.data } : {}), ...(notebook ? { notebook: notebook.data } : {}) };
     });
   }
 
@@ -30,6 +31,12 @@ export class IndexedDbSaveStorageDriver implements SaveStorageDriver {
       }
       if (snapshot.runtime === null) await this.db.saves.delete("runtime");
       else await this.db.saves.put({ id: "runtime", data: snapshot.runtime });
+      if (snapshot.story === null || snapshot.story === undefined) await this.db.saves.delete("story");
+      else await this.db.saves.put({ id: "story", data: snapshot.story });
+      if (snapshot.achievements === null || snapshot.achievements === undefined) await this.db.saves.delete("achievements");
+      else await this.db.saves.put({ id: "achievements", data: snapshot.achievements });
+      if (snapshot.notebook === null || snapshot.notebook === undefined) await this.db.saves.delete("notebook");
+      else await this.db.saves.put({ id: "notebook", data: snapshot.notebook });
     });
   }
 

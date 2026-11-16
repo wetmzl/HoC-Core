@@ -1,4 +1,6 @@
+import { gameAudio } from "../audio/game-audio";
 import { describe, expect, it, vi } from "vitest";
+import { confirmGameDialog } from "../game-dialog";
 import trial from "../core/challenge/fixtures/legacy-challenge.json";
 import { loadCharacter } from "../content/characters";
 import { standaloneFlowDefinition } from "../content/encounters";
@@ -16,8 +18,11 @@ import type { EncounterPlan, MatchOwner } from "./match-owner";
 import type { MatchState } from "../core/match/types";
 import { projectSummaryView, type SummarySettlement } from "../screens/summary-view";
 import type { RuntimeScreenLoader } from "./contracts";
+import { projectStoryCommand } from "./story-commands";
+import { validateRuntimeSave } from "../persistence/schema";
 
-vi.mock("../audio/game-audio", () => ({ gameAudio: { stopHeartbeat: vi.fn(), setBgmScene: vi.fn() } }));
+vi.mock("../game-dialog", () => ({ confirmGameDialog: vi.fn(async () => false) }));
+vi.mock("../audio/game-audio", () => ({ gameAudio: { stopHeartbeat: vi.fn(), setBgmScene: vi.fn(), setMatchMusic: vi.fn(), updateMusicContext: vi.fn() } }));
 
 const defaults = async (): Promise<CreateMatchOptions> => ({ unlockedPlayerSkillIds: [], skillDeckIds: [], talentIds: [], intrinsicAbilities: [] });
 const root = () => ({ querySelectorAll: () => [], querySelector: () => null });
@@ -34,15 +39,18 @@ describe("challenge controller recovery", () => {
     const selection = challengeSelection("lazy");
     let repository: MemorySaveRepository | undefined;
     const controller = new EncounterController({
-      root: root(), invalidateProfile() {}, save: createDefaultSave(), get repository() { return repository; }, navigateScreen: async () => {},
+      root: root(), invalidateProfile() {}, save: createDefaultSave(), get repository() { return repository; }, navigateScreen: async () => {}, eventScopes: { game: "lazy-game" },
       session: { getMatchDefaults: defaults, startEncounter: async (plan: EncounterPlan, owner: MatchOwner) => {
         expect(plan.match).toBeDefined();
         await owner.attach(plan.match!);
         return true;
       } }
     } as unknown as EncounterControllerDependencies);
+    expect(controller.publicEventScopes).toEqual({ game: "lazy-game" });
+    controller.runtimeClosed();
     repository = new MemorySaveRepository();
     await controller.restore(selection);
+    expect(controller.publicEventScopes).toEqual({ game: "lazy-game", program: selection.activeProgram!.id });
     await choose(controller, "guard:llama");
     expect((await repository.loadRuntime())!.activeMatch!.opponentId).toBe("llama");
     await controller.dispose();
@@ -133,6 +141,82 @@ async function mountedController(repository: MemorySaveRepository) {
   return { controller, element, renderSummary, startEncounter };
 }
 
+it("adopts a committed story invitation through real match initialization and resumes it without opening another table", async () => {
+  const save = createDefaultSave(), projected = projectStoryCommand({ id: "neutral-story-invitation", type: "core.encounter.invite", apiVersion: 1,
+    args: { characterId: "llama" } }, { longTerm: save, runtime: null });
+  const repository = new MemorySaveRepository({ longTerm: save, runtime: validateRuntimeSave(projected.runtime) });
+  let h = await mountedController(repository);
+  await h.controller.adoptStoryCheckpoint(validateRuntimeSave(projected.runtime));
+  expect(h.startEncounter).toHaveBeenCalledOnce();
+  const durable = (await repository.loadRuntime())!;
+  expect(durable.activeMatch?.opponentId).toBe("llama");
+  expect(durable.activeMatch?.status).toBe("active");
+  expect(durable.activeMatch?.scene).not.toBe("lobby");
+  expect(durable.activeProgram?.id).toBe("neutral-story-invitation");
+  await h.controller.adoptStoryCheckpoint(durable);
+  expect(h.startEncounter).toHaveBeenCalledOnce();
+  const writes = repository.runtimeWrites.length;
+  await h.controller.adoptStoryCheckpoint(validateRuntimeSave(projected.runtime));
+  expect(h.startEncounter).toHaveBeenCalledOnce();
+  expect(repository.runtimeWrites).toHaveLength(writes);
+  expect(h.controller.storySnapshot).toEqual(durable);
+  expect(await repository.loadRuntime()).toEqual(durable);
+  await h.controller.dispose();
+  h = await mountedController(repository);
+  await h.controller.restore(durable);
+  expect(h.startEncounter).not.toHaveBeenCalled();
+  expect((await repository.loadRuntime())!.activeMatch!.id).toBe(durable.activeMatch!.id);
+  await h.controller.dispose();
+});
+
+it("coalesces concurrent delivery of the same committed story invitation", async () => {
+  const save = createDefaultSave(), projected = projectStoryCommand({ id: "concurrent-story-invitation", type: "core.encounter.invite", apiVersion: 1,
+    args: { characterId: "llama" } }, { longTerm: save, runtime: null });
+  const checkpoint = validateRuntimeSave(projected.runtime);
+  const repository = new MemorySaveRepository({ longTerm: save, runtime: checkpoint }), h = await mountedController(repository);
+  await Promise.all([h.controller.adoptStoryCheckpoint(checkpoint), h.controller.adoptStoryCheckpoint(structuredClone(checkpoint))]);
+  expect(h.startEncounter).toHaveBeenCalledOnce();
+  expect((await repository.loadRuntime())!.activeMatch?.id).toBe(programMatchId(checkpoint.activeProgram!));
+  await h.controller.dispose();
+});
+
+it("keeps a committed story invitation recoverable when table initialization fails", async () => {
+  const save = createDefaultSave(), projected = projectStoryCommand({ id: "neutral-story-retry", type: "core.encounter.invite", apiVersion: 1,
+    args: { characterId: "llama" } }, { longTerm: save, runtime: null });
+  const repository = new MemorySaveRepository({ longTerm: save, runtime: validateRuntimeSave(projected.runtime) }), h = await mountedController(repository);
+  h.startEncounter.mockRejectedValueOnce(new Error("initialization unavailable"));
+  await h.controller.adoptStoryCheckpoint(validateRuntimeSave(projected.runtime));
+  expect(h.element.innerHTML).toContain("initialization unavailable");
+  expect((await repository.loadRuntime())!.activeMatch).toBeNull();
+  h.element.click("[data-program-retry]"); await h.controller.flush();
+  expect(h.startEncounter).toHaveBeenCalledTimes(2);
+  expect((await repository.loadRuntime())!.activeMatch!.id).toBe(programMatchId(validateRuntimeSave(projected.runtime).activeProgram!));
+  await h.controller.dispose();
+});
+
+it("forgets the old runtime owner after a save replacement without navigation or writing it back", async () => {
+  const save = createDefaultSave(), repository = new MemorySaveRepository({ longTerm: save }), h = await mountedController(repository);
+  await h.controller.startMatch("llama");
+  const old = (await repository.loadRuntime())!;
+  expect(old.activeMatch).not.toBeNull();
+  await h.controller.flush();
+  await repository.deleteRuntime();
+  const writes = repository.runtimeWrites.length;
+  h.controller.resetAfterSaveReplacement();
+  expect(h.controller.storySnapshot).toBeNull();
+  expect(await repository.loadRuntime()).toBeNull();
+  expect(repository.runtimeWrites).toHaveLength(writes);
+  expect(h.startEncounter).toHaveBeenCalledOnce();
+  const replacement = projectStoryCommand({ id: "replacement-save-invitation", type: "core.encounter.invite", apiVersion: 1,
+    args: { characterId: "llama" } }, { longTerm: save, runtime: null });
+  await repository.saveRuntime(validateRuntimeSave(replacement.runtime));
+  await h.controller.adoptStoryCheckpoint(validateRuntimeSave(replacement.runtime));
+  expect(h.startEncounter).toHaveBeenCalledTimes(2);
+  expect((await repository.loadRuntime())!.activeProgram!.id).toBe("replacement-save-invitation");
+  expect((await repository.loadRuntime())!.activeMatch!.id).not.toBe(old.activeMatch!.id);
+  await h.controller.dispose();
+});
+
 it("restores custom presentation, choice and settlement nodes while distinct matches against one opponent share initialization", async () => {
   const definition = ProgramDefinitionSchema.parse({ version: 2, id: "custom-sequence", start: "story",
     defaults: { preset: "empty", playerSkills: { mode: "inherit", openingCards: 0 }, opponentAbilities: [] }, nodes: [
@@ -174,6 +258,10 @@ it("restores custom presentation, choice and settlement nodes while distinct mat
   await vi.waitFor(() => expect(h.renderSummary).toHaveBeenCalledOnce());
   await h.controller.flush();
   expect(h.renderSummary.mock.calls[0][1].rewards).toEqual([{ id: "bonus", label: "下一场点数优势", claimed: false, amount: "+2", icon: "pointAdvantage", detail: "本次流程" }]);
+  const unclaimed = await repository.loadRuntime();
+  await expect(h.controller.requestBack()).rejects.toThrow("请先领取本场奖励");
+  expect(await repository.loadRuntime()).toEqual(unclaimed);
+  expect(h.startEncounter).not.toHaveBeenCalled();
   await h.controller.claimReward("bonus");
   await h.controller.dispose();
   h = await mountedController(repository);
@@ -181,7 +269,7 @@ it("restores custom presentation, choice and settlement nodes while distinct mat
   expect(h.renderSummary.mock.calls[0][1].rewards?.[0].claimed).toBe(true);
   expect(h.startEncounter).not.toHaveBeenCalled();
   await h.controller.claimReward("bonus");
-  await h.controller.completeMatch("continue");
+  await h.controller.requestBack();
   const second = (await repository.loadRuntime())!.activeMatch!;
   expect(second.opponentId).toBe(active.opponentId);
   expect(second.id).not.toBe(active.id);
@@ -192,7 +280,7 @@ it("restores custom presentation, choice and settlement nodes while distinct mat
   await h.controller.dispose();
 });
 
-async function ordinarySummary(winner: "player" | "opponent", resultActions?: "return") {
+async function ordinarySummary(winner: "player" | "opponent", resultActions?: "return", isInteractionBlocked?: () => boolean) {
   const character = await loadCharacter("llama"), save = createDefaultSave();
   const source = standaloneFlowDefinition(character, save);
   const definition = resultActions ? { ...source, presentation: { ...source.presentation!, resultActions } } : source;
@@ -215,6 +303,7 @@ async function ordinarySummary(winner: "player" | "opponent", resultActions?: "r
     return true;
   });
   const controller = new EncounterController({
+    isInteractionBlocked,
     root: { querySelectorAll: () => [], querySelector: () => null },
     save, repository, invalidateProfile() {}, navigateScreen: async () => {}, showHistory, renderLobby, renderSummary,
     session: { getMatchDefaults: defaults, clearActiveMatch: vi.fn(), startEncounter, resumeMatch: async (restored: MatchState, owner: MatchOwner) => {
@@ -230,6 +319,17 @@ async function ordinarySummary(winner: "player" | "opponent", resultActions?: "r
 }
 
 describe("ordinary program result navigation", () => {
+  it("finishes an accepted result while its aftermath story blocks new interactions", async () => {
+    const h = await ordinarySummary("player", undefined, () => true);
+    const snapshot = (await h.repository.loadRuntime())!;
+    expect(snapshot.activeMatch).toBeNull();
+    expect(snapshot.activeProgram!.results.map(result => result.id)).toEqual([h.match.id]);
+    const commits = h.repository.commits.length;
+    await h.controller.requestBack();
+    expect(h.repository.commits).toHaveLength(commits);
+    expect(h.renderLobby).not.toHaveBeenCalled();
+    await h.controller.dispose();
+  });
   it("keeps the victory history action and opens history only after the result is durable", async () => {
     const h = await ordinarySummary("player");
     expect(h.settlement.recordResult).toBe(true);
@@ -303,4 +403,100 @@ describe("ordinary program result navigation", () => {
     expect(h.startEncounter).not.toHaveBeenCalled();
     await h.controller.dispose();
   });
+});
+
+
+async function activeBackController() {
+  const save = createDefaultSave(), character = await loadCharacter("llama");
+  const definition = compileLegacyFlow(standaloneFlowDefinition(character, save));
+  const run = chooseProgram(createProgramRun("back-active", "back-seed", definition), "match");
+  const match = createMatch(run.seed, { id: programMatchId(run), opponentId: character.id, opponentAiSkills: [] });
+  const snapshot = programSnapshot({ ...run, resources: null }, match);
+  const repository = new MemorySaveRepository({ longTerm: save, runtime: snapshot });
+  let handle!: Awaited<ReturnType<MatchOwner["attach"]>>, owner!: MatchOwner;
+  const pause = vi.fn(), resume = vi.fn(), renderSummary = vi.fn();
+  const dispatch = vi.fn((action: Parameters<typeof gameReducer>[1]) => {
+    const next = handle.dispatch(action);
+    if (next.status === "finished") owner.summary(next);
+  });
+  const controller = new EncounterController({ root: root(), save, repository,
+    invalidateProfile() {}, navigateScreen: async () => {}, renderLobby: vi.fn(async () => {}), renderSummary,
+    session: { clearActiveMatch: vi.fn(), pauseForNavigation: pause, resumeAfterNavigation: resume, dispatch,
+      resumeMatch: async (restored: MatchState, nextOwner: MatchOwner) => { owner = nextOwner; handle = await owner.attach(restored); } }
+  } as unknown as EncounterControllerDependencies);
+  await controller.restore(snapshot);
+  return { controller, repository, snapshot, dispatch, pause, resume, renderSummary };
+}
+
+describe("unified encounter back", () => {
+  it("cancels table back without changing the match and resumes paused actions", async () => {
+    vi.mocked(confirmGameDialog).mockResolvedValueOnce(false);
+    const h = await activeBackController();
+    await h.controller.requestBack();
+    expect(h.pause).toHaveBeenCalledOnce(); expect(h.resume).toHaveBeenCalledOnce();
+    expect(h.dispatch).not.toHaveBeenCalled();
+    expect(await h.repository.loadRuntime()).toEqual(h.snapshot);
+    await h.controller.dispose();
+  });
+
+  it("deduplicates repeated back while awaiting confirmation and uses the existing escape transition", async () => {
+    let confirm!: (value: boolean) => void;
+    vi.mocked(confirmGameDialog).mockImplementationOnce(() => new Promise(resolve => { confirm = resolve; }));
+    const h = await activeBackController();
+    const pending = h.controller.requestBack();
+    await h.controller.requestBack();
+    expect(h.dispatch).not.toHaveBeenCalled();
+    confirm(true); await pending;
+    expect(h.dispatch).toHaveBeenCalledExactlyOnceWith({ type: "ESCAPE_MATCH" });
+    expect(h.pause).toHaveBeenCalledOnce(); expect(h.resume).toHaveBeenCalledOnce();
+    expect(h.renderSummary).toHaveBeenCalledOnce();
+    expect((await h.repository.loadRuntime())!.activeMatch).toBeNull();
+    await h.controller.dispose();
+  });
+
+  it("requires confirmation before abandoning selection and preserves it when deletion fails", async () => {
+    const snapshot = challengeSelection("back-selection"), repository = new MemorySaveRepository({ longTerm: createDefaultSave(), runtime: snapshot });
+    const h = await mountedController(repository);
+    await h.controller.restore(snapshot);
+    vi.mocked(confirmGameDialog).mockResolvedValueOnce(false);
+    await h.controller.requestBack();
+    expect(await repository.loadRuntime()).toEqual(snapshot);
+    const remove = repository.deleteRuntime.bind(repository);
+    repository.deleteRuntime = async () => { throw new Error("删除失败"); };
+    vi.mocked(confirmGameDialog).mockResolvedValueOnce(true);
+    await expect(h.controller.requestBack()).rejects.toThrow("删除失败");
+    expect(await repository.loadRuntime()).toEqual(snapshot);
+    expect(h.element.querySelector('[data-encounter-status]')).toMatchObject({ textContent: "删除失败" });
+    repository.deleteRuntime = remove;
+    vi.mocked(confirmGameDialog).mockResolvedValueOnce(true);
+    await h.controller.requestBack();
+    expect(await repository.loadRuntime()).toBeNull();
+    await h.controller.dispose();
+  });
+
+  it("records an ordinary summary once and returns to lobby without selecting history or rewind", async () => {
+    const h = await ordinarySummary("player");
+    await h.controller.requestBack();
+    expect(h.renderLobby).toHaveBeenCalledOnce();
+    expect(h.showHistory).not.toHaveBeenCalled(); expect(h.startEncounter).not.toHaveBeenCalled();
+    expect((await h.repository.loadLongTerm())!.history.map(record => record.id)).toEqual([h.match.id]);
+    const commits = h.repository.commits.length;
+    await h.controller.requestBack();
+    expect(h.repository.commits).toHaveLength(commits);
+    await h.controller.dispose();
+  });
+});
+
+
+it("publishes completed music context when restoring a settlement without an active table", async () => {
+  const h = await ordinarySummary("opponent");
+  const snapshot = (await h.repository.loadRuntime())!;
+  expect(snapshot.activeMatch).toBeNull();
+  vi.mocked(gameAudio.updateMusicContext).mockClear();
+  await h.controller.restore(snapshot);
+  expect(gameAudio.setBgmScene).toHaveBeenLastCalledWith("match");
+  expect(gameAudio.updateMusicContext).toHaveBeenLastCalledWith(expect.objectContaining({
+    id: h.match.id, status: "finished", view: "match-summary", outcome: { winner: "opponent", reason: "player-killed" }
+  }), [], true);
+  await h.controller.dispose();
 });

@@ -9,7 +9,7 @@ import { TutorialController, type TutorialControllerDependencies } from "./tutor
 
 beforeEach(() => {
   vi.stubGlobal("window", { clearTimeout: vi.fn() });
-  vi.stubGlobal("document", { querySelector: () => null });
+  vi.stubGlobal("document", { querySelector: () => null, querySelectorAll: () => [] });
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 

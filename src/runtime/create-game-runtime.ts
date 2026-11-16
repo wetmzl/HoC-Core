@@ -1,3 +1,7 @@
+import { collectMainMenuQuote } from "../content/packages/plugin-ui";
+import { RuntimeEventHub } from "./public-event-hub";
+import { openUiDialog } from "../presentation/dialog-motion";
+import { openAchievementOverview } from "../presentation/achievement-ui";
 import { ProfileController } from "../presentation/profile-controller";
 import { EncounterController } from "./encounter-controller";
 import { builtinMainMenuActions, collectMainMenuActions } from "../presentation/main-menu-actions";
@@ -16,8 +20,10 @@ import { TableScreen } from "../screens/table-screen";
 import { SummaryScreen } from "../screens/summary-screen";
 import { RecoveryScreen } from "../screens/recovery-screen";
 import { gameTelemetry } from "../telemetry";
+import { isRuntimeDebugEnabled } from "../telemetry/debug-state";
 /** Composition root: each component receives only its named dependencies. */
 export function createGameRuntime(): RuntimeController {
+    const events = new RuntimeEventHub();
     let runtimeController!: RuntimeController;
     let matchSession!: MatchSession;
     let lobbyScreen!: LobbyScreen;
@@ -34,6 +40,7 @@ export function createGameRuntime(): RuntimeController {
     let recoveryScreen!: RecoveryScreen;
     let encounterController!: EncounterController;
     const resetTablePresentation = () => {
+        summaryScreen?.dispose();
         tutorialController.discardActiveTutorial();
         aiController.clearAiSchedule();
         dialoguePresenter.dispose();
@@ -42,8 +49,17 @@ export function createGameRuntime(): RuntimeController {
         tableScreen.dispose();
     };
     runtimeController = new RuntimeController({
+        events,
+        storySnapshot: () => encounterController.storySnapshot,
+        closingPublicEvents: () => encounterController.closingPublicEvents(),
+        adoptStoryCheckpoint: snapshot => encounterController.adoptStoryCheckpoint(snapshot),
+        refreshTutorials: () => tutorialController.refreshTutorials(),
         pauseMatch: paused => matchSession.setPaused(paused),
-        disposeSession: async () => { await matchSession.dispose(); await encounterController.dispose(); },
+        disposeSession: async () => {
+            encounterController.runtimeClosed();
+            await matchSession.dispose();
+            await encounterController.dispose();
+        },
         pauseEncounters: paused => encounterController.setPaused(paused),
         flushEncounters: () => encounterController.flush(),
         restoreEncounter: snapshot => encounterController.restore(snapshot),
@@ -74,7 +90,10 @@ export function createGameRuntime(): RuntimeController {
         get deckQueue() { return skillLibraryController.deckQueue; }
     });
     matchSession = new MatchSession({
-        enterMatch: () => runtimeController.navigateScreen(async () => ({ mount: async () => ({ dispose: resetTablePresentation }) })),
+        events,
+        isInteractionBlocked: () => runtimeController.interactionGate.blocked,
+        get eventScopes() { return encounterController.publicEventScopes; },
+        enterMatch: () => runtimeController.navigateScreen(async () => ({ mount: async () => ({ dispose: resetTablePresentation }) }), () => encounterController.requestBack(), "match"),
         resetDialogue: () => dialoguePresenter.dispose(),
         get selectedCharacterId() { return lobbyScreen.selectedCharacterId; },
         set selectedCharacterId(value) { lobbyScreen.selectedCharacterId = value; },
@@ -94,11 +113,11 @@ export function createGameRuntime(): RuntimeController {
         notifyExtensions: () => runtimeController.extensions?.notify(),
         get renderMatch() { return tableScreen.renderMatch; },
         get runtimeContributions() { return runtimeController.runtimeContributions; },
-        get offerTutorial() { return tutorialController.offerTutorial; },
         get scheduleAiTurn() { return aiController.scheduleAiTurn; },
         get presentDelta() { return notificationController.presentDelta; },
     });
     lobbyScreen = new LobbyScreen({
+        refreshTutorials: () => tutorialController.refreshTutorials(),
         syncCharacterSkins: () => runtimeController.syncCharacterSkins(),
         loadSkinPreviews: (key, signal) => {
             if (!runtimeController.loadSkinPreviews) throw new Error("换装功能暂时不可用。");
@@ -108,13 +127,16 @@ export function createGameRuntime(): RuntimeController {
         get mainMenuActions() {
             return collectMainMenuActions([...builtinMainMenuActions({
                 historyCount: runtimeController.save.history.length,
-                openDialog: id => runtimeController.root.querySelector<HTMLDialogElement>(`#${id}`)?.showModal(),
+                openDialog: id => id === "achievements" ? openAchievementOverview() : openUiDialog(runtimeController.root.querySelector<HTMLDialogElement>(`#${id}`)),
                 openSkills: () => skillLibraryController.openSkillManagement(),
-                openHistory: runtimeController.showHistoryScreen
+                openHistory: runtimeController.showHistoryScreen,
+                openNotebook: runtimeController.showNotebookScreen
             }), ...encounterController.menuEntries()], runtimeController.runtimeContributions, runtimeController.showUiPage);
         },
+        get mainMenuQuote() { return collectMainMenuQuote(runtimeController.runtimeContributions); },
         get pluginCredits() { return runtimeController.pluginCredits; },
-        navigateScreen: loader => runtimeController.navigateScreen(loader),
+        navigateScreen: (loader, onBack) => runtimeController.navigateScreen(loader, onBack, "lobby"),
+        onDuelRequested: runtimeController.notifyDuelRequested,
         get save() { return runtimeController.save; },
         set save(value) { runtimeController.save = value; },
         get root() { return runtimeController.root; },
@@ -133,6 +155,7 @@ export function createGameRuntime(): RuntimeController {
         get requestGameRuntimeExit() { return runtimeController.requestGameRuntimeExit; },
         get updateSettings() { return settingsController.updateSettings; },
         get writePluginSettings() { return settingsController.writePluginSettings; },
+        writeMusicOrder: order => settingsController.writeMusicOrder(order),
         get pluginSettingsSession() { return runtimeController.pluginSettingsSession; },
         get repository() { return runtimeController.repository; },
         get exportSave() { return settingsController.exportSave; },
@@ -145,6 +168,8 @@ export function createGameRuntime(): RuntimeController {
         invalidateProfile: () => profileController.invalidate()
     });
     settingsController = new SettingsController({
+        flushEncounters: () => encounterController.flush(),
+        saveReplaced: () => encounterController.resetAfterSaveReplacement(),
         get deckQueue() { return skillLibraryController.deckQueue; },
         set deckQueue(value) { skillLibraryController.deckQueue = value; },
         get autosave() { return matchSession.autosave; },
@@ -160,6 +185,7 @@ export function createGameRuntime(): RuntimeController {
         get runtimeContributions() { return runtimeController.runtimeContributions; }
     });
     skillLibraryController = new SkillLibraryController({
+        refreshTutorials: () => tutorialController.refreshTutorials(),
         get save() { return runtimeController.save; },
         set save(value) { runtimeController.save = value; },
         get repository() { return runtimeController.repository; },
@@ -167,10 +193,16 @@ export function createGameRuntime(): RuntimeController {
         get root() { return runtimeController.root; }
     });
     tutorialController = new TutorialController({
-        pauseAutoActions: () => runtimeController.extensions?.pauseAutoActions() ?? (() => {}),
+        isPresentationBlocked: () => runtimeController.storyBlocking,
+        pauseAutoActions: () => {
+            const releaseGate = runtimeController.interactionGate.acquire();
+            const releaseAuto = runtimeController.extensions?.pauseAutoActions();
+            return () => { releaseGate(); releaseAuto?.(); };
+        },
         flushPendingSaveWrites: async () => {
             await skillLibraryController.deckQueue?.flush();
             await settingsController.flushPluginSettings();
+            await encounterController.flushSaveWrites();
         },
         get save() { return runtimeController.save; },
         set save(value) { runtimeController.save = value; },
@@ -182,8 +214,7 @@ export function createGameRuntime(): RuntimeController {
     notificationController = new NotificationController({
         get root() { return runtimeController.root; },
         get save() { return runtimeController.save; },
-        get currentCharacter() { return matchSession.currentCharacter; },
-        get offerTutorial() { return tutorialController.offerTutorial; }
+        get currentCharacter() { return matchSession.currentCharacter; }
     });
     fullscreenController = new FullscreenController({
         get syncAbilityNoticePosition() { return notificationController.syncAbilityNoticePosition; },
@@ -194,7 +225,7 @@ export function createGameRuntime(): RuntimeController {
     });
     aiController = new AiController({
         getState: () => matchSession.autosave?.getState(),
-        isPaused: () => runtimeController.extensions?.paused ?? false,
+        isPaused: () => runtimeController.interactionGate.blocked || (runtimeController.extensions?.paused ?? false),
         showThinking: () => tableScreen.showThinking(),
         dispatch: action => matchSession.dispatch(action)
     });
@@ -204,6 +235,7 @@ export function createGameRuntime(): RuntimeController {
         get save() { return runtimeController.save; }
     });
     tableScreen = new TableScreen({
+        refreshTutorials: () => tutorialController.refreshTutorials(),
         exitEncounter: () => encounterController.exitTable(),
         get encounterPresentation() { return encounterController.tablePresentation; },
         get dispatch() { return matchSession.dispatch; },
@@ -229,6 +261,8 @@ export function createGameRuntime(): RuntimeController {
         get lastDomainEvent() { return matchSession.lastDomainEvent; }
     });
     summaryScreen = new SummaryScreen({
+        flushTutorials: () => tutorialController.flush(),
+        refreshTutorials: () => tutorialController.refreshTutorials(),
         beforeShow: () => {
             resetTablePresentation();
             gameAudio.stopHeartbeat();
@@ -254,13 +288,17 @@ export function createGameRuntime(): RuntimeController {
         get exportStatus() { return settingsController.exportStatus; }
     });
     encounterController = new EncounterController({
+        events,
+        isInteractionBlocked: () => runtimeController.interactionGate.blocked,
+        get eventScopes() { return { game: runtimeController.gameScopeId }; },
         get telemetry() { return gameTelemetry(); },
+        isDebugEnabled: () => isRuntimeDebugEnabled(runtimeController.save.settings, runtimeController.pluginSettingsSession),
         get root() { return runtimeController.root; },
         get save() { return runtimeController.save; },
         set save(value) { runtimeController.save = value; },
         get repository() { return runtimeController.repository; },
         get session() { return matchSession; },
-        navigateScreen: loader => runtimeController.navigateScreen(loader),
+        navigateScreen: loader => runtimeController.navigateScreen(loader, () => encounterController.requestBack(), "program"),
         renderLobby: () => lobbyScreen.renderLobby(),
         showHistory: () => runtimeController.showHistoryScreen(),
         renderSummary: (match, settlement) => summaryScreen.renderSummary(match, settlement),
