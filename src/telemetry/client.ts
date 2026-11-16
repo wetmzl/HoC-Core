@@ -34,7 +34,7 @@ type StateValue = Omit<z.infer<typeof State>, "pending" | "achievement_pending">
   pending: Pending<BaseTelemetryEvent>[]; achievement_pending: Pending<AchievementTelemetryEvent>[];
 };
 export interface ClientOptions {
-  endpoint: string; environment: TelemetryEvent["environment"]; gameVersion: string; buildId: string; client: ClientMetadata;
+  endpoint: string; fallbackEndpoint?: string; environment: TelemetryEvent["environment"]; gameVersion: string; buildId: string; client: ClientMetadata;
   driver: SaveStorageDriver; fetch?: typeof fetch; now?: () => number; clock?: () => number; uuid?: () => string;
   opponent?: (id: string) => MatchStatistics["opponent"];
   getAchievementCatalog?: () => readonly { readonly key: string; readonly definition: { readonly revision: number } }[];
@@ -76,10 +76,15 @@ export class TelemetryClient implements EncounterTelemetry {
   private readonly now: () => number;
   private readonly clock: () => number;
   private readonly uuid: () => string;
+  private readonly endpoints: readonly string[];
+  private endpointIndex = 0;
   constructor(private readonly options: ClientOptions) {
-    const url = new URL(options.endpoint);
-    if ((url.protocol !== "https:" && !(url.protocol === "http:" && ["127.0.0.1", "localhost"].includes(url.hostname))) || url.username || url.password || url.hash || url.search)
-      throw new Error("Telemetry endpoint must use HTTPS (localhost HTTP is allowed)");
+    this.endpoints = [...new Set([options.endpoint, ...(options.fallbackEndpoint ? [options.fallbackEndpoint] : [])])];
+    for (const endpoint of this.endpoints) {
+      const url = new URL(endpoint);
+      if ((url.protocol !== "https:" && !(url.protocol === "http:" && ["127.0.0.1", "localhost"].includes(url.hostname))) || url.username || url.password || url.hash || url.search)
+        throw new Error("Telemetry endpoint must use HTTPS (localhost HTTP is allowed)");
+    }
     this.now = options.now ?? Date.now; this.clock = options.clock ?? (() => performance.now()); this.uuid = options.uuid ?? secureUuid;
     this.sessionId = this.uuid(); this.startEventId = this.uuid();
   }
@@ -293,7 +298,7 @@ export class TelemetryClient implements EncounterTelemetry {
     await this.load(); await this.update(() => undefined);
     while (this.enabled) {
       const generation = this.consentGeneration;
-      const capable = this.state.achievement_capability_endpoint === this.options.endpoint;
+      const capable = this.state.achievement_capability_endpoint === this.endpoints[this.endpointIndex];
       const pending = [...this.state.pending, ...(capable ? this.state.achievement_pending : [])]
         .sort((left, right) => left.queued_at - right.queued_at);
       if (!pending.length) return;
@@ -309,10 +314,9 @@ export class TelemetryClient implements EncounterTelemetry {
       }); continue; }
       const ids = new Set(batch.map(event => event.event_id));
       const achievementIds = new Set(batch.filter(event => event.event_type === "achievements_loaded" || event.event_type === "achievements_unlocked").map(event => event.event_id));
-      const controller = new AbortController(); this.request = controller;
-      const timeout = setTimeout(() => controller.abort(), 5000);
       try {
-        let body: string | ArrayBuffer = JSON.stringify({ events: batch });
+        const json = JSON.stringify({ events: batch });
+        let body: string | ArrayBuffer = json;
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (capable && !this.gzipUnavailable && typeof CompressionStream === "function" && new TextEncoder().encode(body).byteLength > 1024) {
           try {
@@ -320,8 +324,7 @@ export class TelemetryClient implements EncounterTelemetry {
             if (compressed.byteLength + 128 <= new TextEncoder().encode(body).byteLength) { body = compressed; headers["Content-Encoding"] = "gzip"; }
           } catch { /* Older WebViews retain the ordinary JSON transport. */ }
         }
-        const response = await (this.options.fetch ?? globalThis.fetch)(this.options.endpoint, { method: "POST", mode: "cors", credentials: "omit",
-          headers, body, signal: controller.signal, cache: "no-store" });
+        const { response, endpoint } = await this.deliver(json, body, headers, generation);
         if (!response.ok) {
           if (response.status === 415 && headers["Content-Encoding"] === "gzip") { this.gzipUnavailable = true; continue; }
           throw new Error("Telemetry temporarily unavailable");
@@ -332,7 +335,7 @@ export class TelemetryClient implements EncounterTelemetry {
         const acknowledged = new Set([...receipt.accepted, ...receipt.duplicates,
           ...receipt.rejected.filter(item => supported || !achievementIds.has(item.event_id)).map(item => item.event_id)].filter(id => ids.has(id)));
         if (generation === this.consentGeneration) await this.update(() => {
-          if (supported) this.state.achievement_capability_endpoint = this.options.endpoint;
+          if (supported) this.state.achievement_capability_endpoint = endpoint;
           else if (achievementIds.size) this.state.achievement_capability_endpoint = undefined;
           this.state.pending = this.state.pending.filter(item => !acknowledged.has(item.event.event_id));
           this.state.achievement_pending = this.state.achievement_pending.filter(item => !acknowledged.has(item.event.event_id));
@@ -346,7 +349,35 @@ export class TelemetryClient implements EncounterTelemetry {
           (this.retryTimer as unknown as { unref?: () => void }).unref?.();
         }
         return;
-      } finally { clearTimeout(timeout); if (this.request === controller) this.request = undefined; }
+      }
     }
+  }
+  /** Both configured receivers implement the same event protocol; retries preserve the exact event bodies. */
+  private async deliver(json: string, body: string | ArrayBuffer, headers: Record<string, string>, generation: number): Promise<{ response: Response; endpoint: string }> {
+    for (let index = this.endpointIndex; index < this.endpoints.length; index++) {
+      if (!this.enabled || generation !== this.consentGeneration) throw new Error("Telemetry consent changed");
+      const endpoint = this.endpoints[index]!;
+      const controller = new AbortController(); this.request = controller;
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      try {
+        // A different receiver has not negotiated gzip yet. JSON also makes fallback independent of that capability.
+        const fallback = index !== this.endpointIndex;
+        const response = await (this.options.fetch ?? globalThis.fetch)(endpoint, { method: "POST", mode: "cors", credentials: "omit",
+          headers: fallback ? { "Content-Type": "application/json" } : headers, body: fallback ? json : body,
+          signal: controller.signal, cache: "no-store" });
+        if (response.status >= 500 && index + 1 < this.endpoints.length) { await response.body?.cancel(); continue; }
+        if (response.ok) {
+          if (fallback) this.gzipUnavailable = false;
+          this.endpointIndex = index;
+        }
+        return { response, endpoint };
+      } catch (error) {
+        if (!this.enabled || generation !== this.consentGeneration || index + 1 === this.endpoints.length) throw error;
+      } finally {
+        clearTimeout(timeout);
+        if (this.request === controller) this.request = undefined;
+      }
+    }
+    throw new Error("Telemetry receivers unavailable");
   }
 }

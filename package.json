@@ -1,8 +1,8 @@
 {
   "name": "hoc-core",
   "private": true,
-  "version": "0.3.0-beta1",
-  "androidVersionCode": 6,
+  "version": "0.3.0-beta1.1",
+  "androidVersionCode": 7,
   "releaseName": "美好时光只在昨日",
   "license": "GPL-3.0-only",
   "type": "module",

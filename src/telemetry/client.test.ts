@@ -10,8 +10,8 @@ import type { TelemetryEvent } from "./types";
 
 const clients: TelemetryClient[] = [];
 afterEach(async () => { await Promise.all(clients.splice(0).map(client => client.setEnabled(false))); vi.useRealTimers(); });
-function client(driver = new MemorySaveStorageDriver(), transport = vi.fn(async () => { throw new Error("offline"); }) as unknown as typeof fetch, now = () => Date.now()) {
-  const value = new TelemetryClient({ endpoint: "https://events.example/v1/events", environment: "test", gameVersion: "test-version", buildId: "fixture",
+function client(driver = new MemorySaveStorageDriver(), transport = vi.fn(async () => { throw new Error("offline"); }) as unknown as typeof fetch, now = () => Date.now(), fallbackEndpoint?: string) {
+  const value = new TelemetryClient({ endpoint: "https://events.example/v1/events", fallbackEndpoint, environment: "test", gameVersion: "test-version", buildId: "fixture",
     client: { type: "web", os: "test", browser: "test", browser_major: "1", locale: "zh-CN" }, driver, fetch: transport, now });
   clients.push(value); return value;
 }
@@ -107,6 +107,91 @@ describe("local telemetry outbox", () => {
   it("preserves a pending event when a forged receipt acknowledges some other event", async () => {
     const value = client(undefined, vi.fn(async () => new Response(JSON.stringify({ accepted: [crypto.randomUUID()], duplicates: [], rejected: [] }))) as typeof fetch);
     await value.start(); await value.drain(); expect(value.pendingCount).toBe(1);
+  });
+});
+
+
+describe("telemetry receiver fallback", () => {
+  const primary = "https://events.example/v1/events", fallback = "https://fallback.example/v1/events";
+  it.each(["network", "server"])("uses the legacy receiver after a %s failure and keeps exact event identity", async failure => {
+    const attempts: { url: string; events: TelemetryEvent[] }[] = [];
+    const transport = vi.fn(async (url: unknown, init?: RequestInit) => {
+      const events = requestEvents(init);
+      attempts.push({ url: String(url), events });
+      if (url === primary) {
+        if (failure === "network") throw new TypeError("connection reset");
+        return new Response("unavailable", { status: 503 });
+      }
+      return new Response(JSON.stringify({ accepted: events.map(event => event.event_id), duplicates: [], rejected: [], achievement_events: 1 }));
+    });
+    const value = client(undefined, transport, undefined, fallback);
+    await value.start(); await value.drain();
+    expect(value.pendingCount).toBe(0);
+    expect(attempts.map(item => item.url)).toEqual([primary, fallback]);
+    expect(attempts[1]!.events).toEqual(attempts[0]!.events);
+    const match = fresh(); await value.observe(match, singleMatchFlow(match));
+    await value.observe(gameReducer(match, { type: "ESCAPE_MATCH" }), singleMatchFlow(match)); await value.drain();
+    expect(attempts.at(-1)!.url).toBe(fallback);
+    expect(attempts.at(-1)!.events[0]!.event_type).toBe("match_finished");
+  });
+  it("falls back after the primary request times out", async () => {
+    vi.useFakeTimers();
+    const transport = vi.fn(async (url: unknown, init?: RequestInit) => {
+      if (url === primary) return new Promise<Response>((_resolve, reject) => init!.signal!.addEventListener("abort", () => reject(new DOMException("timeout", "AbortError"))));
+      const events = requestEvents(init);
+      return new Response(JSON.stringify({ accepted: events.map(event => event.event_id), duplicates: [], rejected: [] }));
+    });
+    const value = client(undefined, transport, undefined, fallback);
+    await value.start(); const delivery = value.drain(); await vi.advanceTimersByTimeAsync(5000); await delivery;
+    expect(value.pendingCount).toBe(0); expect(transport.mock.calls.map(call => call[0])).toEqual([primary, fallback]);
+  });
+  it.each([400, 429])("retains queued events on HTTP %s without bypassing the response", async status => {
+    const transport = vi.fn(async () => new Response("rejected", { status }));
+    const value = client(undefined, transport, undefined, fallback);
+    await value.start(); await value.drain();
+    expect(value.pendingCount).toBe(1); expect(transport).toHaveBeenCalledTimes(1);
+  });
+  it("keeps durable events when both receivers fail and retries the primary after reconnecting", async () => {
+    let offline = true;
+    const urls: string[] = [];
+    const transport = vi.fn(async (url: unknown, init?: RequestInit) => {
+      urls.push(String(url)); if (offline) throw new TypeError("offline");
+      const events = requestEvents(init);
+      return new Response(JSON.stringify({ accepted: [], duplicates: events.map(event => event.event_id), rejected: [] }));
+    });
+    const value = client(undefined, transport, undefined, fallback);
+    await value.start(); await value.drain(); expect(value.pendingCount).toBe(1);
+    offline = false; await value.drain(); expect(value.pendingCount).toBe(0); expect(urls).toEqual([primary, fallback, primary]);
+  });
+  it("does not contact the fallback after the player disables telemetry", async () => {
+    let abort!: () => void;
+    const transport = vi.fn(async (_url: unknown, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      abort = () => reject(new DOMException("cancelled", "AbortError")); init!.signal!.addEventListener("abort", abort);
+    }));
+    const value = client(undefined, transport, undefined, fallback);
+    await value.start(); const delivery = value.drain(); await vi.waitFor(() => expect(abort).toBeDefined());
+    await value.setEnabled(false); await delivery;
+    expect(value.pendingCount).toBe(0); expect(transport).toHaveBeenCalledTimes(1);
+  });
+  it("renegotiates compression and achievement capability on the fallback receiver", async () => {
+    const driver = new MemorySaveStorageDriver(); let primaryOffline = false;
+    const calls: { url: string; encoding: string | null; events: TelemetryEvent[] }[] = [];
+    const transport = vi.fn(async (url: unknown, init?: RequestInit) => {
+      calls.push({ url: String(url), encoding: new Headers(init?.headers).get("content-encoding"), events: requestEvents(init) });
+      if (url === primary && primaryOffline) throw new TypeError("reset");
+      return receipt(requestEvents(init));
+    });
+    const value = client(driver, transport, undefined, fallback);
+    await value.start(); await value.drain(); primaryOffline = true;
+    await value.recordAchievementCatalog(Array.from({ length: 40 }, (_, index) => ({ key: achievementKey(`item-${index}`), definition: { revision: 1 } })));
+    await value.drain();
+    expect(value.pendingCount).toBe(0);
+    expect(calls.at(-2)!.encoding).toBe("gzip"); expect(calls.at(-1)!.encoding).toBeNull();
+    expect(calls.at(-1)!.events).toEqual(calls.at(-2)!.events);
+    expect((await driver.readSnapshot())!.longTerm).toMatchObject({ achievement_capability_endpoint: fallback });
+  });
+  it("rejects unsafe fallback URLs before any request", () => {
+    expect(() => client(undefined, undefined, undefined, "http://remote.example/v1/events")).toThrow("HTTPS");
   });
 });
 
